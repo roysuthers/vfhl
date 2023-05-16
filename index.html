@@ -20,9 +20,6 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.css"/>
 
         <script type="text/javascript" src="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.js"></script>
-
-        <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-        <script defer src="https://pyscript.net/latest/pyscript.js"></script>
     </head>
     <body>
         <!-- Selection Criteria -->
@@ -32,53 +29,6 @@
         <div id="T_player_stats-div" class="panel-body" style="display:none;">
             <table id="T_player_stats" width="100%"></table>
         </div>
-
-        <!-- <py-config>
-            packages = [
-                "matplotlib",
-                "numpy",
-                "pandas",
-                "sqlite3",
-            ]
-            [[fetch]]
-                files = [
-                    "constants.py",
-                    "get_player_data.py",
-                    "input/javascript/data_tables.js",
-                    "input/html/data_table.html",
-                    "output/images/Spinner-3.gif"
-                ]
-                from = 'python scripts'
-                [[fetch]]
-            files = [
-                "NHL Pool.db",
-            ]
-            from = 'data'
-        </py-config>
-        <!-- <py-script src='./python scripts/main.py'></py-script> -->
-        <!-- <py-repl></py-repl> -->
-        <py-script>
-            from js import createObject
-            from pyodide.ffi import create_proxy
-
-
-            from get_player_data import rank_players
-            data = rank_players(from_season_id='20222023', to_season_id='20222023', season_type='P')
-
-            createObject(create_proxy(data), "data")
-        </py-script>
-
-        <script>
-
-            function createObject(object, variableName){
-                        //Bind a variable whose name is the string variableName
-                        // to the object called 'object'
-                        let execString = variableName + " = object";
-                        console.log("Running '" + execString + "'");
-                        eval(execString)
-                    }
-
-        </script> -->
 
         <script>
             let dummy = '';
