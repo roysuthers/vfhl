@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 
 # DATABASE = 'C:/users/Roy/NHL Pool/NHL Pool.db'
 # database is in parent folder
-DATABASE = '../data/NHL Pool.db'
+DATABASE = 'data/NHL Pool.db'
 
 NHL_API_BASE_URL: str = 'https://statsapi.web.nhl.com'
 NHL_API_URL: str = 'https://statsapi.web.nhl.com/api/v1'

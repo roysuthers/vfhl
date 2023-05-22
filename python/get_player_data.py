@@ -22,6 +22,7 @@ import pandas as pd
 from numpy.polynomial.polynomial import polyfit
 
 from constants import  DATABASE
+from utils import calculate_age, seconds_to_string_time, split_seasonID_into_component_years, string_to_time
 
 # formatting for ranking tables
 f_0_decimals = compile("lambda x: '' if pd.isna(x) or x in ['', 0] else '{:0.0f}'.format(x)", '<string>', 'eval')
@@ -48,16 +49,11 @@ defense_position_code = "D"
 goalie_position_code = "G"
 
 minimum_one_game_filter = 'games >= 1'
-minimum_projected_one_game_filter = 'games_prj >= 1'
 
 # 10 games or over in 82 game season
 sktr_min_games_vs_team_games_filter = 'percent_of_team_games >= 0.25'
 # 10 games or over in 82 game season
 goalie_min_games_vs_team_games_filter = 'percent_of_team_games >= 0.25'
-# 10 games or over in 82 game season
-sktr_prj_min_games_vs_team_games_filter = 'percent_of_team_games_prj >= 0.25'
-# 10 games or over in 82 game season
-goalie_prj_min_games_vs_team_games_filter = 'percent_of_team_games_prj >= 0.25'
 
 skaters_filter = f'pos in {skater_position_codes}'
 forwards_filter = f'pos in {forward_position_codes}'
@@ -93,14 +89,6 @@ sktr_per_60_categories = sktr_offensive_per_60_categories + sktr_peripheral_per_
 sktr_offensive_per_60_z_categories = ['z_pts_p60', 'z_g_p60', 'z_a_p60', 'z_sog_p60', 'z_ppp_p60']
 sktr_peripheral_per_60_z_categories = ['z_pim_p60', 'z_hits_p60', 'z_blk_p60', 'z_tk_p60']
 sktr_per_60_z_categories = sktr_offensive_per_60_z_categories + sktr_peripheral_per_60_z_categories
-# projected stats
-sktr_offensive_prj_categories = ['pts_prj', 'g_prj', 'a_prj', 'sog_prj', 'ppp_prj']
-sktr_peripheral_prj_categories = ['pim_prj', 'hits_prj', 'blk_prj', 'tk_prj']
-sktr_prj_categories = sktr_offensive_prj_categories + sktr_peripheral_prj_categories
-# projected stat z-scores
-sktr_offensive_prj_z_categories = ['z_pts_prj', 'z_g_prj', 'z_a_prj', 'z_sog_prj', 'z_ppp_prj']
-sktr_peripheral_prj_z_categories = ['z_pim_prj', 'z_hits_prj', 'z_blk_prj', 'z_tk_prj']
-sktr_prj_z_categories = sktr_offensive_prj_z_categories + sktr_peripheral_prj_z_categories
 ###############################################
 # Goalies
 # cumulative stats
@@ -115,10 +103,6 @@ goalie_per_game_z_categories = ['z_wins_pg', 'z_saves_pg', 'z_gaa_pg', 'z_save%_
 goalie_per_60_categories = ['wins_p60', 'saves_p60', 'gaa_p60', 'save%_p60']
 # per 60 stat z-scores
 goalie_per_60_z_categories = ['z_wins_p60', 'z_saves_p60', 'z_gaa_p60', 'z_save%_p60']
-# projected stats
-goalie_prj_categories = ['wins_prj', 'saves_prj', 'gaa_prj', 'save%_prj']
-# projected stat z-scores
-goalie_prj_z_categories = ['z_wins_prj', 'z_saves_prj', 'z_gaa_prj', 'z_save%_prj']
 ###############################################
 ###############################################
 # Summary z-score columns
@@ -132,9 +116,6 @@ g_per_game_summary_z_scores = ['z_score_pg','z_score_pg_vorp']
 # per 60 stat z-scores
 sktr_per_60_summary_z_scores = ['z_score_p60', 'z_offense_p60', 'z_peripheral_p60', 'z_sog_hits_blk_p60', 'z_hits_blk_p60', 'z_goals_hits_pim_p60', 'z_hits_pim_p60', 'z_score_p60_vorp', 'z_offense_p60_vorp', 'z_peripheral_p60_vorp']
 g_per_60_summary_z_scores = ['z_score_p60', 'z_score_p60_vorp']
-# projected stat z-scores
-sktr_prj_summary_z_scores = ['z_score_prj', 'z_offense_prj', 'z_peripheral_prj', 'z_sog_hits_blk_prj', 'z_hits_blk_prj', 'z_goals_hits_pim_prj', 'z_hits_pim_prj', 'z_score_prj_vorp', 'z_offense_prj_vorp', 'z_peripheral_prj_vorp']
-g_prj_summary_z_scores = ['z_score_prj', 'z_score_prj_vorp']
 ###############################################
 ###############################################
 
@@ -356,9 +337,9 @@ def aggregate_game_stats(df: pd.DataFrame) -> pd.DataFrame:
     # set NaN to empty string
     df_agg_stats.fillna({'toi_pg': '', 'toi_even_pg': '', 'toi_pp_pg': '', 'team_toi_pp_pg': '', 'toi_sh_pg': ''}, inplace=True)
 
-    # df_agg_stats['team_games'] = df_agg_stats.apply(lambda x: teams_dict[x['team_id']]['games'] if pd.isna(x['team_id']) is False else np.nan, axis='columns')
-    # # add column for ratio of games to team games
-    # df_agg_stats['percent_of_team_games'] = df_agg_stats['games'].div(df_agg_stats['team_games']).round(2)
+    df_agg_stats['team_games'] = df_agg_stats.apply(lambda x: teams_dict[x['team_id']]['games'] if pd.isna(x['team_id']) is False else np.nan, axis='columns')
+    # add column for ratio of games to team games
+    df_agg_stats['percent_of_team_games'] = df_agg_stats['games'].div(df_agg_stats['team_games']).round(2)
 
     ########################################################################################################
     df_sktr = df_agg_stats.query(skaters_filter)
@@ -372,8 +353,8 @@ def aggregate_game_stats(df: pd.DataFrame) -> pd.DataFrame:
 
     ########################################################################################################
 
-    # # goalie starts as percent of team games
-    # df_agg_stats['starts_as_percent'] = df_agg_stats['games_started'].div(df_agg_stats['team_games']).round(2) * 100
+    # goalie starts as percent of team games
+    df_agg_stats['starts_as_percent'] = df_agg_stats['games_started'].div(df_agg_stats['team_games']).round(2) * 100
 
     # quality starts as percent of starts
     df_agg_stats['quality_starts_as_percent'] = df_agg_stats['quality_starts'].div(df_agg_stats['games_started']).round(3) * 100
@@ -383,15 +364,6 @@ def aggregate_game_stats(df: pd.DataFrame) -> pd.DataFrame:
     ########################################################################################################
 
     return df_agg_stats
-
-def calculate_age(birth_date: str) -> int:
-
-    born = datetime.strptime(birth_date, "%Y-%m-%d").date()
-    today = date.today()
-
-    age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
-
-    return age
 
 def calc_per60_stats(df: pd.DataFrame):
 
@@ -562,23 +534,14 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
-        else:
-            sktr_minimum_games_vs_team_games_filter = sktr_prj_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_prj_min_games_vs_team_games_filter
+        sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
+        goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
 
         df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
         if len(df_sktr) == 0:
-            # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-            if 'games_prj' not in df.columns:
-                sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
-            else:
-                sktr_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
+            sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
+            goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
+
             df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
 
         df_f = df.query(f'{forwards_filter}').copy(deep=True)
@@ -604,11 +567,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         # also...
         max_cat[f'sktr sog_pp_p60'] = df_sktr['sog_pp_p60'].max() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in columns else None
-        # also...
-        max_cat[f'sktr sog_pp_prj'] = df_sktr['sog_pp_prj'].max() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in columns else None
 
@@ -616,9 +574,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
             max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in columns else None
 
         #######################################
@@ -638,11 +593,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         # also...
         max_cat[f'f sog_pp_p60'] = df_f['sog_pp_p60'].max() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            max_cat[f'f {cat}'] = df_f[cat].max() if cat in columns else None
-        # also...
-        max_cat[f'f sog_pp_prj'] = df_f['sog_pp_prj'].max() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             max_cat[f'f {cat}'] = df_f[cat].max() if cat in columns else None
 
@@ -650,9 +600,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
             max_cat[f'f {cat}'] = df_f[cat].max() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            max_cat[f'f {cat}'] = df_f[cat].max() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             max_cat[f'f {cat}'] = df_f[cat].max() if cat in columns else None
 
         #######################################
@@ -672,11 +619,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         # also...
         max_cat[f'd sog_pp_p60'] = df_d['sog_pp_p60'].max() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            max_cat[f'd {cat}'] = df_d[cat].max() if cat in columns else None
-        # also...
-        max_cat[f'd sog_pp_prj'] = df_d['sog_pp_prj'].max() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             max_cat[f'd {cat}'] = df_d[cat].max() if cat in columns else None
 
@@ -684,9 +626,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
             max_cat[f'd {cat}'] = df_d[cat].max() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            max_cat[f'd {cat}'] = df_d[cat].max() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             max_cat[f'd {cat}'] = df_d[cat].max() if cat in columns else None
 
         #######################################
@@ -700,9 +639,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         for cat in goalie_per_60_categories:
             max_cat[cat] = df_g[cat].max() if cat in columns else None
 
-        for cat in goalie_prj_categories:
-            max_cat[cat] = df_g[cat].max() if cat in columns else None
-
         for cat in goalie_cumulative_stat_z_categories:
             max_cat[cat] = df_g[cat].max() if cat in columns else None
 
@@ -710,9 +646,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
             max_cat[cat] = df_g[cat].max() if cat in columns else None
 
         for cat in goalie_per_60_z_categories:
-            max_cat[cat] = df_g[cat].max() if cat in columns else None
-
-        for cat in goalie_prj_z_categories:
             max_cat[cat] = df_g[cat].max() if cat in columns else None
 
         #######################################
@@ -756,19 +689,6 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         for cat in g_per_60_summary_z_scores:
             max_cat[f'g {cat}'] = df_g[cat].max() if cat in df_g.columns else None
 
-        #######################################
-        # projected stats
-        #######################################
-        # skaters
-        for cat in sktr_prj_summary_z_scores:
-            max_cat[f'sktr {cat}'] = df_sktr[cat].max() if cat in df_f.columns else None
-            max_cat[f'f {cat}'] = df_f[cat].max() if cat in df_f.columns else None
-            max_cat[f'd {cat}'] = df_d[cat].max() if cat in df_d.columns else None
-
-        # goalie
-        for cat in g_prj_summary_z_scores:
-            max_cat[f'g {cat}'] = df_g[cat].max() if cat in df_g.columns else None
-
     except:
         print(f'{traceback.format_exc()} in calc_scoring_category_maximums()')
 
@@ -781,23 +701,14 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
-        else:
-            sktr_minimum_games_vs_team_games_filter = sktr_prj_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_prj_min_games_vs_team_games_filter
+        sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
+        goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
 
         df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
         if len(df_sktr) == 0:
-            # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-            if 'games_prj' not in df.columns:
-                sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
-            else:
-                sktr_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
+            sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
+            goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
+
             df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
 
         df_f = df.query(f'{forwards_filter}').copy(deep=True)
@@ -824,11 +735,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         # also...
         min_cat[f'sktr sog_pp_p60'] = df_sktr['sog_pp_p60'].min() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in columns else None
-        # also...
-        min_cat[f'sktr sog_pp_prj'] = df_sktr['sog_pp_prj'].min() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in columns else None
 
@@ -836,9 +742,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
             min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in columns else None
 
         #######################################
@@ -858,11 +761,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         # also...
         min_cat[f'f sog_pp_p60'] = df_f['sog_pp_p60'].min() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            min_cat[f'f {cat}'] = df_f[cat].min() if cat in columns else None
-        # also...
-        min_cat[f'f sog_pp_prj'] = df_f['sog_pp_prj'].min() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             min_cat[f'f {cat}'] = df_f[cat].min() if cat in columns else None
 
@@ -870,9 +768,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
             min_cat[f'f {cat}'] = df_f[cat].min() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            min_cat[f'f {cat}'] = df_f[cat].min() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             min_cat[f'f {cat}'] = df_f[cat].min() if cat in columns else None
 
         #######################################
@@ -892,11 +787,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         # also...
         min_cat[f'd sog_pp_p60'] = df_d['sog_pp_p60'].min() if 'sog_pp_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            min_cat[f'd {cat}'] = df_d[cat].min() if cat in columns else None
-        # also...
-        min_cat[f'd sog_pp_prj'] = df_d['sog_pp_prj'].min() if 'sog_pp_prj' in columns else None
-
         for cat in sktr_cumulative_stat_z_categories:
             min_cat[f'd {cat}'] = df_d[cat].min() if cat in columns else None
 
@@ -904,9 +794,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
             min_cat[f'd {cat}'] = df_d[cat].min() if cat in columns else None
 
         for cat in sktr_per_60_z_categories:
-            min_cat[f'd {cat}'] = df_d[cat].min() if cat in columns else None
-
-        for cat in sktr_prj_z_categories:
             min_cat[f'd {cat}'] = df_d[cat].min() if cat in columns else None
 
         #######################################
@@ -920,9 +807,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         for cat in goalie_per_60_categories:
             min_cat[cat] = df_g[cat].min() if cat in columns else None
 
-        for cat in goalie_prj_categories:
-            min_cat[cat] = df_g[cat].min() if cat in columns else None
-
         for cat in goalie_cumulative_stat_z_categories:
             min_cat[cat] = df_g[cat].min() if cat in columns else None
 
@@ -930,9 +814,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
             min_cat[cat] = df_g[cat].min() if cat in columns else None
 
         for cat in goalie_per_60_z_categories:
-            min_cat[cat] = df_g[cat].min() if cat in columns else None
-
-        for cat in goalie_prj_z_categories:
             min_cat[cat] = df_g[cat].min() if cat in columns else None
 
         #######################################
@@ -976,19 +857,6 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         for cat in g_per_60_summary_z_scores:
             min_cat[f'g {cat}'] = df_g[cat].min() if cat in df_g.columns else None
 
-        #######################################
-        # projected stats
-        #######################################
-        # skaters
-        for cat in sktr_prj_summary_z_scores:
-            min_cat[f'sktr {cat}'] = df_sktr[cat].min() if cat in df_f.columns else None
-            min_cat[f'f {cat}'] = df_f[cat].min() if cat in df_f.columns else None
-            min_cat[f'd {cat}'] = df_d[cat].min() if cat in df_d.columns else None
-
-        # goalie
-        for cat in g_prj_summary_z_scores:
-            min_cat[f'g {cat}'] = df_g[cat].min() if cat in df_g.columns else None
-
     except:
         print(f'{traceback.format_exc()} in calc_scoring_category_minimums()')
 
@@ -1001,23 +869,14 @@ def calc_scoring_category_means(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
-        else:
-            sktr_minimum_games_vs_team_games_filter = sktr_prj_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_prj_min_games_vs_team_games_filter
+        sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
+        goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
 
         df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
         if len(df_sktr) == 0:
-            # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-            if 'games_prj' not in df.columns:
-                sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
-            else:
-                sktr_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
+            sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
+            goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
+
             df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
 
         df_f = df.query(f'{forwards_filter}').copy(deep=True)
@@ -1047,12 +906,6 @@ def calc_scoring_category_means(df: pd.DataFrame):
         mean_cat[f'sktr sog_pp_p60'] = df_sktr['sog_pp_p60'].mean() if 'sog_pp_p60' in columns else None
         mean_cat[f'sktr penalties_p60'] = df_sktr['penalties_p60'].mean() if 'penalties_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            mean_cat[f'sktr {cat}'] = df_sktr [cat].mean() if cat in columns else None
-        # also...
-        mean_cat[f'sktr sog_pp_prj'] = df_sktr['sog_pp_prj'].mean() if 'sog_pp_prj' in columns else None
-        mean_cat[f'sktr penalties_prj'] = df_sktr['penalties_prj'].mean() if 'penalties_prj' in columns else None
-
         #######################################
         # Forwards
         for cat in sktr_cumulative_stat_categories:
@@ -1071,12 +924,6 @@ def calc_scoring_category_means(df: pd.DataFrame):
         # also...
         mean_cat[f'f sog_pp_p60'] = df_f['sog_pp_p60'].mean() if 'sog_pp_p60' in columns else None
         mean_cat[f'f penalties_p60'] = df_f['penalties_p60'].mean() if 'penalties_p60' in columns else None
-
-        for cat in sktr_prj_categories:
-            mean_cat[f'f {cat}'] = df_f[cat].mean() if cat in columns else None
-        # also...
-        mean_cat[f'f sog_pp_prj'] = df_f['sog_pp_prj'].mean() if 'sog_pp_prj' in columns else None
-        mean_cat[f'f penalties_prj'] = df_f['penalties_prj'].mean() if 'penalties_prj' in columns else None
 
         #######################################
         # Defense
@@ -1098,12 +945,6 @@ def calc_scoring_category_means(df: pd.DataFrame):
         mean_cat[f'd sog_pp_p60'] = df_d['sog_pp_p60'].mean() if 'sog_pp_p60' in columns else None
         mean_cat[f'd penalties_p60'] = df_d['penalties_p60'].mean() if 'penalties_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            mean_cat[f'd {cat}'] = df_d[cat].mean() if cat in columns else None
-        # also...
-        mean_cat[f'd sog_pp_prj'] = df_d['sog_pp_prj'].mean() if 'sog_pp_prj' in columns else None
-        mean_cat[f'd penalties_prj'] = df_d['penalties_prj'].mean() if 'penalties_prj' in columns else None
-
         #######################################
         # Goalies
         for cat in goalie_cumulative_stat_categories:
@@ -1113,9 +954,6 @@ def calc_scoring_category_means(df: pd.DataFrame):
             mean_cat[cat] = df_g[cat].mean() if cat in columns else None
 
         for cat in goalie_per_60_categories:
-            mean_cat[cat] = df_g[cat].mean() if cat in columns else None
-
-        for cat in goalie_prj_categories:
             mean_cat[cat] = df_g[cat].mean() if cat in columns else None
 
     except:
@@ -1130,23 +968,14 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
-        else:
-            sktr_minimum_games_vs_team_games_filter = sktr_prj_min_games_vs_team_games_filter
-            goalie_minimum_games_vs_team_games_filter = goalie_prj_min_games_vs_team_games_filter
+        sktr_minimum_games_vs_team_games_filter = sktr_min_games_vs_team_games_filter
+        goalie_minimum_games_vs_team_games_filter = goalie_min_games_vs_team_games_filter
 
         df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
         if len(df_sktr) == 0:
-            # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-            if 'games_prj' not in df.columns:
-                sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
-            else:
-                sktr_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
-                goalie_minimum_games_vs_team_games_filter = minimum_projected_one_game_filter
+            sktr_minimum_games_vs_team_games_filter = minimum_one_game_filter
+            goalie_minimum_games_vs_team_games_filter = minimum_one_game_filter
+
             df_sktr = df.query(f'{skaters_filter}').copy(deep=True)
 
         df_f = df.query(f'{forwards_filter}').copy(deep=True)
@@ -1173,11 +1002,6 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
         # also...
         std_cat[f'sktr penalties_p60'] = df_sktr['penalties_p60'].mean() if 'penalties_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            std_cat[f'sktr {cat}'] = df_sktr[cat].std() if cat in columns else None
-        # also...
-        std_cat[f'sktr penalties_prj'] = df_sktr['penalties_prj'].mean() if 'penalties_prj' in columns else None
-
         #######################################
         # Forwards
         for cat in sktr_cumulative_stat_categories:
@@ -1194,11 +1018,6 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
             std_cat[f'f {cat}'] = df_f[cat].std() if cat in columns else None
         # also...
         std_cat[f'sktr penalties_p60'] = df_f['penalties_p60'].mean() if 'penalties_p60' in columns else None
-
-        for cat in sktr_prj_categories:
-            std_cat[f'f {cat}'] = df_f[cat].std() if cat in columns else None
-        # also...
-        std_cat[f'sktr penalties_prj'] = df_f['penalties_prj'].mean() if 'penalties_prj' in columns else None
 
         #######################################
         # Defense
@@ -1217,11 +1036,6 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
         # also...
         std_cat[f'sktr penalties_p60'] = df_d['penalties_p60'].mean() if 'penalties_p60' in columns else None
 
-        for cat in sktr_prj_categories:
-            std_cat[f'd {cat}'] = df_d[cat].std() if cat in columns else None
-        # also...
-        std_cat[f'sktr penalties_prj'] = df_d['penalties_prj'].mean() if 'penalties_prj' in columns else None
-
         #######################################
         # Goalies
         for cat in goalie_cumulative_stat_categories:
@@ -1234,9 +1048,6 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
             std_cat[cat] = df_g[cat].std() if cat in columns else None
 
         for cat in goalie_per_60_categories:
-            std_cat[cat] = df_g[cat].std() if cat in columns else None
-
-        for cat in goalie_prj_categories:
             std_cat[cat] = df_g[cat].std() if cat in columns else None
 
     except:
@@ -1266,17 +1077,10 @@ def calc_cumulative_z_scores(df: pd.DataFrame):
         # see https://projectile.pro/how-to-value-players-for-fantasy/ for discussion of Rate Stats, to account for players
         # with low number of games, to determine stat value for "games above average"
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-        else:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
 
         ##########################################################################
         # skaters
@@ -1433,17 +1237,10 @@ def calc_per_game_z_scores(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-        else:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
 
         ##########################################################################
         # skaters
@@ -1573,17 +1370,10 @@ def calc_per_60_z_scores(df: pd.DataFrame):
 
     try:
 
-        # if season.SEASON_HAS_STARTED is True or 'games_prj' not in df.columns:
-        if 'games_prj' not in df.columns:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-        else:
-            df_sktr = df.query(f'{skaters_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_f = df.query(f'{forwards_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_d = df.query(f'{defense_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
-            df_g = df.query(f'{goalie_filter} and {minimum_projected_one_game_filter}').copy(deep=True)
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
 
         ##########################################################################
         # skaters
@@ -1711,6 +1501,52 @@ def calc_per_60_z_scores(df: pd.DataFrame):
 
     return
 
+def calc_player_ages(df: pd.DataFrame) -> pd.Series:
+
+    # calculate player's current age
+    # if there are no stats, the following has problem. So do't do it if there are now rows in df_player_stats
+    if len(df.index) == 0:
+        ages: pd.Series = np.nan
+    else:
+        ages: pd.Series = df.apply(lambda x: np.nan if (pd.isna(x['birth_date']) or x['birth_date']=='') else calculate_age(x['birth_date']), axis='columns')
+
+    return ages
+
+def calc_player_breakout_threshold(df: pd.DataFrame) -> pd.Series:
+
+    if len(df.index) == 0:
+        breakout_thresholds: pd.Series = np.nan
+    else:
+        breakout_thresholds: pd.Series = df.apply(lambda x: np.nan
+                                                 if (
+                                                        pd.isna(x['height'])
+                                                        or x['height']==''
+                                                        or pd.isna(x['weight'])
+                                                        or x['weight']==''
+                                                        or pd.isna(x['career_games'])
+                                                        or x['career_games']==''
+                                                        or x['pos'] == 'G'
+                                                    )
+                                                 else calculate_breakout_threshold(name=x['name'], height=x['height'], weight=x['weight'], career_games=x['career_games']),
+                                                 axis='columns')
+
+    return breakout_thresholds
+
+def calculate_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
+
+    feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
+    height_in_feet = int(feet_and_inches[0]) + round(int(feet_and_inches[1])/12, 2)
+    # 5' 10" = 5.83 & 6' 2" = 6.17
+    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+        breakout_threshold = career_games - 200
+    # 5' 9" = 5.75 & 6' 3" = 6.25
+    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+        breakout_threshold = career_games - 400
+    else:
+        breakout_threshold = np.nan
+
+    return breakout_threshold
+
 def calc_summary_z_scores_vorp(df: pd.DataFrame, stat_type: str='cumulative', vorp_type: str='cumulative'):
 
     # https://www.espn.com/fantasy/hockey/story/_/id/17744712/fantasy-hockey-upgrade-defense-downgrade-centers-drafts
@@ -1731,10 +1567,6 @@ def calc_summary_z_scores_vorp(df: pd.DataFrame, stat_type: str='cumulative', vo
         #     sort_column = f'{sort_column}_pg'
         # elif stat_type == 'per 60 minutes':
         #     sort_column = f'{sort_column}_p60'
-        # elif stat_type.startswith('projection'):
-        #     sort_column = f'{sort_column}_prj'
-        #     sktr_minimum_games = sktr_prj_min_games_vs_team_games_filter
-        #     g_minimum_games = goalie_prj_min_games_vs_team_games_filter
 
         # if season.SEASON_HAS_STARTED is True and season.type == 'R':
         #     ##########################################################################
@@ -1789,16 +1621,21 @@ def calc_summary_z_scores_vorp(df: pd.DataFrame, stat_type: str='cumulative', vo
         sort_column = 'toi_sec'
 
         # get number of forward & defense players required to fill out bench slots & active skater slot
-        df_f = df.query(f'{forwards_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
-        df_d = df.query(f'{defense_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
+        # df_f = df.query(f'{forwards_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
+        df_f = df.query(f'{forwards_filter}').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
+        # df_d = df.query(f'{defense_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
+        df_d = df.query(f'{defense_filter}').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + sktr_number_of_highest_rated).tail(sktr_number_of_highest_rated)
         df_sktrs = pd.concat([df_f, df_d]).sort_values(sort_column, ascending=False).head(sktr_number_of_highest_rated)
         f_sktrs = len(df_sktrs.query(f'{forwards_filter}'))
         d_sktrs = len(df_sktrs.query(f'{defense_filter}'))
 
-        df_f = df.query(f'{forwards_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + f_sktrs + 1)
-        df_d = df.query(f'{defense_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + d_sktrs + 1)
+        # df_f = df.query(f'{forwards_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + f_sktrs + 1)
+        df_f = df.query(f'{forwards_filter}').sort_values(sort_column, ascending=False).head(f_number_of_highest_rated + f_sktrs + 1)
+        # df_d = df.query(f'{defense_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + d_sktrs + 1)
+        df_d = df.query(f'{defense_filter}').sort_values(sort_column, ascending=False).head(d_number_of_highest_rated + d_sktrs + 1)
         if vorp_type == 'cumulative':
-            df_g = df.query(f'{goalie_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(g_number_of_highest_rated + 1)
+            # df_g = df.query(f'{goalie_filter} and nhl_roster_status=="y"').sort_values(sort_column, ascending=False).head(g_number_of_highest_rated + 1)
+            df_g = df.query(f'{goalie_filter}').sort_values(sort_column, ascending=False).head(g_number_of_highest_rated + 1)
 
         f_repl_level_player_id = (df_f.tail(1)['player_id']).values[0]
         d_repl_level_player_id = (df_d.tail(1)['player_id']).values[0]
@@ -1961,21 +1798,6 @@ def calc_z_scores_by_stat_type(df: pd.DataFrame, points_type: str='cumulative', 
         sktr_peripheral_categories = ['z_hits_p60', 'z_blk_p60', 'z_penalties_p60', 'z_tk_p60']
         f_categories = f_offense_categories + sktr_peripheral_categories
         d_categories = ['z_pts_p60'] + f_categories
-    elif points_type == 'prj':
-        g_categories_count = ['z_wins_prj', 'z_gaa_prj']
-        g_categories_ratio = ['z_saves_prj', 'z_save%_prj']
-        sktr_hits_blk_categories = ['z_hits_prj', 'z_blk_prj']
-        sktr_sog_hits_blk_categories = ['z_sog_prj'] + sktr_hits_blk_categories
-        # sktr_goals_hits_pim_categories = ['z_g_prj', 'z_hits_prj', 'z_pim_prj']
-        sktr_goals_hits_pim_categories = ['z_g_prj', 'z_hits_prj', 'z_penalties_prj']
-        # sktr_hits_pim_categories = ['z_hits_prj', 'z_pim_prj']
-        sktr_hits_pim_categories = ['z_hits_prj', 'z_penalties_prj']
-        f_offense_categories = ['z_g_prj', 'z_a_prj', 'z_sog_prj', 'z_ppp_prj']
-        d_offense_categories = ['z_pts_prj'] + f_offense_categories
-        # sktr_peripheral_categories = ['z_hits_prj', 'z_blk_prj', 'z_pim_prj', 'z_tk_prj', ]
-        sktr_peripheral_categories = ['z_hits_prj', 'z_blk_prj', 'z_penalties_prj', 'z_tk_prj', ]
-        f_categories = f_offense_categories + sktr_peripheral_categories
-        d_categories = ['z_pts_prj'] + f_categories
 
     # if vorp is True:
     #     g_categories = [f'{c}_vorp' for c in g_categories]
@@ -2053,13 +1875,6 @@ def calc_z_combo(df: pd.DataFrame, points_type: str='cumulative', group: str='of
         f_offense_score_categories = ['z_g_p60', 'z_a_p60', 'z_sog_p60', 'z_ppp_p60']
         d_offense_score_categories = ['z_pts_p60'] + f_offense_score_categories
         sktr_peripheral_score_categories = ['z_hits_p60', 'z_blk_p60', 'z_tk_p60', 'z_pim_p60']
-        f_score_categories = f_offense_score_categories + sktr_peripheral_score_categories
-        d_score_categories = d_offense_score_categories + sktr_peripheral_score_categories
-    elif points_type == 'prj':
-        g_score_categories = ['z_wins_prj', 'z_saves_prj', 'z_gaa_prj', 'z_save%_prj']
-        f_offense_score_categories = ['z_g_prj', 'z_a_prj', 'z_sog_prj', 'z_ppp_prj']
-        d_offense_score_categories = ['z_pts_prj'] + f_offense_score_categories
-        sktr_peripheral_score_categories = ['z_hits_prj', 'z_blk_prj', 'z_tk_prj', 'z_pim_prj']
         f_score_categories = f_offense_score_categories + sktr_peripheral_score_categories
         d_score_categories = d_offense_score_categories + sktr_peripheral_score_categories
 
@@ -2141,7 +1956,7 @@ def format_z_combo(li: List):
 
     return ret_val
 
-def get_game_stats(from_season_id: str, to_season_id: str, season_type: str) -> pd.DataFrame:
+def get_game_stats(from_season_id: str, to_season_id: str, game_type: str='R') -> pd.DataFrame:
 
     try:
 
@@ -2149,13 +1964,13 @@ def get_game_stats(from_season_id: str, to_season_id: str, season_type: str) -> 
             sql = textwrap.dedent(f'''\
                 select *
                 from PlayerGameStats pgs
-                where pgs.seasonID between {from_season_id} and {to_season_id} and pgs.game_type == '{season_type}'
+                where pgs.seasonID between {from_season_id} and {to_season_id} and pgs.game_type == '{game_type}'
             ''')
         else:
             sql = textwrap.dedent(f'''\
                 select *
                 from PlayerGameStats pgs
-                where pgs.seasonID == {from_season_id} and pgs.game_type == '{season_type}'
+                where pgs.seasonID == {from_season_id} and pgs.game_type == '{game_type}'
             ''')
 
         df_game_stats = pd.read_sql(sql=sql, con=get_db_connection())
@@ -2234,11 +2049,11 @@ def get_db_connection():
     # print(f'*** script path: {script_path}')
     script_dir = os.path.dirname(script_path)
     # print(f'*** script dir: {script_dir}')
-    # parent_dir = os.path.abspath(os.path.join(script_dir, '..'))
+    parent_dir = os.path.abspath(os.path.join(script_dir, '..'))
     # print(f'*** Parent dir: {parent_dir}')
 
     # Construct the path to the SQLite database file
-    db_file = os.path.join(script_dir, 'NHL Pool.db')
+    db_file = os.path.join(parent_dir, DATABASE)
     # print(f'*** Database dir: {db_file}')
 
     connection = sqlite3.connect(db_file)
@@ -2275,16 +2090,10 @@ def get_scoring_category_columns(config: Dict, position: str='skater') -> Dict:
 
 def get_stat_type_columns(config: Dict, stat_type: str, alias: bool=False) -> List:
 
-    if stat_type == 'Projection':
-        if alias is True:
-            stat_type_columns = [x['alias'] if 'alias' in x else x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and 'Proj -' in x['stat_type'])]
-        else:
-            stat_type_columns = [x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and 'Proj -' in x['stat_type'])]
+    if alias is True:
+        stat_type_columns = [x['alias'] if 'alias' in x else x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and stat_type in x['stat_type'])]
     else:
-        if alias is True:
-            stat_type_columns = [x['alias'] if 'alias' in x else x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and stat_type in x['stat_type'])]
-        else:
-            stat_type_columns = [x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and stat_type in x['stat_type'])]
+        stat_type_columns = [x['title'] for x in config['columns'] if 'stat_type' not in x or ('stat_type' in x and stat_type in x['stat_type'])]
 
     return stat_type_columns
 
@@ -2301,6 +2110,50 @@ def get_z_score_summary_columns(config: Dict, position: str='skater') -> Dict:
     z_score_category_columns.sort()
 
     return z_score_category_columns
+
+def insert_fantrax_columns(df: pd.DataFrame):
+
+    try:
+
+        ##########################################################################
+        # Fantrax scores
+        dfFantraxPlayerInfo = pd.read_sql(sql='select * from FantraxPlayerInfo', con=get_db_connection())
+        # set indexes to player_id
+        df.set_index('player_id', inplace=True)
+        dfFantraxPlayerInfo.set_index('player_id', inplace=True)
+        # dfFantraxPlayerInfo seems to have duplicates, so drop duplicates
+        dfFantraxPlayerInfo = dfFantraxPlayerInfo[~dfFantraxPlayerInfo.index.duplicated()]
+
+        # fantrax score may have been added in calc_player_projected_stats()
+        if 'fantrax_score' not in df.columns:
+            df['fantrax_score'] = dfFantraxPlayerInfo['score']
+
+        ##########################################################################
+        # Fantrax player is rookie
+        df['rookie'] = dfFantraxPlayerInfo['rookie']
+        df['rookie'] = df['rookie'].apply(lambda x: '' if (x==0 or pd.isna(x)) else 'Yes')
+
+        ##########################################################################
+        # Fantrax player in non-nhl leagues
+        df['minors'] = dfFantraxPlayerInfo['minors']
+        df['minors'] = df['minors'].apply(lambda x: '' if (x==0 or pd.isna(x)) else 'Yes')
+
+        ##########################################################################
+        # Fantrax watch-list players
+        df['watch_list'] = dfFantraxPlayerInfo['watch_list']
+        df['watch_list'] = df['watch_list'].apply(lambda x: '' if (x==0 or pd.isna(x)) else 'Yes')
+
+        ##########################################################################
+        # Fantrax next opponent
+        df['next_opp'] = dfFantraxPlayerInfo['next_opp']
+
+        # reset index to indexes being list of row integers
+        df.reset_index(inplace=True)
+
+    except:
+        print(f'{traceback.format_exc()} in insert_fantrax_columns()')
+
+    return
 
 def make_clickable(column: str, value: str, alt_value: str='') -> str:
 
@@ -2323,15 +2176,154 @@ def make_clickable(column: str, value: str, alt_value: str='') -> str:
 
     return link
 
-def rankings_to_html(df: pd.DataFrame, config: Dict, caption: str, stat_types: List) -> pd.DataFrame:
+def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.DataFrame) -> pd.DataFrame:
+
+    columns = [
+        'tr.seasonID',
+        'tr.player_id',
+        'tr.name',
+        'tr.pos',
+        'tr.team_abbr',
+        'tr.line',
+        'tr.pp_line',
+        'p.birth_date',
+        'p.height',
+        'p.weight',
+        'p.active',
+        'p.roster_status as nhl_roster_status',
+        'p.games as career_games',
+        'p.injury_status',
+        'p.injury_note',
+    ]
+
+    subquery_columns = {
+        'poolteam_id': f'(select pt.id from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool_id} and ptr.player_id=tr.player_id)',
+        'pool_team': f'(select pt.name from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool_id} and ptr.player_id=tr.player_id)',
+        'status': f'(select ptr.status from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool_id} and ptr.player_id=tr.player_id)',
+        'keeper': f'(select ptr.keeper from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool_id} and ptr.player_id=tr.player_id)',
+    }
+
+    select_sql = ', '.join([
+        ' '.join(['select', ', '.join(columns)]),
+        ', '.join([f'{v} as {k}' for k,v in subquery_columns.items()])
+    ])
+
+    # build table joins
+    from_tables = textwrap.dedent('''\
+        from TeamRosters tr
+             left outer join Player p on p.id=tr.player_id
+    ''')
+
+    # exclude players with p.roster_status!="N" (e.g., include p.roster_status=="Y" or p.roster_status=="I")
+    where_clause = f'where tr.seasonID={season_id} and (p.roster_status!="N" or pool_team>=1)'
+
+    # get players on nhl team rosters
+    df = pd.read_sql(f'{select_sql} {from_tables} {where_clause}', con=get_db_connection())
+
+    columns = [
+        f'{season_id} as seasonID',
+        'ptr.player_id',
+        'p.full_name as name',
+        'p.primary_position as pos',
+        '\'(N/A)\' as team_abbr',
+        '\'\' as line',
+        '\'\' as pp_line',
+        'p.birth_date',
+        'p.height',
+        'p.weight',
+        'p.active',
+        'p.roster_status as nhl_roster_status',
+        'p.games as career_games',
+        'p.injury_status',
+        'p.injury_note',
+        'ptr.poolteam_id',
+        'pt.name as pool_team',
+        'ptr.status',
+        'ptr.keeper',
+    ]
+
+    select_sql = ', '.join([
+        ' '.join(['select', ', '.join(columns)]),
+    ])
+
+    # build table joins
+    from_tables = textwrap.dedent('''\
+        from PoolTeamRoster ptr
+        left outer join Player p on p.id=ptr.player_id
+        left outer join PoolTeam pt ON pt.id=ptr.poolteam_id
+    ''')
+
+    where_clause = f'where pt.pool_id={pool_id} and p.active!=1'
+
+    sql = textwrap.dedent(f'''\
+        {select_sql}
+        {from_tables}
+        {where_clause}
+    ''')
+
+    # get inactive nhl players on pool team rosters
+    df_temp = pd.read_sql(sql, con=get_db_connection())
+
+    # iterate to get player's primary position
+    for idx, row in df_temp.iterrows():
+        primary_position = j.search('people[0].primaryPosition.abbreviation', requests.get(f'{NHL_API_URL}/people/{row.player_id}').json())
+        df_temp.loc[idx, 'pos'] = primary_position
+
+    # merge dataframes
+    df = pd.concat([df, df_temp])
+
+    # set None column values to empty
+    df['poolteam_id'] = df['poolteam_id'].apply(lambda x: '' if x is None else x)
+    df['pool_team'] = df['pool_team'].apply(lambda x: '' if x is None else x)
+    df['status'] = df['status'].apply(lambda x: '' if x is None else x)
+    df['keeper'] = df['keeper'].apply(lambda x: 'Yes' if x=='y' else '')
+
+    # reposition columns
+    df['poolteam_id'] = df.pop('poolteam_id')
+    df['pool_team'] = df.pop('pool_team')
+    df['status'] = df.pop('status')
+
+    # calculate age
+    df['age'] = calc_player_ages(df=df)
+
+    # breakout threshold
+    df['breakout_threshold'] = calc_player_breakout_threshold(df=df)
+
+    # a player's nhl team roster status, if not blank, will be one of 'Y' = active roster (e.g., 23 man roster), 'N' = full roster, not active roster, 'I' = IR
+    df['nhl_roster_status'] = df['nhl_roster_status'].apply(lambda x: '' if x in ('N','') else 'ir' if x=='I' else 'y')
+
+    # change active status from 1 to Y
+    df['active'] = df['active'].apply(lambda x: 'y' if x == 1 else '')
+
+    ##################################################
+    # merge dataframes
+    ##################################################
+
+    # drop columns that are duplicates
+    columns_to_drop = list(df.columns)
+    columns_to_drop.remove('player_id')
+    df_stats.drop(columns=columns_to_drop, axis='columns', inplace=True, errors='ignore')
+
+    df_stats = pd.merge(df, df_stats, how='left', on=['player_id'])
+
+    df_stats.reset_index(inplace=True)
+
+    # reposition player_id
+    df_stats['player_id'] = df_stats.pop('player_id')
+
+    return df_stats
+
+def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative') -> dict:
 
     try:
 
-        # # set nan to 0 for numeric columns
-        # if 'last game' in list(df.columns):
-        #     df['last game'].fillna('', inplace=True)
-        # if 'first game' in list(df.columns):
-        #     df['first game'].fillna('', inplace=True)
+        # set nan to 0 for numeric columns
+        if 'last game' in list(df.columns):
+            df['last game'].fillna('', inplace=True)
+        if 'first game' in list(df.columns):
+            df['first game'].fillna('', inplace=True)
+        if 'game today' in list(df.columns):
+            df['game today'].fillna('', inplace=True)
 
         # format columns before writing to json
         col_formats = get_config_column_formats(config=config)
@@ -2352,9 +2344,9 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, caption: str, stat_types: L
         elif stat_type == 'Per 60 minutes':
             df_temp = df[per_60_column_titles].copy(deep=True)
 
-        cumulative_stats_data = df[cumulative_column_titles].to_json(orient='values')
-        per_game_stats_data = df[per_game_column_titles].to_json(orient='values')
-        per_60_stats_data = df[per_60_column_titles].to_json(orient='values')
+        cumulative_stats_data = df[cumulative_column_titles].values.tolist()
+        per_game_stats_data = df[per_game_column_titles].values.tolist()
+        per_60_stats_data = df[per_60_column_titles].values.tolist()
 
         # get stat type column titles
         cumulative_column_titles = get_stat_type_columns(config=config, stat_type='Cumulative', alias=True)
@@ -2364,47 +2356,51 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, caption: str, stat_types: L
         cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int64,np.float64]).columns) if x in df_temp.columns]
         cols_to_sort_descending = [df_temp.columns.get_loc(x) for x in get_config_default_sort_order_columns(config=config) if x in df_temp.columns]
 
-        general_info_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_general_info_columns(config=config) if x in df_temp.columns])), ']'])
-        cumulative_stat_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_stat_type_columns(config=config, stat_type='Cumulative', alias=True) if x in df_temp.columns])), ']'])
-        per_game_stat_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_stat_type_columns(config=config, stat_type='Per game', alias=True) if x in df_temp.columns])), ']'])
-        per_60_stat_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_stat_type_columns(config=config, stat_type='Per 60 minutes', alias=True) if x in df_temp.columns])), ']'])
-        sktr_info_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_player_position_info_columns(config=config, position='skater') if x in df_temp.columns])), ']'])
-        goalie_info_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_player_position_info_columns(config=config, position='goalie') if x in df_temp.columns])), ']'])
-        sktr_scoring_categories_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_scoring_category_columns(config=config, position='skater') if x in df_temp.columns])), ']'])
-        goalie_scoring_categories_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_scoring_category_columns(config=config, position='goalie') if x in df_temp.columns])), ']'])
-        sktr_z_score_categories_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_z_score_category_columns(config=config, position='skater') if x in df_temp.columns])), ']'])
-        goalie_z_score_categories_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_z_score_category_columns(config=config, position='goalie') if x in df_temp.columns])), ']'])
-        sktr_z_score_summary_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_z_score_summary_columns(config=config, position='skater') if x in df_temp.columns])), ']'])
-        goalie_z_score_summary_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_z_score_summary_columns(config=config, position='goalie') if x in df_temp.columns])), ']'])
+        general_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_general_info_columns(config=config) if x in df_temp.columns]
+        cumulative_stat_column_names = [f'{x.replace(" ","_")}:name' for x in get_stat_type_columns(config=config, stat_type='Cumulative', alias=True) if x in df_temp.columns]
+        per_game_stat_column_names = [f'{x.replace(" ","_")}:name' for x in get_stat_type_columns(config=config, stat_type='Per game', alias=True) if x in df_temp.columns]
+        per_60_stat_column_names = [f'{x.replace(" ","_")}:name' for x in get_stat_type_columns(config=config, stat_type='Per 60 minutes', alias=True) if x in df_temp.columns]
+        sktr_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_player_position_info_columns(config=config, position='skater') if x in df_temp.columns]
+        goalie_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_player_position_info_columns(config=config, position='goalie') if x in df_temp.columns]
+        sktr_scoring_categories_column_names = [f'{x.replace(" ","_")}:name' for x in get_scoring_category_columns(config=config, position='skater') if x in df_temp.columns]
+        goalie_scoring_categories_column_names = [f'{x.replace(" ","_")}:name' for x in get_scoring_category_columns(config=config, position='goalie') if x in df_temp.columns]
+        sktr_z_score_categories_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_category_columns(config=config, position='skater') if x in df_temp.columns]
+        goalie_z_score_categories_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_category_columns(config=config, position='goalie') if x in df_temp.columns]
+        sktr_z_score_summary_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_summary_columns(config=config, position='skater') if x in df_temp.columns]
+        goalie_z_score_summary_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_summary_columns(config=config, position='goalie') if x in df_temp.columns]
 
-        initially_hidden_column_names = ''.join(['[', ''.join(', '.join([f'"{x.replace(" ","_")}:name"' for x in get_columns_by_attribute(config=config, attribute='hide') if x in df_temp.columns])), ']'])
+        initially_hidden_column_names = [f'{x.replace(" ","_")}:name' for x in get_columns_by_attribute(config=config, attribute='hide') if x in df_temp.columns]
 
         # set NaN values to 0
         for key in max_cat.keys():
             if max_cat[key] is None or np.isnan(max_cat[key]):
                 max_cat[key] = 0
+            if isinstance(max_cat[key], np.int64):
+                max_cat[key] = int(max_cat[key])
         for key in min_cat.keys():
             if min_cat[key] is None or np.isnan(min_cat[key]):
                 min_cat[key] = 0
+            if isinstance(min_cat[key], np.int64):
+                min_cat[key] = int(min_cat[key])
         for key in mean_cat.keys():
             if mean_cat[key] is None or np.isnan(mean_cat[key]):
                 mean_cat[key] = 0
-        # column ids for heatmaps
-        max_cat_dict = str(dict(max_cat))
-        min_cat_dict = str(dict(min_cat))
-        mean_cat_dict = str(dict(mean_cat))
+            if isinstance(mean_cat[key], np.int64):
+                mean_cat[key] = int(mean_cat[key])
+        max_cat_dict = dict(max_cat)
+        min_cat_dict = dict(min_cat)
+        mean_cat_dict = dict(mean_cat)
 
         # create a dictionary to hold variables to use in jquery datatable
-        data = {
-            'caption': caption,
+        data_dict = {
             'cumulative_stats_data': cumulative_stats_data,
             'per_game_stats_data': per_game_stats_data,
             'per_60_stats_data': per_60_stats_data,
-            'cumulative_column_titles': ''.join(['[', ''.join(', '.join([f'{{title: "{col}", name: "{col.replace(" ","_")}"}}' for col in cumulative_column_titles])), ']']),
-            'per_game_column_titles': ''.join(['[', ''.join(', '.join([f'{{title: "{col}", name: "{col.replace(" ","_")}"}}' for col in per_game_column_titles])), ']']),
-            'per_60_column_titles': ''.join(['[', ''.join(', '.join([f'{{title: "{col}", name: "{col.replace(" ","_")}"}}' for col in per_60_column_titles])), ']']),
-            'numeric_columns': ''.join(['[', ''.join(', '.join(map(str, cols_to_sort_numeric))), ']']),
-            'descending_columns': ''.join(['[', ''.join(', '.join(map(str, cols_to_sort_descending))), ']']),
+            'cumulative_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in cumulative_column_titles],
+            'per_game_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in per_game_column_titles],
+            'per_60_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in per_60_column_titles],
+            'numeric_columns': cols_to_sort_numeric,
+            'descending_columns': cols_to_sort_descending,
             'general_info_column_names': general_info_column_names,
             'sktr_info_column_names': sktr_info_column_names,
             'goalie_info_column_names': goalie_info_column_names,
@@ -2422,36 +2418,26 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, caption: str, stat_types: L
             'min_cat_dict': min_cat_dict,
             'mean_cat_dict': mean_cat_dict,
         }
-        # convert the dictionary to a JSON object
-        json_data = json.dumps(data)
-
-        # with open('./input/html/data_table.html', 'r') as f:
-        #     html = f.read()
-        #     html = html.format(
-        #         data_tables=data_tables_script,
-        #         search_criteria_table = ''
-        #     )
-
-        # with open(file_name, 'w', encoding="utf-8-sig") as f:
-        #     f.write(html)
-
-        # url = 'file:{}'.format(pathname2url(path.abspath(file_name)))
-        # webbrowser.open(url)
 
     except:
         print(f'{traceback.format_exc()} in rankings_to_html()')
 
     # return the JSON object as a response to the frontend
-    return json_data
+    return data_dict
 
-def rank_players(from_season_id: str, to_season_id: str, season_type: str):
+def rank_players(from_season_id: str, to_season_id: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative') -> dict:
+
+    if game_type == 'R':
+        season_type = 'Regular Season'
+    else: # game_type == 'P'
+        season_type = 'Playoffs'
 
     global timeframe
-    timeframe =  'Playoffs'
+    timeframe =  season_type
 
-    # settings to determine columns to show in html
-    global stat_type
-    stat_type = 'Cumulative'
+    # # settings to determine columns to show in html
+    # global stat_type
+    # stat_type = 'Cumulative'
 
     #######################################################################################
     #######################################################################################
@@ -2460,13 +2446,16 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
     (start_year, _) = split_seasonID_into_component_years(season_id=from_season_id)
     (_, end_year) = split_seasonID_into_component_years(season_id=to_season_id)
 
-    game_type = 'R'
-    season_type = 'Season'
-    if timeframe == 'Playoffs':
-        game_type = 'P'
-        season_type = 'Playoffs'
+    df_game_stats = get_game_stats(from_season_id=from_season_id, to_season_id=to_season_id, game_type=game_type)
 
-    df_game_stats = get_game_stats(from_season_id=from_season_id, to_season_id=to_season_id, season_type='P')
+    # add team games played for each player
+    # Get teams to save in dictionary
+    global teams_dict
+    if from_season_id == to_season_id:
+        df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={from_season_id} and game_type="{game_type}"', con=get_db_connection())
+    else:
+        df_teams = pd.read_sql(f'select team_id, sum(games) as games from TeamStats where seasonID between {from_season_id} and {to_season_id} and game_type="{game_type}" group by team_id', con=get_db_connection())
+    teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
 
     #######################################################################################
     # aggregate per game stats per player
@@ -2481,9 +2470,10 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
     #     df_player_stats = merge_with_current_players_info(season=season, pool=next_season_pool, df_stats=df_player_stats)
     # else: # timeframe in ('Previous playoffs', 'Previous 3 seasons', 'Previous season')
     #     df_player_stats = merge_with_current_players_info(season=prev_season, pool=pool, df_stats=df_player_stats)
+    df_player_stats = merge_with_current_players_info(season_id=to_season_id, pool_id=pool_id, df_stats=df_player_stats)
 
-    # # add fantrax "score" & "minors" columns
-    # insert_fantrax_columns(df=df_player_stats)
+    # add fantrax "score" & "minors" columns
+    insert_fantrax_columns(df=df_player_stats)
 
     # need to add these columns after the stats have been partitioned
     # per-game stats
@@ -2526,8 +2516,7 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
 
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     # drop players in minors and not on active nhl team roster, and not on a pool team and , when projections are used the projected games !> 0
-    # df_player_stats.query('((games>=1 and games.notna()) or (games_prj>=1 and games_prj.notna()) and minors=="" and nhl_roster_status=="y") or (poolteam_id>=1 and poolteam_id.notna()) or watch_list=="Yes" or (line.notna() and line!="") or (pp_line.notna() and pp_line!="")', inplace=True)
-    df_player_stats.query('games>=1 and games.notna()', inplace=True)
+    df_player_stats.query('(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y") or (poolteam_id>=1 and poolteam_id.notna()) or watch_list=="Yes" or (line.notna() and line!="") or (pp_line.notna() and pp_line!="")', inplace=True)
 
     # df_player_stats['pool_team'].fillna(value='', inplace=True)
 
@@ -2547,13 +2536,13 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
     #     df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
     #     # Find potential draft round using z-score
-    #     df_temp = df_player_stats.query('keeper!="Yes" and z_score_prj!=0').sort_values('z_score_prj', ascending=False)
+    #     df_temp = df_player_stats.query('keeper!="Yes").sort_values('z_score', ascending=False)
     #     df_temp = df_temp.groupby(np.arange(len(df_temp.index))//13, axis='index').ngroup() + 1
     #     df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
     #     # Find potential draft round using z-score vorp
-    #     if 'z_score_prj_vorp' in df_player_stats.columns:
-    #         df_temp = df_player_stats.query('keeper!="Yes" and z_score_prj_vorp!=0').sort_values('z_score_prj_vorp', ascending=False)
+    #     if 'z_score_vorp' in df_player_stats.columns:
+    #         df_temp = df_player_stats.query('keeper!="Yes" and z_score_vorp!=0').sort_values('z_score_vorp', ascending=False)
     #         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//13, axis='index').ngroup() + 1
     #         df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
     #     else:
@@ -2615,8 +2604,6 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
         sort_columns = ['z_score_p60', 'z_score', 'z_score_pg']
     elif stat_type == 'Per 60 minutes':
         sort_columns = ['z_score', 'z_score_pg', 'z_score_p60']
-    else: # stat_type.startswith('Proj - ')
-        sort_columns = ['z_score', 'z_score_pg', 'z_score_p60']
     for sort_column in sort_columns:
         df_k.sort_values([sort_column], ascending=[False], inplace=True)
         df_k[f'{sort_column}_rank'] = df_k[sort_column].rank(method='min', na_option='bottom', ascending=False)
@@ -2649,54 +2636,14 @@ def rank_players(from_season_id: str, to_season_id: str, season_type: str):
     else:
         seasons = f'{from_season_id} Season'
 
-    # if timeframe in ('Previous season', 'Previous 3 seasons', 'Previous playoffs'):
-    if timeframe == 'Playoffs':
-        subcaption = f'{stat_type} stats for the {seasons} '
-        caption = f'<b><u>Statistics for the {from_season_id} Draft based on {subcaption}</u></b>'
-    else:
-        caption = f'<b><u>Statistics for the {from_season_id}</u></b>'
-
-    # file_name = caption.replace('<b>', '')\
-    #                     .replace('</b>', '')\
-    #                     .replace('<u>', '')\
-    #                     .replace('</u>', '')\
-    #                     .replace('<br/>', '')\
-    #                     .strip()
-
-    # # append date & time to file name
-    # current_date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # html_file = f'{generated_html_path}/{file_name}_{current_date_time}.html'
-
-    json_data = rankings_to_html(
+    data_dict = rankings_to_html(
                     df=df_k,
                     config=config,
-                    caption=caption,
-                    stat_types=['Cumulative']
+                    stat_type=stat_type
                 )
 
-    print(json_data)
 
-    return json_data
-
-def seconds_to_string_time(seconds: int):
-
-    str_time = ''
-    try:
-        str_time = "{:02}:{:02}".format(*divmod(int(seconds), 60)).strip()
-    except AttributeError as e:
-        if 'float' in e.args[0]:
-            pass
-        else:
-            raise
-
-    return str_time
-
-def split_seasonID_into_component_years(season_id: int) -> Tuple[int, int]:
-
-    if type(season_id) is str:
-        season_id = int(season_id)
-
-    return divmod(season_id, 10000)
+    return data_dict
 
 def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
@@ -2708,26 +2655,26 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'team id', 'table column': 'team_id', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'team', 'table column': 'team_abbr', 'data_group': 'general', 'search_builder': True},
             {'title': 'pos', 'table column': 'pos', 'search_pane': True, 'data_group': 'general', 'search_builder': True},
-            # {'title': 'fantrax roster status', 'table column': 'status', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'age', 'table column': 'age', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
-            # {'title': 'height', 'table column': 'height', 'data_group': 'general', 'hide': True},
-            # {'title': 'weight', 'table column': 'weight', 'data_group': 'general', 'hide': True},
-            # {'title': 'career gp', 'table column': 'career_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
-            # {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True},
-            # {'title': 'rookie', 'table column': 'rookie', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
-            # {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
-            # {'title': 'minors', 'table column': 'minors', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            # {'title': 'injury', 'table column': 'injury_status', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'hide': True},
-            # {'title': 'injury note', 'table column': 'injury_note', 'justify': 'left', 'data_group': 'general', 'hide': True},
+            {'title': 'fantrax roster status', 'table column': 'status', 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'age', 'table column': 'age', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
+            {'title': 'height', 'table column': 'height', 'data_group': 'general', 'hide': True},
+            {'title': 'weight', 'table column': 'weight', 'data_group': 'general', 'hide': True},
+            {'title': 'career gp', 'table column': 'career_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
+            {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True},
+            {'title': 'rookie', 'table column': 'rookie', 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
+            {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
+            {'title': 'minors', 'table column': 'minors', 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'injury', 'table column': 'injury_status', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'hide': True},
+            {'title': 'injury note', 'table column': 'injury_note', 'justify': 'left', 'data_group': 'general', 'hide': True},
             # {'title': 'bandaid boy', 'runtime column': 'bandaid_prj', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
-            # {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
-            # {'title': 'first game', 'table column': 'first game', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
-            # {'title': 'last game', 'table column': 'last game', 'visible': season.SEASON_HAS_STARTED, 'format': eval(f_str), 'data_group': 'general', 'default order': 'desc', 'search_builder': True, 'hide': True},
-            # {'title': 'game today', 'table column': 'next_opp', 'visible': season.SEASON_HAS_STARTED and season.SEASON_HAS_ENDED, 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
+            {'title': 'first game', 'table column': 'first game', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
+            {'title': 'last game', 'table column': 'last game', 'format': eval(f_str), 'data_group': 'general', 'default order': 'desc', 'search_builder': True, 'hide': True},
+            {'title': 'game today', 'table column': 'next_opp', 'data_group': 'general', 'hide': True, 'search_builder': True},
         ],
     }
 
@@ -2819,8 +2766,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     skater_columns = {
         'columns': [
-            # {'title': 'line', 'table column': 'line', 'visible': season.SEASON_HAS_STARTED and not season.SEASON_HAS_ENDED, 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
-            # {'title': 'pp unit', 'table column': 'pp_line', 'visible': season.SEASON_HAS_STARTED and not season.SEASON_HAS_ENDED, 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
+            {'title': 'line', 'table column': 'line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
+            {'title': 'pp unit', 'table column': 'pp_line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
             # {'title': 'pp unit prj', 'runtime column': 'pp_line_prj', 'format': eval(f_0_decimals), 'data_group': ('skater', 'draft'), 'hide': True},
             # {'title': 'prj draft round', 'runtime column': 'pdr', 'data_group': 'draft', 'hide': True},
             # {'title': 'sleeper prj', 'runtime column': 'sleeper_prj', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},
@@ -2879,10 +2826,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'toi sh pg (trend)', 'runtime column': 'toi_sh_pg_sec_trend', 'format': eval(f_0_toi_to_empty_and_show_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi sh pg ra', 'table column': 'toi_sh_pg_ra_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
 
-            # {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
-            # {'title': 'games' if current_season_stats else 'prev gp', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
+            {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'games', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
-            # {'title': 'games prj', 'runtime column': 'games_prj', 'format': eval(f_0_decimals), 'stat_type': 'startswith("Proj -")', 'default order': 'desc', 'data_group': 'general'},
 
             {'title': 'sh%', 'table column': 'shooting%', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater', 'hide': False},
         ],
@@ -3087,23 +3032,28 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     config['columns'].extend(goalie_p60_zscore_columns['columns'])
 
-    # configuration for skaters
-    config = deepcopy(config)
-    config['columns'].extend(deepcopy(skater_columns['columns']))
-    # config['columns'].extend(deepcopy(suffix_columns['columns']))
-
     return deepcopy(config)
 
-def string_to_time(string: str):
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
-    seconds = 0
-    try:
-        minutes, seconds = map(int, string.split(':'))
-        seconds += minutes * 60
-    except AttributeError as e:
-        if 'float' in e.args[0]:
-            pass
-        else:
-            raise
+app = Flask(__name__)
+CORS(app)
 
-    return seconds
+@app.route('/player-data')
+def player_data():
+    # Get the values for from-season, to-season, and season-type from the request parameters
+    from_season = request.args.get('fromSeason')
+    to_season = request.args.get('toSeason')
+    game_type = request.args.get('gameType')
+    stat_type = request.args.get('statType')
+    pool_id = request.args.get('poolID')
+
+    # Call your get_player_data function with the specified parameters
+    data_dict = rank_players(from_season, to_season, pool_id, game_type, stat_type)
+
+    # Return the player data as JSON
+    return jsonify(data_dict).get_json()
+
+if __name__ == '__main__':
+    app.run()
