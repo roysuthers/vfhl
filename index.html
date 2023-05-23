@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>VFHL Player Statistics</title>
 
@@ -15,68 +15,140 @@
         <!-- SearchBuilder: User defined complex search builder.-->
         <!-- SearchPanes: adds panes to the DataTable with the capability to search by selecting rows in the panes. -->
         <!-- Select: is an extension for DataTables that provides table item selection capabilities - rows, columns and cells. Advanced selection options are available for multi-item selection and also item selection and retrieval via the DataTables API. -->
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.css"/>
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.css">
 
-        <script type="text/javascript" src="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.js"></script>
-    </head>
-    <body>
+        <script src="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.js"></script>
 
-        <!-- Selection Criteria -->
-        <!-- {search_criteria_table} -->
-
-        <!-- Control labels to show on line above control -->
         <style>
             .stat_gen_args {
                 display: flex;
             }
-            .stat_gen_args label,
+            .stat_gen_args label {
+                display: inline-block;
+                width: 200px;
+                }
             .stat_gen_args select {
-                flex: 1;
+                display: inline-block;
+                width: 200px;
+            }
+            .stat_gen_args .radio-label {
+            width: auto;
+            min-width: 202px;
+            }
+            input[type="date"] {
+               width: 200px;
             }
         </style>
-        <div class="stat_gen_args">
-            <label for="fromSeason">Seasons</label>
-            <label for="toSeason"></label>
-            <label for="gameType">Game Type</label>
-            <label for="poolID">Fantrax Pool</label>
-        </div>
-        <div class="stat_gen_args">
-            <select id="fromSeason">
-                <option value="20172018">2017-18</option>
-                <option value="20182019">2018-19</option>
-                <option value="20192020">2019-20</option>
-                <option value="20202021">2020-21</option>
-                <option value="20212022">2021-22</option>
-                <option value="20222023" selected>2022-23</option>
-            </select>
 
-            <select id="toSeason">
-                <!-- <option value="20172018">2017-18</option>
-                <option value="20182019">2018-19</option>
-                <option value="20192020">2019-20</option>
-                <option value="20202021">2020-21</option>
-                <option value="20212022">2021-22</option> -->
-                <option value="20222023" selected>2022-23</option>
-            </select>
+        <!-- Control labels to show on line above control -->
+        <div class="stat_gen_args">
+            <label for="poolID">FANTRAX POOL</label>
+            <label for="gameType">GAME TYPE</label>
+            <!-- Radio buttons to select between season or date -->
+            <label class="radio-label"><input type="radio" name="seasonOrDate" value="season" checked>SEASON RANGE</label>
+            <label class="radio-label"><input type="radio" name="seasonOrDate" value="date">DATE RANGE</label>
+        </div>
+
+        <div class="stat_gen_args">
+
+        <select id="poolID">
+            <option value=0>None</option>
+            <option value=4>VFHL 2021-2022</option>
+            <option value=6>VFHL 2022-2023</option>
+            <option value=7 selected>VFHL 2023-2024</option>
+        </select>
 
             <select id="gameType">
                 <option value="Regular Season">Regular Season</option>
                 <option value="Playoffs" selected>Playoffs</option>
             </select>
 
-            <select id="poolID">
-                <option value=0>None</option>
-                <option value=4>VFHL 2021-2022</option>
-                <option value=6>VFHL 2022-2023</option>
-                <option value=7 selected>VFHL 2023-2024</option>
-            </select>
+            <div id="seasonControls">
+                <!-- Season controls -->
+                <select id="fromSeason">
+                    <option value="20172018">2017-18</option>
+                    <option value="20182019">2018-19</option>
+                    <option value="20192020">2019-20</option>
+                    <option value="20202021">2020-21</option>
+                    <option value="20212022">2021-22</option>
+                    <option value="20222023" selected>2022-23</option>
+                </select>
+                <select id="toSeason">
+                    <!-- <option value="20172018">2017-18</option>
+                    <option value="20182019">2018-19</option>
+                    <option value="20192020">2019-20</option>
+                    <option value="20202021">2020-21</option>
+                    <option value="20212022">2021-22</option> -->
+                    <option value="20222023" selected>2022-23</option>
+                </select>
+            </div>
+
+            <!-- Date c"ontrols -->
+            <div id="dateControls" style="display: none;">
+                <input type="date">
+                <input type="date">
+            </div>
 
         </div>
 
+        <p>
+            <!-- Button to update the table -->
+            <button id="updateButton">Get Stats</button>
+        </p>
+
+        <p>
+            <label for="statType">Statistic Type</label>
+            <select id="statType">
+                <option value="Cumulative" selected>Cumulative</option>
+                <option value="Per game">Per game</option>
+                <option value="Per 60 minutes">Per 60 minutes</option>
+            </select>
+        </p>
+
+    </head>
+    <body>
+
+        <!-- /Spinner to display until data table is loaded -->
+        <p style="text-align: center;"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
+
+        <!-- Table to display player data -->
+        <div id="T_player_stats-div" class="panel-body" style="display:none;">
+            <table id="T_player_stats"></table>
+        </div>
+
+        <script src="./javascript/data_tables.js"></script>
+
         <script>
 
+            // Get references to the radio buttons and control elements
             const fromSeasonSelector = document.querySelector('#fromSeason');
             const toSeasonSelector = document.querySelector('#toSeason');
+            const seasonOrDateRadios = document.querySelectorAll('input[name="seasonOrDate"]');
+            const seasonControls = document.querySelector('#seasonControls');
+            const dateControls = document.querySelector('#dateControls');
+            const fromDateInput = document.querySelector('#dateControls input[type="date"]:first-of-type');
+            const toDateInput = document.querySelector('#dateControls input[type="date"]:last-of-type');
+            const gameTypeSelector = document.querySelector('#gameType');
+
+            // Object to store the start and end dates for each season
+            const regularSeasonDates = {
+                '20172018': { startDate: '2017-10-04', endDate: '2018-04-08' },
+                '20182019': { startDate: '2018-10-03', endDate: '2019-04-06' },
+                '20192020': { startDate: '2019-10-02', endDate: '2020-03-11' },
+                '20202021': { startDate: '2021-01-13', endDate: '2021-05-19' },
+                '20212022': { startDate: '2021-10-12', endDate: '2022-05-01' },
+                '20222023': { startDate: '2022-10-07', endDate: '2023-04-14' },
+            };
+
+            // Object to store the start and end dates for each season
+            const playoffsSeasonDates = {
+                '20172018': { startDate: '2018-04-11', endDate: '2018-06-07' },
+                '20182019': { startDate: '2019-04-10', endDate: '2019-06-12' },
+                '20192020': { startDate: '2020-08-01', endDate: '2020-09-28' },
+                '20202021': { startDate: '2021-05-15', endDate: '2021-07-07' },
+                '20212022': { startDate: '2022-05-02', endDate: '2022-06-30' },
+                '20222023': { startDate: '2023-04-17', endDate: '2023-06-19' },
+            };
 
             fromSeasonSelector.addEventListener('change', () => {
 
@@ -107,29 +179,53 @@
             // trigger change event on first select
             fromSeasonSelector.dispatchEvent(new Event('change'));
 
+            // Function to update the display of the controls based on the selected radio button
+            function updateControls() {
+                if (seasonOrDateRadios[0].checked) {
+                    seasonControls.style.display = 'block';
+                    dateControls.style.display = 'none';
+                } else {
+                    seasonControls.style.display = 'none';
+                    dateControls.style.display = 'block';
+                }
+            }
+
+            // Function to set the values of the date inputs based on the selected season
+            function setDateValues() {
+
+                // Get the selected season
+                // const seasonOrDate = seasonOrDateRadios.value;
+                const fromSeason = fromSeasonSelector.value;
+                const toSeason = toSeasonSelector.value;
+                // const fromDate = fromDateInput.value;
+                // const todate = toDateInput.value;
+                const gameType = gameTypeSelector.value;
+
+                // Set the values of the date inputs
+                // if (seasonOrDateRadios[0].checked) {
+                if (gameType === 'Regular Season') {
+                    fromDateInput.value = regularSeasonDates[fromSeason].startDate;
+                    toDateInput.value = regularSeasonDates[toSeason].endDate;
+                } else {
+                    fromDateInput.value = playoffsSeasonDates[fromSeason].startDate;
+                    toDateInput.value = playoffsSeasonDates[toSeason].endDate;
+                }
+            }
+
+            // Add event listeners to the radio buttons to listen for changes
+            seasonOrDateRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    // Call the updateControls function
+                    updateControls();
+
+                    // Call the setDateValues function if the "date" radio button is selected
+                    if (radio.value === 'date') {
+                        setDateValues();
+                    }
+                });
+            });
+
         </script>
 
-        <p>
-            <!-- Button to update the table -->
-            <button id="updateButton">Get Stats</button>
-        </p>
-
-        <p>
-            <label for="statType">Statistic Type</label>
-            <select id="statType">
-                <option value="Cumulative" selected>Cumulative</option>
-                <option value="Per game">Per game</option>
-                <option value="Per 60 minutes">Per 60 minutes</option>
-            </select>
-        </p>
-
-        <!-- /Spinner to display until data table is loaded -->
-        <p style="text-align: center;"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
-
-        <!-- Table to display player data -->
-        <div id="T_player_stats-div" class="panel-body" style="display:none;">
-            <table id="T_player_stats" width="100%"></table>
-        </div>
-        <script src="./javascript/data_tables.js"></script>
     </body>
 </html>

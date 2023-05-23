@@ -19,13 +19,16 @@ $(document).ready(function () {
 
     $('div.dtsb-inputCont').css('font-size', '32px');
 
+    var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
     var fromSeason = $('#fromSeason').val();
     var toSeason = $('#toSeason').val();
+    var fromDate = $('#dateControls').children()[0].value;
+    var toDate = $('#dateControls').children()[1].value;
     var gameType = $('#gameType').val();
     var statType = $('#statType').val();
     var poolID = $('#poolID').val();
 
-    getPlayerData(fromSeason, toSeason, poolID, gameType, statType, function(playerData) {
+    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
 
         updateGlobalVariables(playerData);
 
@@ -1540,7 +1543,7 @@ $(document).ready(function () {
 });
 
 // Function to get player data from the Flask API endpoint
-function getPlayerData(fromSeason, toSeason, poolID, gameType, statType, callback) {
+function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, callback) {
     // Set the base URL for the Flask API endpoint
     let baseUrl = 'http://localhost:5000/player-data';
 
@@ -1550,7 +1553,7 @@ function getPlayerData(fromSeason, toSeason, poolID, gameType, statType, callbac
     } else { // gameType === 'Playoffs'
         gameType = 'P';
     }
-    let queryParams = `?fromSeason=${fromSeason}&toSeason=${toSeason}&poolID=${poolID}&gameType=${gameType}&statType=${statType}`;
+    let queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason}&toSeason=${toSeason}&fromDate=${fromDate}&toDate=${toDate}&poolID=${poolID}&gameType=${gameType}&statType=${statType}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
     $.get(baseUrl + queryParams, function(playerData) {
@@ -2190,13 +2193,16 @@ updateButton.addEventListener('click', async () => {
 
     const tableCaption = document.querySelector('table caption');
 
+    var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
     var fromSeason = $('#fromSeason').val();
     var toSeason = $('#toSeason').val();
+    var fromDate = $('#dateControls').children()[0].value;
+    var toDate = $('#dateControls').children()[1].value;
     var gameType = $('#gameType').val();
     var statType = $('#statType').val();
     var poolID = $('#poolID').val();
 
-    getPlayerData(fromSeason, toSeason, poolID, gameType, statType, function(playerData) {
+    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
 
         updateGlobalVariables(playerData);
 

@@ -1956,22 +1956,29 @@ def format_z_combo(li: List):
 
     return ret_val
 
-def get_game_stats(from_season_id: str, to_season_id: str, game_type: str='R') -> pd.DataFrame:
+def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R') -> pd.DataFrame:
 
     try:
 
-        if from_season_id != to_season_id:
+        if season_or_date_radios == 'date':
             sql = textwrap.dedent(f'''\
                 select *
                 from PlayerGameStats pgs
-                where pgs.seasonID between {from_season_id} and {to_season_id} and pgs.game_type == '{game_type}'
+                where pgs.date between '{from_date}' and '{to_date}' and pgs.game_type == '{game_type}'
             ''')
-        else:
-            sql = textwrap.dedent(f'''\
-                select *
-                from PlayerGameStats pgs
-                where pgs.seasonID == {from_season_id} and pgs.game_type == '{game_type}'
-            ''')
+        else: #  season_or_date_radios == 'season'
+            if from_season_id != to_season_id:
+                sql = textwrap.dedent(f'''\
+                    select *
+                    from PlayerGameStats pgs
+                    where pgs.seasonID between {from_season_id} and {to_season_id} and pgs.game_type == '{game_type}'
+                ''')
+            else:
+                sql = textwrap.dedent(f'''\
+                    select *
+                    from PlayerGameStats pgs
+                    where pgs.seasonID == {from_season_id} and pgs.game_type == '{game_type}'
+                ''')
 
         df_game_stats = pd.read_sql(sql=sql, con=get_db_connection())
 
@@ -2425,7 +2432,7 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
     # return the JSON object as a response to the frontend
     return data_dict
 
-def rank_players(from_season_id: str, to_season_id: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative') -> dict:
+def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative') -> dict:
 
     if game_type == 'R':
         season_type = 'Regular Season'
@@ -2443,10 +2450,12 @@ def rank_players(from_season_id: str, to_season_id: str, pool_id: str, game_type
     #######################################################################################
     # generate games statitics
 
-    (start_year, _) = split_seasonID_into_component_years(season_id=from_season_id)
-    (_, end_year) = split_seasonID_into_component_years(season_id=to_season_id)
-
-    df_game_stats = get_game_stats(from_season_id=from_season_id, to_season_id=to_season_id, game_type=game_type)
+    if season_or_date_radios == 'date':
+        df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
+    else: #  season_or_date_radios == 'season'
+        # (start_year, _) = split_seasonID_into_component_years(season_id=from_season_id)
+        # (_, end_year) = split_seasonID_into_component_years(season_id=to_season_id)
+        df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
 
     # add team games played for each player
     # Get teams to save in dictionary
@@ -3042,15 +3051,19 @@ CORS(app)
 
 @app.route('/player-data')
 def player_data():
-    # Get the values for from-season, to-season, and season-type from the request parameters
+
+    # Get the values for the request parameters
+    season_or_date_radios = request.args.get('seasonOrDateRadios')
     from_season = request.args.get('fromSeason')
     to_season = request.args.get('toSeason')
+    from_date = request.args.get('fromDate')
+    to_date = request.args.get('toDate')
     game_type = request.args.get('gameType')
     stat_type = request.args.get('statType')
     pool_id = request.args.get('poolID')
 
     # Call your get_player_data function with the specified parameters
-    data_dict = rank_players(from_season, to_season, pool_id, game_type, stat_type)
+    data_dict = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type)
 
     # Return the player data as JSON
     return jsonify(data_dict).get_json()
