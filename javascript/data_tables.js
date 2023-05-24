@@ -22,8 +22,8 @@ $(document).ready(function () {
     var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
     var fromSeason = $('#fromSeason').val();
     var toSeason = $('#toSeason').val();
-    var fromDate = $('#dateControls').children()[0].value;
-    var toDate = $('#dateControls').children()[1].value;
+    var fromDate = '"' + $('#dateControls').children()[0].value + '"';
+    var toDate = '"' + $('#dateControls').children()[1].value + '"';
     var gameType = $('#gameType').val();
     var statType = $('#statType').val();
     var poolID = $('#poolID').val();
@@ -1561,6 +1561,38 @@ function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDat
         callback(playerData);
     });
 }
+
+// // Function to get player data from the Pyodide API endpoint
+// function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType) {
+
+//     // Load Pyodide
+//     loadPyodide({ indexURL : "https://cdn.jsdelivr.net/pyodide/v0.18.1/full/" }).then((pyodide) => {
+//         // Define the pyodide object in the global scope
+//         window.pyodide = pyodide;
+
+//         // Run your Python code using Pyodide
+//         pyodide.runPythonAsync(`
+//             # Import your rank_players function
+//             from get_player_data import rank_players
+
+//             # Call your rank_players function with the specified parameters
+//             data_dict = rank_players(${seasonOrDateRadios}, ${fromSeason}, ${toSeason}, ${fromDate}, ${toDate}, ${poolID}, ${gameType}, ${statType})
+
+//             # Return the result as a Python dictionary
+//             data_dict
+//         `).then((data_dict) => {
+//             // Convert the Python dictionary to a JavaScript object
+//             let playerData = pyodide.pyProxyToJs(data_dict);
+
+//             // Do something with the player data (e.g. update your UI)
+//             return playerData;
+//             });
+//     })
+//     .catch((error) => {
+//         // Handle any errors that occur while loading Pyodide
+//         console.error('Error loading Pyodide:', error);
+//     });
+// }
 
 function updateGlobalVariables(playerData) {
 

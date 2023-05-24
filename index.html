@@ -19,6 +19,9 @@
 
         <script src="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.js"></script>
 
+        <!-- Pyodide -->
+        <!-- <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script> -->
+
         <style>
             .stat_gen_args {
                 display: flex;
@@ -51,12 +54,12 @@
 
         <div class="stat_gen_args">
 
-        <select id="poolID">
+            <select id="poolID">
             <option value=0>None</option>
             <option value=4>VFHL 2021-2022</option>
             <option value=6>VFHL 2022-2023</option>
             <option value=7 selected>VFHL 2023-2024</option>
-        </select>
+            </select>
 
             <select id="gameType">
                 <option value="Regular Season">Regular Season</option>
@@ -150,6 +153,9 @@
                 '20222023': { startDate: '2023-04-17', endDate: '2023-06-19' },
             };
 
+            // trigger change event on first select
+            fromSeasonSelector.dispatchEvent(new Event('change'));
+
             fromSeasonSelector.addEventListener('change', () => {
 
                 // remove all options from second select
@@ -175,9 +181,6 @@
                 }
 
             });
-
-            // trigger change event on first select
-            fromSeasonSelector.dispatchEvent(new Event('change'));
 
             // Function to update the display of the controls based on the selected radio button
             function updateControls() {
@@ -223,6 +226,16 @@
                         setDateValues();
                     }
                 });
+            });
+
+            // Add event listeners to the gameType selector to listen for changes
+            gameTypeSelector.addEventListener('change', () => {
+                setDateValues();
+            });
+
+            // execute the setDateValues function when the page is loaded
+            document.addEventListener("DOMContentLoaded", function() {
+                setDateValues();
             });
 
         </script>
