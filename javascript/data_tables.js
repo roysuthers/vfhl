@@ -1558,6 +1558,89 @@ $(document).ready(function () {
 
 });
 
+function columnVisibility( trigger ) {
+
+    // 'trigger' values: 'stat type initialization', 'stat type change', 'position change'
+
+    var table = $('#T_player_stats').DataTable();
+
+    // reset the colvisClicked flag to false
+    colvisClicked = false;
+
+    // get stat type & "pos" search pane, previous & current values
+    var current_stat_type = $('#statType').data('current');
+    var current_positon = $('#DataTables_Table_0').data('current');
+
+    // get currently hidden  & visilble columns
+    // table.columns().visible().toArray() gives boolean array for true\false values
+    // using reduce() to get indexes for false values
+    // table.columns().visible().toArray(): This gets an array of boolean values representing the visibility of each column in the table. A value of true means the column is visible, and a value of false means the column is hidden.
+    // .reduce( (out, bool, index) => !bool ? out.concat(table.column(index).name() + ':name') : out, []): This uses the reduce() method to iterate over the array of boolean values and build a new array containing the names of all hidden columns. The reduce() method takes two arguments: a callback function and an initial value for the accumulator.
+    // The callback function takes three arguments: out, bool, and index. out is the accumulator, which starts as an empty array and is built up over each iteration. bool is the current boolean value being processed, and index is its index in the array.
+    // The callback function uses a ternary operator to check if the current boolean value is false (i.e. if the column is hidden). If it is, it concatenates the name of the column (retrieved using table.column(index).name()) to the accumulator using the concat() method. If the current boolean value is true, it simply returns the accumulator unchanged.
+    // The result of the reduce() method is an array containing the names of all hidden columns in the table.
+    // The final result is stored in the currently_hidden_columns variable.
+    var currently_hidden_columns = table.columns().visible().toArray().reduce( (out, bool, index) => !bool ? out.concat(table.column(index).name() + ':name') : out, []);
+    var currently_visible_columns = table.columns().visible().toArray().reduce( (out, bool, index) => bool ? out.concat(table.column(index).name() + ':name') : out, []);
+
+    var all_table_columns = table.columns()[0].reduce( (out, index) => out.concat(table.column(index).name() + ':name'), []);
+
+    var position_columns_to_hide = [];
+    var position_columns_to_be_visible = [];
+
+    var sktr_columns = sktr_scoring_categories_column_names.concat(sktr_info_column_names).concat(sktr_z_score_summary_column_names);
+    var goalie_columns = goalie_scoring_categories_column_names.concat(goalie_info_column_names).concat(goalie_z_score_summary_column_names);
+    var sktr_and_goalie_columns = sktr_columns.concat(goalie_columns);
+
+    if ( trigger === 'position change') {
+
+        // Note: There can be only one selection, because I used dtOpts on the "position" seachPane,
+        //       to set selection to 'single'
+        if ( current_positon === 'G' ) {
+            position_columns_to_hide = position_columns_to_hide.concat(sktr_columns);
+            position_columns_to_be_visible = position_columns_to_be_visible.concat(goalie_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(goalie_columns.filter(elem => manually_unhidden_columns.includes(elem)));
+
+        } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
+            position_columns_to_hide = position_columns_to_hide.concat(goalie_columns);
+            position_columns_to_be_visible = position_columns_to_be_visible.concat(sktr_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(sktr_columns.filter(elem => manually_unhidden_columns.includes(elem)));
+
+        } else {
+            position_columns_to_be_visible = position_columns_to_be_visible.concat(sktr_and_goalie_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(sktr_and_goalie_columns.filter(elem => manually_unhidden_columns.includes(elem)));
+        }
+
+        // don't hide position columns if already hidden
+        position_columns_to_hide = position_columns_to_hide.filter(elem => !currently_hidden_columns.includes(elem));
+
+        // don't make position columns visible if already visible
+        position_columns_to_be_visible = position_columns_to_be_visible.filter(elem => !currently_visible_columns.includes(elem));
+
+        // hide columns
+        table.columns(position_columns_to_hide).visible(show=false, redrawCalculations=false);
+        // unhide columns
+        table.columns(position_columns_to_be_visible).visible(show=true, redrawCalculations=false);
+
+    }
+
+    // get current sort columns
+    var sort_columns = table.order();
+    for ( let sort_info of sort_columns ) {
+        if ( sort_info[0] == 0 || table.column( sort_info[0] ).visible() == false ) {
+            sort_columns = [z_score_idx, "desc"];
+            break;
+        }
+    }
+    // sort columns
+    table.order(sort_columns);
+
+    // if I uncomment the following line, the web page hangs. Odd!
+    table.columns.adjust().draw();
+
+    // save current statType as previous
+    $('#statType').data('previous', current_stat_type);
+    $('#DataTables_Table_0').data('previous', current_positon);
+
+};
+
 // Function to get player data from the Flask API endpoint
 function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, callback) {
     // Set the base URL for the Flask API endpoint
@@ -1578,42 +1661,85 @@ function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDat
     });
 }
 
-function updateGlobalVariables(playerData) {
+function setFixedColumn( table ) {
 
-    // caption = playerData['caption'];
-    cumulative_column_titles = playerData['cumulative_column_titles'];
-    per_game_column_titles = playerData['per_game_column_titles'];
-    per_60_column_titles = playerData['per_60_column_titles'];
-    numeric_columns = playerData['numeric_columns'];
-    descending_columns = playerData['descending_columns'];
+    // get "name" column index
+    var name_idx = table.column('name:name')[0][0];
+    var name_visible_idx = name_idx;
+    for (var i = 0; i < name_idx; i++) {
+        if ( table.column(i).visible() === false ) {
+            name_visible_idx = name_visible_idx - 1;
+        }
+    }
+    table.fixedColumns().left( name_visible_idx + 1 );
 
-    cumulative_stats_data = playerData['cumulative_stats_data'];
-    per_game_stats_data = playerData['per_game_stats_data'];
-    per_60_stats_data = playerData['per_60_stats_data'];
+};
 
-    draft_info_column_names = playerData['draft_info_column_names'];
-    general_info_column_names = playerData['general_info_column_names'];
-    goalie_info_column_names = playerData['goalie_info_column_names'];
-    goalie_scoring_categories_column_names = playerData['goalie_scoring_categories_column_names'];
-    goalie_z_score_categories_column_names = playerData['goalie_z_score_categories_column_names'];
-    goalie_z_score_summary_column_names = playerData['goalie_z_score_summary_column_names'];
-    sktr_info_column_names = playerData['sktr_info_column_names'];
-    sktr_scoring_categories_column_names = playerData['sktr_scoring_categories_column_names'];
-    sktr_z_score_categories_column_names = playerData['sktr_z_score_categories_column_names'];
-    sktr_z_score_summary_column_names = playerData['sktr_z_score_summary_column_names'];
+function restoreColVisColumns( table, columns ){
+    // hide columns
+    columns_to_hide = columns.filter(elem => initially_hidden_column_names.includes(elem) && manually_unhidden_columns.includes(elem));
+    table.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
 
-    cumulative_stat_column_names = playerData['cumulative_stat_column_names'];
-    per_game_stat_column_names = playerData['per_game_stat_column_names'];
-    per_60_stat_column_names = playerData['per_60_stat_column_names'];
-
-    initially_hidden_column_names = playerData['initially_hidden_column_names'];
-
-    max_cat = playerData['max_cat_dict'];
-    min_cat = playerData['min_cat_dict'];
-    mean_cat = playerData['mean_cat_dict'];
+    // unhide columns
+    columns_to_be_visible = columns.filter(elem => !initially_hidden_column_names.includes(elem) && manually_hidden_columns.includes(elem));
+    table.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
 
 }
 
+function toggleHeatmaps(table) {
+
+    heatmaps = !heatmaps;
+
+    // show spinner & hide table
+    $('#T_player_stats-div').hide();
+    $("#loadingSpinner").show();
+    // remove table data
+    table.clear();
+
+    var statType = $('#statType').val();
+    // load stats for stat type
+    if ( statType === 'Cumulative' ) {
+        table.rows.add(cumulative_stats_data);
+    } else if ( statType === 'Per game' ) {
+        table.rows.add(per_game_stats_data);
+    } else if ( statType === 'Per 60 minutes' ) {
+        table.rows.add(per_60_stats_data);
+    }
+
+    // hide spinner & show table
+    $("#loadingSpinner").hide();
+    $('#T_player_stats-div').show();
+    table.columns.adjust().draw();
+
+};
+
+function updateCaption() {
+
+    var fromSeason = $('#fromSeason').val();
+    let seasonFrom = fromSeason.substring(0, 4) + '-' + fromSeason.substring(4);
+
+    var toSeason = $('#toSeason').val();
+    let seasonTo = toSeason.substring(0, 4) + '-' + toSeason.substring(4);
+
+    var gameType = $('#gameType').val();
+    var statType = $('#statType').val();
+
+    if (fromSeason === toSeason){
+        if (gameType === 'Regular Season') {
+            caption = statType + ' Statistics for the ' + seasonFrom + ' Season';
+        } else {
+            caption = statType + ' Statistics for the ' + seasonFrom + ' Playoffs';
+        }
+    } else {
+        if (gameType === 'Regular Season') {
+            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Seasons';
+        } else {
+            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Playoffs';
+        }
+    }
+
+    return caption
+}
 function updateColumnIndexes(columns) {
 
     // column indexes
@@ -1699,6 +1825,42 @@ function updateColumnIndexes(columns) {
 
 }
 
+function updateGlobalVariables(playerData) {
+
+    // caption = playerData['caption'];
+    cumulative_column_titles = playerData['cumulative_column_titles'];
+    per_game_column_titles = playerData['per_game_column_titles'];
+    per_60_column_titles = playerData['per_60_column_titles'];
+    numeric_columns = playerData['numeric_columns'];
+    descending_columns = playerData['descending_columns'];
+
+    cumulative_stats_data = playerData['cumulative_stats_data'];
+    per_game_stats_data = playerData['per_game_stats_data'];
+    per_60_stats_data = playerData['per_60_stats_data'];
+
+    draft_info_column_names = playerData['draft_info_column_names'];
+    general_info_column_names = playerData['general_info_column_names'];
+    goalie_info_column_names = playerData['goalie_info_column_names'];
+    goalie_scoring_categories_column_names = playerData['goalie_scoring_categories_column_names'];
+    goalie_z_score_categories_column_names = playerData['goalie_z_score_categories_column_names'];
+    goalie_z_score_summary_column_names = playerData['goalie_z_score_summary_column_names'];
+    sktr_info_column_names = playerData['sktr_info_column_names'];
+    sktr_scoring_categories_column_names = playerData['sktr_scoring_categories_column_names'];
+    sktr_z_score_categories_column_names = playerData['sktr_z_score_categories_column_names'];
+    sktr_z_score_summary_column_names = playerData['sktr_z_score_summary_column_names'];
+
+    cumulative_stat_column_names = playerData['cumulative_stat_column_names'];
+    per_game_stat_column_names = playerData['per_game_stat_column_names'];
+    per_60_stat_column_names = playerData['per_60_stat_column_names'];
+
+    initially_hidden_column_names = playerData['initially_hidden_column_names'];
+
+    max_cat = playerData['max_cat_dict'];
+    min_cat = playerData['min_cat_dict'];
+    mean_cat = playerData['mean_cat_dict'];
+
+}
+
 // heatmap columns
 function updateHeatmapColumnLists() {
 
@@ -1727,141 +1889,51 @@ function updateTable(stats_data) {
     // Redraw the table
     table.columns.adjust().draw();
 }
-
-function toggleHeatmaps(table) {
-
-    heatmaps = !heatmaps;
+updateButton.addEventListener('click', async () => {
 
     // show spinner & hide table
     $('#T_player_stats-div').hide();
     $("#loadingSpinner").show();
-    // remove table data
-    table.clear();
 
+    const tableCaption = document.querySelector('table caption');
+
+    var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
+    var fromSeason = $('#fromSeason').val();
+    var toSeason = $('#toSeason').val();
+    var fromDate = $('#dateControls').children()[0].value;
+    var toDate = $('#dateControls').children()[1].value;
+    var gameType = $('#gameType').val();
     var statType = $('#statType').val();
-    // load stats for stat type
-    if ( statType === 'Cumulative' ) {
-        table.rows.add(cumulative_stats_data);
-    } else if ( statType === 'Per game' ) {
-        table.rows.add(per_game_stats_data);
-    } else if ( statType === 'Per 60 minutes' ) {
-        table.rows.add(per_60_stats_data);
-    }
+    var poolID = $('#poolID').val();
 
-    // hide spinner & show table
-    $("#loadingSpinner").hide();
-    $('#T_player_stats-div').show();
-    table.columns.adjust().draw();
+    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
 
-};
+        updateGlobalVariables(playerData);
 
-function columnVisibility( trigger ) {
+        caption = updateCaption();
+        tableCaption.textContent = caption;
 
-    // 'trigger' values: 'stat type initialization', 'stat type change', 'position change'
-
-    var table = $('#T_player_stats').DataTable();
-
-    // reset the colvisClicked flag to false
-    colvisClicked = false;
-
-    // get stat type & "pos" search pane, previous & current values
-    var current_stat_type = $('#statType').data('current');
-    var current_positon = $('#DataTables_Table_0').data('current');
-
-    // get currently hidden  & visilble columns
-    // table.columns().visible().toArray() gives boolean array for true\false values
-    // using reduce() to get indexes for false values
-    // table.columns().visible().toArray(): This gets an array of boolean values representing the visibility of each column in the table. A value of true means the column is visible, and a value of false means the column is hidden.
-    // .reduce( (out, bool, index) => !bool ? out.concat(table.column(index).name() + ':name') : out, []): This uses the reduce() method to iterate over the array of boolean values and build a new array containing the names of all hidden columns. The reduce() method takes two arguments: a callback function and an initial value for the accumulator.
-    // The callback function takes three arguments: out, bool, and index. out is the accumulator, which starts as an empty array and is built up over each iteration. bool is the current boolean value being processed, and index is its index in the array.
-    // The callback function uses a ternary operator to check if the current boolean value is false (i.e. if the column is hidden). If it is, it concatenates the name of the column (retrieved using table.column(index).name()) to the accumulator using the concat() method. If the current boolean value is true, it simply returns the accumulator unchanged.
-    // The result of the reduce() method is an array containing the names of all hidden columns in the table.
-    // The final result is stored in the currently_hidden_columns variable.
-    var currently_hidden_columns = table.columns().visible().toArray().reduce( (out, bool, index) => !bool ? out.concat(table.column(index).name() + ':name') : out, []);
-    var currently_visible_columns = table.columns().visible().toArray().reduce( (out, bool, index) => bool ? out.concat(table.column(index).name() + ':name') : out, []);
-
-    var all_table_columns = table.columns()[0].reduce( (out, index) => out.concat(table.column(index).name() + ':name'), []);
-
-    var position_columns_to_hide = [];
-    var position_columns_to_be_visible = [];
-
-    var sktr_columns = sktr_scoring_categories_column_names.concat(sktr_info_column_names).concat(sktr_z_score_summary_column_names);
-    var goalie_columns = goalie_scoring_categories_column_names.concat(goalie_info_column_names).concat(goalie_z_score_summary_column_names);
-    var sktr_and_goalie_columns = sktr_columns.concat(goalie_columns);
-
-    if ( trigger === 'position change') {
-
-        // Note: There can be only one selection, because I used dtOpts on the "position" seachPane,
-        //       to set selection to 'single'
-        if ( current_positon === 'G' ) {
-            position_columns_to_hide = position_columns_to_hide.concat(sktr_columns);
-            position_columns_to_be_visible = position_columns_to_be_visible.concat(goalie_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(goalie_columns.filter(elem => manually_unhidden_columns.includes(elem)));
-
-        } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
-            position_columns_to_hide = position_columns_to_hide.concat(goalie_columns);
-            position_columns_to_be_visible = position_columns_to_be_visible.concat(sktr_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(sktr_columns.filter(elem => manually_unhidden_columns.includes(elem)));
-
-        } else {
-            position_columns_to_be_visible = position_columns_to_be_visible.concat(sktr_and_goalie_columns).filter(elem => !initially_hidden_column_names.includes(elem) && !manually_hidden_columns.includes(elem)).concat(sktr_and_goalie_columns.filter(elem => manually_unhidden_columns.includes(elem)));
+        if ( statType === 'Cumulative' ) {
+            var stats_data = cumulative_stats_data;
+            var columns = cumulative_column_titles;
+        } else if ( statType === 'Per game' ) {
+            var stats_data = per_game_stats_data;
+            var columns = per_game_column_titles;
+        } else if ( statType === 'Per 60 minutes' ) {
+            var stats_data = per_60_stats_data;
+            var columns = per_60_column_titles;
         }
 
-        // don't hide position columns if already hidden
-        position_columns_to_hide = position_columns_to_hide.filter(elem => !currently_hidden_columns.includes(elem));
+        updateColumnIndexes(columns);
 
-        // don't make position columns visible if already visible
-        position_columns_to_be_visible = position_columns_to_be_visible.filter(elem => !currently_visible_columns.includes(elem));
+        updateHeatmapColumnLists();
 
-        // hide columns
-        table.columns(position_columns_to_hide).visible(show=false, redrawCalculations=false);
-        // unhide columns
-        table.columns(position_columns_to_be_visible).visible(show=true, redrawCalculations=false);
+        updateTable(stats_data);
 
-    }
+    } );
 
-    // get current sort columns
-    var sort_columns = table.order();
-    for ( let sort_info of sort_columns ) {
-        if ( sort_info[0] == 0 || table.column( sort_info[0] ).visible() == false ) {
-            sort_columns = [z_score_idx, "desc"];
-            break;
-        }
-    }
-    // sort columns
-    table.order(sort_columns);
+});
 
-    // if I uncomment the following line, the web page hangs. Odd!
-    table.columns.adjust().draw();
-
-    // save current statType as previous
-    $('#statType').data('previous', current_stat_type);
-    $('#DataTables_Table_0').data('previous', current_positon);
-
-};
-
-function setFixedColumn( table ) {
-
-    // get "name" column index
-    var name_idx = table.column('name:name')[0][0];
-    var name_visible_idx = name_idx;
-    for (var i = 0; i < name_idx; i++) {
-        if ( table.column(i).visible() === false ) {
-            name_visible_idx = name_visible_idx - 1;
-        }
-    }
-    table.fixedColumns().left( name_visible_idx + 1 );
-
-};
-
-function restoreColVisColumns( table, columns ){
-    // hide columns
-    columns_to_hide = columns.filter(elem => initially_hidden_column_names.includes(elem) && manually_unhidden_columns.includes(elem));
-    table.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
-
-    // unhide columns
-    columns_to_be_visible = columns.filter(elem => !initially_hidden_column_names.includes(elem) && manually_hidden_columns.includes(elem));
-    table.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
-
-}
 
 $.fn.dataTable.Api.registerPlural( 'columns().names()', 'column().name()', function ( setter ) {
     return this.iterator( 'column', function ( settings, column ) {
@@ -2113,76 +2185,3 @@ $.fn.dataTable.Api.registerPlural( 'columns().names()', 'column().name()', funct
     };
 
 }(jQuery));
-
-updateButton.addEventListener('click', async () => {
-
-    // show spinner & hide table
-    $('#T_player_stats-div').hide();
-    $("#loadingSpinner").show();
-
-    const tableCaption = document.querySelector('table caption');
-
-    var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
-    var fromSeason = $('#fromSeason').val();
-    var toSeason = $('#toSeason').val();
-    var fromDate = $('#dateControls').children()[0].value;
-    var toDate = $('#dateControls').children()[1].value;
-    var gameType = $('#gameType').val();
-    var statType = $('#statType').val();
-    var poolID = $('#poolID').val();
-
-    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
-
-        updateGlobalVariables(playerData);
-
-        caption = updateCaption();
-        tableCaption.textContent = caption;
-
-        if ( statType === 'Cumulative' ) {
-            var stats_data = cumulative_stats_data;
-            var columns = cumulative_column_titles;
-        } else if ( statType === 'Per game' ) {
-            var stats_data = per_game_stats_data;
-            var columns = per_game_column_titles;
-        } else if ( statType === 'Per 60 minutes' ) {
-            var stats_data = per_60_stats_data;
-            var columns = per_60_column_titles;
-        }
-
-        updateColumnIndexes(columns);
-
-        updateHeatmapColumnLists();
-
-        updateTable(stats_data);
-
-    } );
-
-});
-
-function updateCaption() {
-
-    var fromSeason = $('#fromSeason').val();
-    let seasonFrom = fromSeason.substring(0, 4) + '-' + fromSeason.substring(4);
-
-    var toSeason = $('#toSeason').val();
-    let seasonTo = toSeason.substring(0, 4) + '-' + toSeason.substring(4);
-
-    var gameType = $('#gameType').val();
-    var statType = $('#statType').val();
-
-    if (fromSeason === toSeason){
-        if (gameType === 'Regular Season') {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' Season';
-        } else {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' Playoffs';
-        }
-    } else {
-        if (gameType === 'Regular Season') {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Seasons';
-        } else {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Playoffs';
-        }
-    }
-
-    return caption
-}
