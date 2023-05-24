@@ -2356,9 +2356,17 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
         per_60_stats_data = df[per_60_column_titles].values.tolist()
 
         # get stat type column titles
-        cumulative_column_titles = get_stat_type_columns(config=config, stat_type='Cumulative', alias=True)
-        per_game_column_titles = get_stat_type_columns(config=config, stat_type='Per game', alias=True)
-        per_60_column_titles = get_stat_type_columns(config=config, stat_type='Per 60 minutes', alias=True)
+        cumulative_column_title_aliases = get_stat_type_columns(config=config, stat_type='Cumulative', alias=True)
+        per_game_column_title_aliases = get_stat_type_columns(config=config, stat_type='Per game', alias=True)
+        per_60_column_title_aliases = get_stat_type_columns(config=config, stat_type='Per 60 minutes', alias=True)
+
+        # rename df_temp column titles to aliases
+        if stat_type == 'Per game':
+            columns = {f'{title}': f'{alias}' for (title, alias) in zip(per_game_column_titles, per_game_column_title_aliases)}
+            df_temp.rename(columns=columns, inplace=True)
+        elif stat_type == 'Per 60 minutes':
+            columns = {f'{title}': f'{alias}' for (title, alias) in zip(per_60_column_titles, per_60_column_title_aliases)}
+            df_temp.rename(columns=columns, inplace=True)
 
         cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int64,np.float64]).columns) if x in df_temp.columns]
         cols_to_sort_descending = [df_temp.columns.get_loc(x) for x in get_config_default_sort_order_columns(config=config) if x in df_temp.columns]

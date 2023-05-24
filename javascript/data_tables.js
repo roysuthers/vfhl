@@ -17,8 +17,6 @@ $(document).ready(function () {
                         .addClass('hover')
                         .addClass('compact');
 
-    $('div.dtsb-inputCont').css('font-size', '32px');
-
     var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
     var fromSeason = $('#fromSeason').val();
     var toSeason = $('#toSeason').val();
@@ -1538,6 +1536,24 @@ $(document).ready(function () {
             }
         });
 
+        // Create a Mutation Observer
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.addedNodes.length > 0) {
+                    // Check if any of the added nodes are input elements with both the dtsb-value and dtsb-input classes
+                    mutation.addedNodes.forEach(function (node) {
+                        if (node.nodeType === Node.ELEMENT_NODE && node.matches('input.dtsb-value.dtsb-input')) {
+                            // Set the font size of the element
+                            node.style.fontSize = '1em';
+                        }
+                    });
+                }
+            });
+        });
+
+        // Start observing the body element for child node additions
+        observer.observe(document.body, { childList: true, subtree: true });
+
     });
 
 });
@@ -1561,38 +1577,6 @@ function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDat
         callback(playerData);
     });
 }
-
-// // Function to get player data from the Pyodide API endpoint
-// function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType) {
-
-//     // Load Pyodide
-//     loadPyodide({ indexURL : "https://cdn.jsdelivr.net/pyodide/v0.18.1/full/" }).then((pyodide) => {
-//         // Define the pyodide object in the global scope
-//         window.pyodide = pyodide;
-
-//         // Run your Python code using Pyodide
-//         pyodide.runPythonAsync(`
-//             # Import your rank_players function
-//             from get_player_data import rank_players
-
-//             # Call your rank_players function with the specified parameters
-//             data_dict = rank_players(${seasonOrDateRadios}, ${fromSeason}, ${toSeason}, ${fromDate}, ${toDate}, ${poolID}, ${gameType}, ${statType})
-
-//             # Return the result as a Python dictionary
-//             data_dict
-//         `).then((data_dict) => {
-//             // Convert the Python dictionary to a JavaScript object
-//             let playerData = pyodide.pyProxyToJs(data_dict);
-
-//             // Do something with the player data (e.g. update your UI)
-//             return playerData;
-//             });
-//     })
-//     .catch((error) => {
-//         // Handle any errors that occur while loading Pyodide
-//         console.error('Error loading Pyodide:', error);
-//     });
-// }
 
 function updateGlobalVariables(playerData) {
 
@@ -1743,93 +1727,6 @@ function updateTable(stats_data) {
     // Redraw the table
     table.columns.adjust().draw();
 }
-
-// // custom filtering to search data columns; e.g., in rookie, watchlist, in_nhl
-// $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-
-    //     // rookies-only checkbox
-//     var rookies_checkbox = $('#rookies').is(':checked');
-//     // watchlist checkbox
-//     var watchlist_checkbox = $('#watchlist').is(':checked');
-//     // in_nhl checkbox
-//     var in_nhl_checkbox = $('#in_nhl').is(':checked');
-
-//     // display all rows if nothing entered
-//     if (rookies_checkbox == false && watchlist_checkbox == false && in_nhl_checkbox == false) {
-//             return true;
-//     }
-
-//     var table = $('#T_player_stats').DataTable();
-//     var max_col_index =table.columns().count() - 1;
-//     var rookies_index = 0;
-//     var watchlist_index = 0;
-//     var in_nhl_index = 0;
-//     for (var i = 0; i < max_col_index; i++) {
-//         var title = table.column( i ).header().innerText;
-//         if ( rookies_index == 0 ) {
-//             if ( title.match('rookie')) {
-//                 rookies_index = i ;
-//             }
-//         }
-//         if ( watchlist_index == 0 ) {
-//             if ( title.match('watch')) {
-//                 watchlist_index = i ;
-//             }
-//         }
-//         if ( in_nhl_index == 0 ) {
-//             if ( title.match('minors')) {
-//                 in_nhl_index = i ;
-//             }
-//         }
-//         if (rookies_index > 0 && watchlist_index > 0 && in_nhl_index > 0){
-//             break
-//         }
-//     }
-
-//     var show_rookies = false;
-//     var show_watchlist = false;
-//     var show_in_nhl = false;
-
-//     var rookie_val = data[rookies_index] || 0; // use data for the rookie column
-//     if (rookies_checkbox == false || rookie_val == 'Yes') {
-//         show_rookies = true;
-//     }
-
-//     var watchlist_val = data[watchlist_index] || 0; // use data for the watchlist column
-//     if (watchlist_checkbox == false || watchlist_val == 'Yes') {
-//         show_watchlist = true;
-//     }
-
-//     var in_nhl_val = data[in_nhl_index] || 0; // use data for the minors column
-//     if (in_nhl_checkbox == false || in_nhl_val != 'Yes') {
-//         show_in_nhl = true;
-//     }
-
-//     return show_rookies && show_watchlist && show_in_nhl;
-
-// });
-
-// // custom filtering event listeners
-// $(document).ready(function () {
-
-//     var table = $('#T_player_stats').DataTable();
-
-//     // Event listener for row filtering rookies-only checkbos, & redraw on input
-//     $('#rookies').click(function () {
-//         table.draw();
-//     });
-
-//     // Event listener for row filtering watchlist checkbox, & redraw on input
-//     $('#watchlist').click(function () {
-//         table.draw();
-//     });
-
-//     // Event listener for row filtering in_nhl checkbox, & redraw on input
-//     $('#in_nhl').click(function () {
-//         table.draw();
-//     });
-
-// } );
 
 function toggleHeatmaps(table) {
 

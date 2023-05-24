@@ -3,7 +3,7 @@
     <head>
         <title>VFHL Player Statistics</title>
 
-        <!-- <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script> -->
+        <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
         <!-- JQuery -->
         <!-- DataTables -->
@@ -29,17 +29,20 @@
             .stat_gen_args label {
                 display: inline-block;
                 width: 200px;
+                font-size: 1em;
                 }
             .stat_gen_args select {
                 display: inline-block;
                 width: 200px;
+                font-size: 1em;
             }
             .stat_gen_args .radio-label {
-            width: auto;
-            min-width: 202px;
+                width: 200px;
+                font-size: 1em;
             }
             input[type="date"] {
                width: 200px;
+               font-size: 1em;
             }
         </style>
 
@@ -96,12 +99,12 @@
 
         <p>
             <!-- Button to update the table -->
-            <button id="updateButton">Get Stats</button>
+            <button id="updateButton" style="font-size: 1em;">Get Stats</button>
         </p>
 
         <p>
-            <label for="statType">Statistic Type</label>
-            <select id="statType">
+            <label for="statType" style="font-size: 1em;">Statistic Type</label>
+            <select id="statType" style="font-size: 1em;">
                 <option value="Cumulative" selected>Cumulative</option>
                 <option value="Per game">Per game</option>
                 <option value="Per 60 minutes">Per 60 minutes</option>
