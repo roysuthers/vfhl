@@ -3014,10 +3014,10 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     goalie_cumulative_zscore_columns = {
         'columns': [
-            {'title': 'z-wins', 'runtime column': 'z_wins', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
-            # {'title': 'z-wins vorp', 'runtime column': 'z_wins_vorp', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
-            {'title': 'z-saves', 'runtime column': 'z_saves', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
-            # {'title': 'z-saves vorp', 'runtime column': 'z_saves_vorp', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-w', 'runtime column': 'z_wins', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            # {'title': 'z-w vorp', 'runtime column': 'z_wins_vorp', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-sv', 'runtime column': 'z_saves', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            # {'title': 'z-sv vorp', 'runtime column': 'z_saves_vorp', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-gaa', 'runtime column': 'z_gaa', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             # {'title': 'z-gaa vorp', 'runtime column': 'z_gaa_vorp', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-sv%', 'runtime column': 'z_save%', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
@@ -3029,8 +3029,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     goalie_pg_zscore_columns = {
         'columns': [
-            {'title': 'z-w pg', 'alias': 'z-wins', 'runtime column': 'z_wins_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
-            {'title': 'z-sv pg', 'alias': 'z-saves', 'runtime column': 'z_saves_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-w pg', 'alias': 'z-w', 'runtime column': 'z_wins_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-sv pg', 'alias': 'z-sv', 'runtime column': 'z_saves_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-gaa pg', 'alias': 'z-gaa', 'runtime column': 'z_gaa_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-sv% pg', 'alias': 'z-sv%', 'runtime column': 'z_save%_pg', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
         ],
@@ -3040,8 +3040,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     goalie_p60_zscore_columns = {
         'columns': [
-            {'title': 'z-w p60', 'alias': 'z-wins', 'runtime column': 'z_wins_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
-            {'title': 'z-sv p60', 'alias': 'z-saves', 'runtime column': 'z_saves_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-w p60', 'alias': 'z-w', 'runtime column': 'z_wins_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
+            {'title': 'z-sv p60', 'alias': 'z-sv', 'runtime column': 'z_saves_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-gaa p60', 'alias': 'z-gaa', 'runtime column': 'z_gaa_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
             {'title': 'z-sv% p60', 'alias': 'z-sv%', 'runtime column': 'z_save%_p60', 'format': eval(f_2_decimals_show_0), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_cat'), 'hide': True},
         ],

@@ -1152,6 +1152,8 @@ $(document).ready(function () {
                 table.searchPanes.rebuildPane();
                 table.columns.adjust().draw();
 
+                createManagerSummary(table);
+
             },
 
         } );
@@ -1488,7 +1490,7 @@ $(document).ready(function () {
                 table.rows.add(per_60_stats_data);
             }
 
-            const tableCaption = document.querySelector('table caption');
+            const tableCaption = document.querySelector('#T_player_stats caption');
             caption = updateCaption();
             tableCaption.textContent = caption;
 
@@ -1641,6 +1643,179 @@ function columnVisibility( trigger ) {
 
 };
 
+function createManagerSummary(table) {
+
+    // Get data from player stats table
+    var originalData = table.data().toArray();
+
+    // Filter out rows with no team manager
+    var filteredData = originalData.filter(function (row) {
+        return row[manager_idx] !== "";
+    });
+
+    // Create new data source for new table
+    var newData = [];
+
+    // Loop through original data and calculate sums for each team manager
+    for (var i = 0; i < filteredData.length; i++) {
+        var row = filteredData[i];
+
+        var manager = row[manager_idx];
+
+        var zScore = parseFloat(row[z_score_idx]);
+        if (isNaN(zScore)) {zScore = 0;}
+
+        var zOffense = parseFloat(row[z_offense_idx]);
+        if (isNaN(zOffense)) {zOffense = 0;}
+
+        var zPeripheral = parseFloat(row[z_peripheral_idx]);
+        if (isNaN(zPeripheral)) {zPeripheral = 0;}
+
+        var points = parseFloat(row[z_points_idx]);
+        if (isNaN(points) || points < 0) {points = 0;}
+
+        var goals = parseFloat(row[z_goals_idx]);
+        if (isNaN(goals) || goals < 0) {goals = 0;}
+
+        var assists = parseFloat(row[z_assists_idx]);
+        if (isNaN(assists) || assists < 0) {assists = 0;}
+
+        var powerplayPoints = parseFloat(row[z_ppp_idx]);
+        if (isNaN(powerplayPoints) || powerplayPoints < 0) {powerplayPoints = 0;}
+
+        var shotsOnGoal = parseFloat(row[z_sog_idx]);
+        if (isNaN(shotsOnGoal) || shotsOnGoal < 0) {shotsOnGoal = 0;}
+
+        var blockedShots = parseFloat(row[z_blk_idx]);
+        if (isNaN(blockedShots) || blockedShots < 0) {blockedShots = 0;}
+
+        var hits = parseFloat(row[z_hits_idx]);
+        if (isNaN(hits) || hits < 0) {hits = 0;}
+
+        var takeaways = parseFloat(row[z_tk_idx]);
+        if (isNaN(takeaways) || takeaways < 0) {takeaways = 0;}
+
+        var penaltyMinutes = parseFloat(row[z_pim_idx]);
+        if (isNaN(penaltyMinutes) || penaltyMinutes < 0) {penaltyMinutes = 0;}
+
+        var wins = parseFloat(row[z_wins_idx]);
+        if (isNaN(wins) || wins < 0) {wins = 0;}
+
+        var saves = parseFloat(row[z_saves_idx]);
+        if (isNaN(saves) || saves < 0) {saves = 0;}
+
+        var gaa = parseFloat(row[z_gaa_idx]);
+        if (isNaN(gaa)) {gaa = 0;}
+
+        var savePercent = parseFloat(row[z_saves_percent_idx]);
+        if (isNaN(savePercent)) {savePercent = 0;}
+
+        // Check if team manager already exists in new data
+        var index = newData.findIndex(function (item) {
+            return item.manager === manager;
+        });
+
+        if (index === -1) {
+            // Team manager does not exist in new data, add new row
+            newData.push({
+                manager: manager,
+                zScore: zScore,
+                zOffense: zOffense,
+                zPeripheral: zPeripheral,
+                points: points,
+                goals: goals,
+                assists: assists,
+                powerplayPoints: powerplayPoints,
+                shotsOnGoal: shotsOnGoal,
+                blockedShots: blockedShots,
+                hits: hits,
+                takeaways: takeaways,
+                penaltyMinutes: penaltyMinutes,
+                wins: wins,
+                saves: saves,
+                gaa: gaa,
+                savePercent: savePercent,
+            });
+        } else {
+            // Team manager exists in new data, update row
+            newData[index].zScore += zScore;
+            newData[index].zOffense += zOffense;
+            newData[index].zPeripheral += zPeripheral;
+            newData[index].points += points;
+            newData[index].goals += goals;
+            newData[index].assists += assists;
+            newData[index].powerplayPoints += powerplayPoints;
+            newData[index].shotsOnGoal += shotsOnGoal;
+            newData[index].blockedShots += blockedShots;
+            newData[index].hits += hits;
+            newData[index].takeaways += takeaways;
+            newData[index].penaltyMinutes += penaltyMinutes;
+            newData[index].wins += wins;
+            newData[index].saves += saves;
+            newData[index].gaa += gaa;
+            newData[index].savePercent += savePercent;
+        }
+    }
+
+    // Loop through new data and set floats to 2 decimal places
+    for (var i = 0; i < newData.length; i++) {
+        var row = newData[i];
+        newData[i].zScore = row.zScore.toFixed(1);
+        newData[i].zOffense = row.zOffense.toFixed(1);
+        newData[i].zPeripheral = row.zPeripheral.toFixed(1);
+        newData[i].points = row.points.toFixed(2);
+        newData[i].goals = row.goals.toFixed(2);
+        newData[i].assists = row.assists.toFixed(2);
+        newData[i].powerplayPoints = row.powerplayPoints.toFixed(2);
+        newData[i].shotsOnGoal = row.shotsOnGoal.toFixed(2);
+        newData[i].blockedShots = row.blockedShots.toFixed(2);
+        newData[i].hits = row.hits.toFixed(2);
+        newData[i].takeaways = row.takeaways.toFixed(2);
+        newData[i].penaltyMinutes = row.penaltyMinutes.toFixed(2);
+        newData[i].wins = row.wins.toFixed(2);
+        newData[i].saves = row.saves.toFixed(2);
+        newData[i].gaa = row.gaa.toFixed(2);
+        newData[i].savePercent = row.savePercent.toFixed(2);
+    };
+
+    // Create new table element
+    var managerSummary = $('<table id="managerSummary"></table>');
+
+    // Initialize new DataTable with calculated data
+    managerSummary.DataTable({
+        data: newData,
+        columns: [
+            { data: 'manager', title: 'manager' },
+            { data: 'zScore', title: 'z-score' },
+            { data: 'zOffense', title: 'z-offense' },
+            { data: 'zPeripheral', title: 'z-peripheral' },
+            { data: 'points', title: 'z-pts' },
+            { data: 'goals', title: 'z-g' },
+            { data: 'assists', title: 'z-a' },
+            { data: 'powerplayPoints', title: 'z-ppp' },
+            { data: 'shotsOnGoal', title: 'z-sog' },
+            { data: 'blockedShots', title: 'z-blk' },
+            { data: 'hits', title: 'z-hits' },
+            { data: 'takeaways', title: 'z-ik' },
+            { data: 'penaltyMinutes', title: 'z-pim' },
+            { data: 'wins', title: 'z-w' },
+            { data: 'saves', title: 'z-sv' },
+            { data: 'gaa', title: 'z-gaa' },
+            { data: 'savePercent', title: 'z-sv%' },
+        ],
+        pageLength: 13,
+    });
+
+    // Insert new table before original table
+    managerSummary.insertBefore($('#T_player_stats-div'));
+
+    // set caption
+    var statType = $('#statType').val();
+    caption = '<caption style="caption-side: top">' + statType + ' Statistics Summary Z-Scores</caption>';
+    managerSummary.append(caption);
+
+};
+
 // Function to get player data from the Flask API endpoint
 function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, callback) {
     // Set the base URL for the Flask API endpoint
@@ -1740,6 +1915,7 @@ function updateCaption() {
 
     return caption
 }
+
 function updateColumnIndexes(columns) {
 
     // column indexes
@@ -1889,6 +2065,7 @@ function updateTable(stats_data) {
     // Redraw the table
     table.columns.adjust().draw();
 }
+
 updateButton.addEventListener('click', async () => {
 
     // show spinner & hide table
@@ -1933,7 +2110,6 @@ updateButton.addEventListener('click', async () => {
     } );
 
 });
-
 
 $.fn.dataTable.Api.registerPlural( 'columns().names()', 'column().name()', function ( setter ) {
     return this.iterator( 'column', function ( settings, column ) {
