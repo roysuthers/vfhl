@@ -19,6 +19,9 @@
 
         <script src="https://cdn.datatables.net/v/dt/jq-3.6.0/jszip-2.5.0/dt-1.12.1/b-2.2.3/b-colvis-2.2.3/b-html5-2.2.3/date-1.1.2/fc-4.1.0/fh-3.2.4/sb-1.3.4/sp-2.0.2/sl-1.4.0/datatables.min.js"></script>
 
+        <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.js"></script>
+
         <!-- Pyodide -->
         <!-- <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script> -->
 
@@ -40,9 +43,14 @@
                 width: 200px;
                 font-size: 1em;
             }
-            input[type="date"] {
-               width: 200px;
-               font-size: 1em;
+            .spinner {
+                display: block;
+                position: fixed;
+                z-index: 1031; /* High z-index so it is on top of the page */
+                top: 50%;
+                right: 50%; /* or: left: 50%; */
+                margin-top: -32px; /* half of the element height */
+                margin-right: -32px; /* half of the element width */
             }
             #managerSummary {
                 margin-left: 0;
@@ -52,6 +60,29 @@
             /* #managerSummary td:nth-child(1) {
                 white-space: nowrap;
             } */
+            #managerSummary th[colspan] {
+                text-align: center;
+            }
+            #managerSummary th[colspan="12"] {
+                background-color: darkcyan;
+            }
+            #managerSummary th[colspan="7"] {
+                background-color: lightgreen;
+            }
+            #startDraftButton, #weightedScoreOptions {
+                display: inline-block !important;
+                font-size: 1em;
+            }
+            #weightedScoreOptions {
+                border: none;
+            }
+            #startDraftButton.hidden, #weightedScoreOptions.hidden {
+                display: none;
+            }
+            input[type="date"] {
+               width: 200px;
+               font-size: 1em;
+            }
         </style>
 
         <!-- Control labels to show on line above control -->
@@ -73,8 +104,8 @@
             </select>
 
             <select id="gameType">
-                <option value="Regular Season">Regular Season</option>
-                <option value="Playoffs" selected>Playoffs</option>
+                <option value="Regular Season" selected>Regular Season</option>
+                <option value="Playoffs">Playoffs</option>
             </select>
 
             <div id="seasonControls">
@@ -88,26 +119,21 @@
                     <option value="20222023" selected>2022-23</option>
                 </select>
                 <select id="toSeason">
-                    <!-- <option value="20172018">2017-18</option>
-                    <option value="20182019">2018-19</option>
-                    <option value="20192020">2019-20</option>
-                    <option value="20202021">2020-21</option>
-                    <option value="20212022">2021-22</option> -->
                     <option value="20222023" selected>2022-23</option>
                 </select>
             </div>
 
-            <!-- Date c"ontrols -->
+            <!-- Date controls -->
             <div id="dateControls" style="display: none;">
-                <input type="date">
-                <input type="date">
+                <input id="fromDate" type="date">
+                <input id="toDate" type="date">
             </div>
 
         </div>
 
         <p>
             <!-- Button to update the table -->
-            <button id="updateButton" style="font-size: 1em;">Get Stats</button>
+            <button id="getStatsButton" style="font-size: 1em;">Get Stats</button>
         </p>
 
         <p>
@@ -119,15 +145,37 @@
             </select>
         </p>
 
+        <!-- "Start Draft" button -->
+        <button id="startDraftButton" class="hidden">Start Draft</button>
+
+        <!-- Radio buttons to select between team need, category scarcity, or both -->
+        <fieldset id="weightedScoreOptions" class="hidden">
+            <span>Weight player scores by</span>
+            <input type="radio" name="weightedScoreOpts" value="need">Team Need
+            <input type="radio" name="weightedScoreOpts" value="scarcity">Category Scarcity
+            <input type="radio" name="weightedScoreOpts" value="both" checked>Both
+        </fieldset>
+
+        <!-- Draft messages -->
+        <div id='draftMessage' style="display: none; font-size: 2em; text-align: center;">
+            <b>Draft has started...</b>
+        </div>
+
+        <!-- "Weight Player Z-Scores" button -->
+        <button id="weightplayerZScoresButton" style="display: none; font-size: 1em;">Weight Player Z-Scores</button>
+
     </head>
     <body>
 
-        <!-- /Spinner to display until data table is loaded -->
-        <p style="text-align: center;"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
+        <!-- Spinner to display until data table is loaded -->
+        <p class="spinner"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
+
+        <!-- Table for manager z-score summaries -->
+        <table id="managerSummary" class="display cell-border hover compact" style="display: none;"></table>
 
         <!-- Table to display player data -->
-        <div id="T_player_stats-div" class="panel-body" style="display:none;">
-            <table id="T_player_stats"></table>
+        <div id="player_stats-div" class="display cell-border hover compact panel-body" style="display:none">
+            <table id="player_stats"></table>
         </div>
 
         <script src="./javascript/data_tables.js"></script>
@@ -135,14 +183,14 @@
         <script>
 
             // Get references to the radio buttons and control elements
-            const fromSeasonSelector = document.querySelector('#fromSeason');
-            const toSeasonSelector = document.querySelector('#toSeason');
+            const gameType = document.querySelector('#gameType');
             const seasonOrDateRadios = document.querySelectorAll('input[name="seasonOrDate"]');
             const seasonControls = document.querySelector('#seasonControls');
+            const fromSeason = document.querySelector('#fromSeason');
+            const toSeason = document.querySelector('#toSeason');
             const dateControls = document.querySelector('#dateControls');
-            const fromDateInput = document.querySelector('#dateControls input[type="date"]:first-of-type');
-            const toDateInput = document.querySelector('#dateControls input[type="date"]:last-of-type');
-            const gameTypeSelector = document.querySelector('#gameType');
+            const fromDate = document.querySelector('#fromDate');
+            const toDate = document.querySelector('#toDate');
 
             // Object to store the start and end dates for each season
             const regularSeasonDates = {
@@ -165,27 +213,27 @@
             };
 
             // trigger change event on first select
-            fromSeasonSelector.dispatchEvent(new Event('change'));
+            fromSeason.dispatchEvent(new Event('change'));
 
-            fromSeasonSelector.addEventListener('change', () => {
+            fromSeason.addEventListener('change', () => {
 
                 // remove all options from second select
-                while (toSeasonSelector.firstChild) {
-                    toSeasonSelector.removeChild(toSeasonSelector.firstChild);
+                while (toSeason.firstChild) {
+                    toSeason.removeChild(toSeason.firstChild);
                 }
 
                 // clone options from first select and append them to second select
-                for (const option of fromSeasonSelector.options) {
+                for (const option of fromSeason.options) {
                     const clonedOption = option.cloneNode(true);
-                    toSeasonSelector.appendChild(clonedOption);
+                    toSeason.appendChild(clonedOption);
                 }
 
-                const selectedValue = fromSeasonSelector.value;
+                const selectedValue = fromSeason.value;
 
                 // remove options from second select, if less than the selected value
-                while (toSeasonSelector.firstChild) {
-                    if (toSeasonSelector.querySelector('option').value < selectedValue){
-                        toSeasonSelector.removeChild(toSeasonSelector.firstChild);
+                while (toSeason.firstChild) {
+                    if (toSeason.querySelector('option').value < selectedValue){
+                        toSeason.removeChild(toSeason.firstChild);
                     } else {
                         break;
                     }
@@ -207,22 +255,19 @@
             // Function to set the values of the date inputs based on the selected season
             function setDateValues() {
 
-                // Get the selected season
-                // const seasonOrDate = seasonOrDateRadios.value;
-                const fromSeason = fromSeasonSelector.value;
-                const toSeason = toSeasonSelector.value;
-                // const fromDate = fromDateInput.value;
-                // const todate = toDateInput.value;
-                const gameType = gameTypeSelector.value;
+                // // Get the selected season
+                // const fromSeason = fromSeason.value;
+                // const toSeason = toSeason.value;
+                // const gameType = gameType.value;
 
                 // Set the values of the date inputs
                 // if (seasonOrDateRadios[0].checked) {
-                if (gameType === 'Regular Season') {
-                    fromDateInput.value = regularSeasonDates[fromSeason].startDate;
-                    toDateInput.value = regularSeasonDates[toSeason].endDate;
+                if (gameType.value === 'Regular Season') {
+                    fromDate.value = regularSeasonDates[fromSeason.value].startDate;
+                    toDate.value = regularSeasonDates[toSeason.value].endDate;
                 } else {
-                    fromDateInput.value = playoffsSeasonDates[fromSeason].startDate;
-                    toDateInput.value = playoffsSeasonDates[toSeason].endDate;
+                    fromDate.value = playoffsSeasonDates[fromSeason.value].startDate;
+                    toDate.value = playoffsSeasonDates[toSeason.value].endDate;
                 }
             }
 
@@ -240,7 +285,7 @@
             });
 
             // Add event listeners to the gameType selector to listen for changes
-            gameTypeSelector.addEventListener('change', () => {
+            gameType.addEventListener('change', () => {
                 setDateValues();
             });
 

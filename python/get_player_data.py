@@ -1208,6 +1208,18 @@ def calc_cumulative_z_scores(df: pd.DataFrame):
         df['z_offense'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='offense')
         # calc peripheral category z-scores
         df['z_peripheral'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_weighted'] =  ''
+        df['z_offense_weighted'] = ''
+        df['z_peripheral_weighted'] = ''
+        df['z_count_weighted'] = ''
+        df['z_ratio_weighted'] = ''
+
         # calc sog+hits+blocks category z-scores
         df['z_sog_hits_blk'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='sog_hits_blk')
         # calc hits+blocks category z-scores
@@ -1346,6 +1358,18 @@ def calc_per_game_z_scores(df: pd.DataFrame):
         df['z_offense_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='offense')
         # calc peripheral category z-scores
         df['z_peripheral_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_pg_weighted'] =  ''
+        df['z_offense_pg_weighted'] = ''
+        df['z_peripheral_pg_weighted'] = ''
+        df['z_count_pg_weighted'] = ''
+        df['z_ratio_pg_weighted'] = ''
+
         # calc sog+hits+blocks category z-scores
         df['z_sog_hits_blk_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='sog_hits_blk')
         # calc hits+blocks category z-scores
@@ -1481,6 +1505,18 @@ def calc_per_60_z_scores(df: pd.DataFrame):
         df['z_offense_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='offense')
         # calc peripheral category z-scores
         df['z_peripheral_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_p60_weighted'] =  ''
+        df['z_offense_p60_weighted'] = ''
+        df['z_peripheral_p60_weighted'] = ''
+        df['z_count_p60_weighted'] = ''
+        df['z_ratio_p60_weighted'] = ''
+
         # calc sog+hits+blocks category z-scores
         df['z_sog_hits_blk_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='sog_hits_blk')
         # calc hits+blocks category z-scores
@@ -1842,13 +1878,20 @@ def calc_z_scores_by_stat_type(df: pd.DataFrame, points_type: str='cumulative', 
                             (x['pos'] == defense_position_code and np.isnan(eval(d_categories_as_eval_str)).all())
                             or
                             (x['pos'] == goalie_position_code and np.isnan(eval(g_categories_count_as_eval_str)).all() and np.isnan(eval(g_categories_ratio_as_eval_str)).all())
+                        # forwards
                         else np.nansum([x if x>0 else 0 for x in eval(f_categories_as_eval_str)])
-                            if x['pos'] in forward_position_codes
+                             if x['pos'] in forward_position_codes and score_type not in ['g_count', 'g_ratio']
+                            # defense
                             else np.nansum([x if x>0 else 0 for x in eval(d_categories_as_eval_str)])
-                                if x['pos'] == defense_position_code
-                                else np.nansum([x if x>0 else 0 for x in eval(g_categories_count_as_eval_str)] + [x for x in eval(g_categories_ratio_as_eval_str)])
-                                     if score_type == 'total'
-                                     else np.nan
+                                 if x['pos'] == defense_position_code and score_type not in ['g_count', 'g_ratio']
+                                 # goalies
+                                 else np.nansum([x if x>0 else 0 for x in eval(g_categories_count_as_eval_str)])
+                                      if x['pos'] == goalie_position_code and score_type == 'g_count'
+                                      else np.nansum([x for x in eval(g_categories_ratio_as_eval_str)])
+                                           if x['pos'] == goalie_position_code and score_type == 'g_ratio'
+                                           else np.nansum([x if x>0 else 0 for x in eval(g_categories_count_as_eval_str)] + [x for x in eval(g_categories_ratio_as_eval_str)])
+                                                if x['pos'] == goalie_position_code and score_type == 'total'
+                                                else np.nan
                         , axis='columns')
 
     return scores
@@ -2368,7 +2411,7 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
             columns = {f'{title}': f'{alias}' for (title, alias) in zip(per_60_column_titles, per_60_column_title_aliases)}
             df_temp.rename(columns=columns, inplace=True)
 
-        cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int64,np.float64]).columns) if x in df_temp.columns]
+        cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int,np.float,np.int64,np.float64]).columns) if x in df_temp.columns]
         cols_to_sort_descending = [df_temp.columns.get_loc(x) for x in get_config_default_sort_order_columns(config=config) if x in df_temp.columns]
 
         general_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_general_info_columns(config=config) if x in df_temp.columns]
@@ -2704,6 +2747,15 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'z-peripheral', 'runtime column': 'z_peripheral', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
             {'title': 'z-combo peripheral', 'runtime column': 'z_peripheral_combo', 'format': eval(f_str), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
 
+            {'title': 'z-count', 'runtime column': 'z_g_count', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+            {'title': 'z-ratio', 'runtime column': 'z_g_ratio', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+
+            {'title': 'z-score weighted', 'runtime column': 'z_score_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('general', 'z_score_sum'), 'hide': True},
+            {'title': 'z-offense weighted', 'runtime column': 'z_offense_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-peripheral weighted', 'runtime column': 'z_peripheral_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-count weighted', 'runtime column': 'z_count_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
+            {'title': 'z-ratio weighted', 'runtime column': 'z_ratio_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
+
             {'title': 'z-sog +hits +blk', 'runtime column': 'z_sog_hits_blk', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
             {'title': 'z-hits +blks', 'runtime column': 'z_hits_blk', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
             {'title': 'z-goals +hits +penalties', 'runtime column': 'z_goals_hits_pim', 'format': eval(f_1_decimal), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
@@ -2729,6 +2781,15 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'z-peripheral pg', 'alias': 'z-peripheral', 'runtime column': 'z_peripheral_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
             {'title': 'z-combo peripheral pg', 'alias': 'z-combo peripheral', 'runtime column': 'z_peripheral_combo_pg', 'format': eval(f_str), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
 
+            {'title': 'z-count pg', 'runtime column': 'z_g_count_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+            {'title': 'z-ratio pg', 'runtime column': 'z_g_ratio_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+
+            {'title': 'z-score pg weighted', 'runtime column': 'z_score_pg_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('general', 'z_score_sum'), 'hide': True},
+            {'title': 'z-offense pg weighted', 'runtime column': 'z_offense_pg_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-peripheral pg weighted', 'runtime column': 'z_peripheral_pg_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-count pg weighted', 'runtime column': 'z_count_pg_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
+            {'title': 'z-ratio pg weighted', 'runtime column': 'z_ratio_pg_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
+
             {'title': 'z-sog +hits +blk pg', 'alias': 'z-sog +hits +blk', 'runtime column': 'z_sog_hits_blk_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
             {'title': 'z-hits +blks pg', 'alias': 'z-hits +blks', 'runtime column': 'z_hits_blk_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
             {'title': 'z-goals +hits +penalties pg', 'alias': 'z-goals +hits +penalties', 'runtime column': 'z_goals_hits_pim_pg', 'format': eval(f_1_decimal), 'stat_type': 'Per game', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
@@ -2750,6 +2811,15 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'z-combo offense p60', 'alias': 'z-combo offense', 'runtime column': 'z_offense_combo_p60', 'format': eval(f_str), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
             {'title': 'z-peripheral p60', 'alias': 'z-peripheral', 'runtime column': 'z_peripheral_p60', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
             {'title': 'z-combo peripheral p60', 'alias': 'z-combo peripheral', 'runtime column': 'z_peripheral_combo_p60', 'format': eval(f_str), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum')},
+
+            {'title': 'z-count p60', 'runtime column': 'z_g_count_p60', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+            {'title': 'z-ratio p60', 'runtime column': 'z_g_ratio_p60', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum')},
+
+            {'title': 'z-score p60 weighted', 'runtime column': 'z_score_p60_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('general', 'z_score_sum'), 'hide': True},
+            {'title': 'z-offense p60 weighted', 'runtime column': 'z_offense_p60_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-peripheral p60 weighted', 'runtime column': 'z_peripheral_p60_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
+            {'title': 'z-count p60 weighted', 'runtime column': 'z_count_p60_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
+            {'title': 'z-ratio p60 weighted', 'runtime column': 'z_ratio_p60_weighted', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('goalie', 'z_score_sum'), 'hide': True},
 
             {'title': 'z-sog +hits +blk p60', 'alias': 'z-sog +hits +blk', 'runtime column': 'z_sog_hits_blk_p60', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
             {'title': 'z-hits +blks p60', 'alias': 'z-hits +blks', 'runtime column': 'z_hits_blk_p60', 'format': eval(f_1_decimal), 'stat_type': 'Per 60 minutes', 'default order': 'desc', 'data_group': ('skater', 'z_score_sum'), 'hide': True},
