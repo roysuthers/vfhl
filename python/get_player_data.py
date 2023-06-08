@@ -2836,15 +2836,15 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     other_score_columns = {
         'columns': [
-            {'title': 'z-score rank', 'runtime column': 'z_score_rank', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'data_group': 'general', 'hide': True},
-            {'title': 'z-score pg rank', 'alias': 'z-score rank', 'runtime column': 'z_score_pg_rank', 'format': eval(f_0_decimals), 'stat_type': 'Per game', 'data_group': 'general', 'hide': True},
-            {'title': 'z-score p60 rank', 'alias': 'z-score rank', 'runtime column': 'z_score_p60_rank', 'format': eval(f_0_decimals), 'stat_type': 'Per 60 minutes', 'data_group': 'general', 'hide': True},
+            # {'title': 'z-score rank', 'runtime column': 'z_score_rank', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'data_group': 'general', 'hide': True},
+            # {'title': 'z-score pg rank', 'alias': 'z-score rank', 'runtime column': 'z_score_pg_rank', 'format': eval(f_0_decimals), 'stat_type': 'Per game', 'data_group': 'general', 'hide': True},
+            # {'title': 'z-score p60 rank', 'alias': 'z-score rank', 'runtime column': 'z_score_p60_rank', 'format': eval(f_0_decimals), 'stat_type': 'Per 60 minutes', 'data_group': 'general', 'hide': True},
             # {'title': 'athletic z-score rank', 'runtime column': 'athletic_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             # {'title': 'dfo z-score rank', 'runtime column': 'dfo_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             # {'title': 'dobber z-score rank', 'runtime column': 'dobber_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             # {'title': 'dtz z-score rank', 'runtime column': 'dtz_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             # {'title': 'fantrax z-score rank', 'runtime column': 'fantrax_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
-            # {'title': 'fantrax score', 'runtime column': 'fantrax_score', 'visible': not season.SEASON_HAS_ENDED, 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'general', 'hide': True},
+            {'title': 'fantrax score', 'runtime column': 'fantrax_score', 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'general', 'hide': True},
             # {'title': 'fantrax adp', 'runtime column': 'adp', 'format': eval(f_1_decimal), 'data_group': 'draft', 'hide': True},
         ],
     }
