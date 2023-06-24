@@ -52,7 +52,7 @@
                 margin-top: -32px; /* half of the element height */
                 margin-right: -32px; /* half of the element width */
             }
-            #managerSummary {
+            #managerSummary, #managerCategoryNeeds, #categoryScarcity , #categoryScarcityByZScoreRange {
                 margin-left: 0;
                 margin: 10px;
                 white-space: nowrap;
@@ -63,20 +63,45 @@
             #managerSummary th[colspan] {
                 text-align: center;
             }
-            #managerSummary th[colspan="12"] {
+            #managerSummary tr:first-child th[colspan="12"] {
                 background-color: darkcyan;
             }
-            #managerSummary th[colspan="7"] {
+            #managerSummary tr:first-child th[colspan="7"] {
                 background-color: lightgreen;
             }
-            #startDraftButton, #weightedScoreOptions {
+            #managerCategoryNeeds th[colspan="9"] {
+                background-color: darkcyan;
+            }
+            #managerCategoryNeeds th[colspan="4"] {
+                background-color: lightgreen;
+            }
+            #managerCategoryNeeds th[colspan] {
+                text-align: center;
+            }
+            #managerCategoryNeedsContainer, #categoryScarcityContainer {
+                display: flex;
+                flex-wrap: wrap;
+            }
+            #managerCategoryNeedsContainerCaption {
+                text-align: center;
+            }
+            #categoryScarcityByZScoreRange th[colspan="9"] {
+                background-color: darkcyan;
+            }
+            #categoryScarcityByZScoreRange th[colspan="4"] {
+                background-color: lightgreen;
+            }
+            #categoryScarcityByZScoreRange th[colspan] {
+                text-align: center;
+            }
+            #startDraftButton, #autoAssignDraftPicks, #weightedScoreOptions {
                 display: inline-block !important;
                 font-size: 1em;
             }
             #weightedScoreOptions {
                 border: none;
             }
-            #startDraftButton.hidden, #weightedScoreOptions.hidden {
+            #startDraftButton.hidden, #autoAssignDraftPicks.hidden, #weightedScoreOptions.hidden {
                 display: none;
             }
             input[type="date"] {
@@ -145,6 +170,43 @@
             </select>
         </p>
 
+    </head>
+    <body>
+
+        <!-- Spinner to display until data table is loaded -->
+        <p class="spinner"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
+
+        <!-- Draft messages -->
+        <div id='draftMessage' style="display: none; font-size: 2em; text-align: center;">
+            <b>Draft has started...</b>
+        </div>
+
+        <!-- Table for manager z-score summaries -->
+        <table id="managerSummary" class="display cell-border hover compact" style="display: none;">
+            <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Z-Scores</u></b></caption></table>
+        </table>
+
+        <!-- Table to show, for each manager, the categories most needed & least needed  -->
+        <table id="managerCategoryNeeds" class="display cell-border hover compact" style="display: none;">
+            <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Needs</u></b></caption>
+        </table>
+        <p id="managerCategoryNeedsContainerCaption"></p>
+        <div id="managerCategoryNeedsContainer" class="container" style="display: none;">
+            <!-- new manager tables will be appended here -->
+        </div>
+
+        <div id="categoryScarcityContainer" class="container" style="display: none;">
+            <!-- Table for category scarcities -->
+            <table id="categoryScarcity" class="display cell-border hover compact">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity</u></b></caption>
+            </table>
+
+            <!-- Table for category scarcities by z-score ranges -->
+            <table id="categoryScarcityByZScoreRange" class="display cell-border hover compact">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity by Z-Score Range</u></b></caption>
+            </table>
+        </div>
+
         <!-- "Start Draft" button -->
         <button id="startDraftButton" class="hidden">Start Draft</button>
 
@@ -156,26 +218,17 @@
             <input type="radio" name="weightedScoreOpts" value="both" checked>Both
         </fieldset>
 
-        <!-- Draft messages -->
-        <div id='draftMessage' style="display: none; font-size: 2em; text-align: center;">
-            <b>Draft has started...</b>
-        </div>
+        <!-- Auto-assign draft picks -->
+        <button id="autoAssignDraftPicks" class="hidden">Auto-assign Draft Picks</button>
 
         <!-- "Weight Player Z-Scores" button -->
         <button id="weightplayerZScoresButton" style="display: none; font-size: 1em;">Weight Player Z-Scores</button>
 
-    </head>
-    <body>
-
-        <!-- Spinner to display until data table is loaded -->
-        <p class="spinner"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
-
-        <!-- Table for manager z-score summaries -->
-        <table id="managerSummary" class="display cell-border hover compact" style="display: none;"></table>
-
         <!-- Table to display player data -->
         <div id="player_stats-div" class="display cell-border hover compact panel-body" style="display:none">
-            <table id="player_stats"></table>
+            <table id="player_stats">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Player Statistics</u></b></caption>
+            </table>
         </div>
 
         <script src="./javascript/data_tables.js"></script>

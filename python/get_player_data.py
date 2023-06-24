@@ -141,6 +141,39 @@ rolling_avg_period = 3
 
 generated_html_path = './output/html'
 
+def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
+
+    sql = f'select * from dfDraftResults where season_id={season_id}'
+    df_draft_list = pd.read_sql(sql, con=get_db_connection())
+
+    # add draft list columns to df
+    df.set_index(['player_id'], inplace=True)
+    df_draft_list.set_index(['player_id'], inplace=True)
+    df['round'] = df_draft_list['round']
+    df['pick'] = df_draft_list['pick']
+    df['overall'] = df_draft_list['overall']
+    df['picked_by'] = df_draft_list['pool_team']
+    df.fillna({'picked_by': ''}, inplace=True)
+
+    df.reset_index(inplace=True)
+
+    return
+
+def add_pre_draft_keeper_list_column_to_df(season_id: str, df: pd.DataFrame):
+
+    sql = f'select player_id, "Yes" as pre_draft_keeper from dfKeeperLists where season_id={season_id}'
+    df_keeper_list = pd.read_sql(sql, con=get_db_connection())
+
+    # add pre-draft keeper columns to df
+    df.set_index(['player_id'], inplace=True)
+    df_keeper_list.set_index(['player_id'], inplace=True)
+    df['pre_draft_keeper'] = df_keeper_list['pre_draft_keeper']
+    df.fillna({'pre_draft_keeper': ''}, inplace=True)
+
+    df.reset_index(inplace=True)
+
+    return
+
 def aggregate_game_stats(df: pd.DataFrame) -> pd.DataFrame:
 
     df_agg_stats = df.sort_values(['player_id','seasonID', 'date']).groupby(['player_id'], as_index=False).aggregate({
@@ -2161,6 +2194,13 @@ def get_z_score_summary_columns(config: Dict, position: str='skater') -> Dict:
 
     return z_score_category_columns
 
+def get_draft_info_columns(config: Dict) -> Dict:
+
+    draft_info_columns = [x['title'] for x in config['columns'] if 'data_group' in x and 'draft' in x['data_group']]
+    draft_info_columns.sort()
+
+    return draft_info_columns
+
 def insert_fantrax_columns(df: pd.DataFrame):
 
     try:
@@ -2426,6 +2466,7 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
         goalie_z_score_categories_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_category_columns(config=config, position='goalie') if x in df_temp.columns]
         sktr_z_score_summary_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_summary_columns(config=config, position='skater') if x in df_temp.columns]
         goalie_z_score_summary_column_names = [f'{x.replace(" ","_")}:name' for x in get_z_score_summary_columns(config=config, position='goalie') if x in df_temp.columns]
+        draft_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_draft_info_columns(config=config) if x in df_temp.columns]
 
         initially_hidden_column_names = [f'{x.replace(" ","_")}:name' for x in get_columns_by_attribute(config=config, attribute='hide') if x in df_temp.columns]
 
@@ -2445,9 +2486,15 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
                 mean_cat[key] = 0
             if isinstance(mean_cat[key], np.int64):
                 mean_cat[key] = int(mean_cat[key])
+        for key in std_cat.keys():
+            if std_cat[key] is None or np.isnan(std_cat[key]):
+                std_cat[key] = 0
+            if isinstance(std_cat[key], np.int64):
+                std_cat[key] = int(std_cat[key])
         max_cat_dict = dict(max_cat)
         min_cat_dict = dict(min_cat)
         mean_cat_dict = dict(mean_cat)
+        std_cat_dict = dict(std_cat)
 
         # create a dictionary to hold variables to use in jquery datatable
         data_dict = {
@@ -2471,10 +2518,12 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
             'goalie_z_score_summary_column_names': goalie_z_score_summary_column_names,
             'sktr_z_score_categories_column_names': sktr_z_score_categories_column_names,
             'goalie_z_score_categories_column_names': goalie_z_score_categories_column_names,
+            'draft_info_column_names': draft_info_column_names,
             'initially_hidden_column_names': initially_hidden_column_names,
             'max_cat_dict': max_cat_dict,
             'min_cat_dict': min_cat_dict,
             'mean_cat_dict': mean_cat_dict,
+            'std_cat_dict': std_cat_dict,
         }
 
     except:
@@ -2568,11 +2617,11 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     calc_scoring_category_minimums(df=df_player_stats)
     calc_scoring_category_maximums(df=df_player_stats)
 
-    # # if show_draft_list_info:
-    # add_draft_list_columns_to_df(season=season, df=df_player_stats)
+    # if show_draft_list_info:
+    add_draft_list_columns_to_df(season_id=to_season_id, df=df_player_stats)
 
-    # # if pre_draft_keeper columns:
-    # add_pre_draft_keeper_list_column_to_df(season=season, df=df_player_stats)
+    # if pre_draft_keeper columns:
+    add_pre_draft_keeper_list_column_to_df(season_id=to_season_id, df=df_player_stats)
 
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     # drop players in minors and not on active nhl team roster, and not on a pool team and , when projections are used the projected games !> 0
@@ -2737,6 +2786,17 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'game today', 'table column': 'next_opp', 'data_group': 'general', 'hide': True, 'search_builder': True},
         ],
     }
+
+    league_draft_columns = {
+        'columns': [
+            {'title': 'draft round', 'table column': 'round', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'draft position', 'table column': 'pick', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'overall', 'table column': 'overall', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
+            {'title': 'picked by', 'table column': 'picked_by', 'justify': 'left', 'data_group': 'draft', 'hide': True, 'search_builder': True},
+        ],
+    }
+
+    config['columns'].extend(league_draft_columns['columns'])
 
     cumulative_zscore_summary_columns = {
         'columns': [
@@ -3055,6 +3115,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'sv', 'table column': 'saves', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
             {'title': 'gaa', 'table column': 'gaa', 'format': lambda x: '' if pd.isna(x) or x == '' else '{:0.2f}'.format(x), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
             {'title': 'sv%', 'table column': 'save%', 'format': eval(f_3_decimals_no_leading_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
+            {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
+            {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }
 
