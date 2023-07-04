@@ -23,10 +23,10 @@ def player_data():
     pool_id = request.args.get('poolID')
 
     if season_or_date_radios == 'date':
-        file_name = 'player_data_from_{}_to_{}_for_{}_to_{}_seasons'.format(from_date.replace('"', ''), to_date.replace('"', ''), from_season, to_season)
+        file_name = 'player_data_from_{}_to_{}_for_{}{}_to_{}{}_seasons'.format(from_date.replace('"', ''), to_date.replace('"', ''), from_season, game_type, to_season, game_type)
 
     else:
-        file_name = f'player_data_for_{from_season}_to_{to_season}_seasons'
+        file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons'
 
     file_incl_path = f'./json/{file_name}.json'
 

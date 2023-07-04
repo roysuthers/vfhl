@@ -12,16 +12,18 @@ from copy import copy, deepcopy
 from datetime import datetime, timedelta
 from numpy import int32, int64
 from os import path, stat
+import requests
 from typing import Dict, List, Tuple, Union
 from urllib.request import pathname2url
 
+import jmespath as j
 # import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 # import plotly.express as px
 from numpy.polynomial.polynomial import polyfit
 
-from constants import  DATABASE
+from constants import  DATABASE, NHL_API_URL
 from utils import calculate_age, seconds_to_string_time, split_seasonID_into_component_years, string_to_time
 
 # formatting for ranking tables
@@ -1920,6 +1922,11 @@ def calc_z_scores_by_stat_type(df: pd.DataFrame, points_type: str='cumulative', 
                                  # goalies
                                  else np.nansum([x if x>0 else 0 for x in eval(g_categories_count_as_eval_str)])
                                       if x['pos'] == goalie_position_code and score_type == 'g_count'
+                                      # I'm undecided about how to deal with ratio-based stats such as gaa & save%
+                                      # for 2021-2022 & 2022- 2023 season, the best aggregated gaa was 2.43 & the best aggregated save% was 0.921, amongst all managers
+                                      # but the mean for these ratio-based stats were 2.92 & 0.905, respectively
+                                      # this means that a goalie with a 2.75 gaa or 0.915 save% would have positive z-scores,
+                                      # yet be a -ve to aggregate to the 2.43 gaa and the 0.921 save%
                                       else np.nansum([x for x in eval(g_categories_ratio_as_eval_str)])
                                            if x['pos'] == goalie_position_code and score_type == 'g_ratio'
                                            else np.nansum([x if x>0 else 0 for x in eval(g_categories_count_as_eval_str)] + [x for x in eval(g_categories_ratio_as_eval_str)])
@@ -2451,7 +2458,7 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
             columns = {f'{title}': f'{alias}' for (title, alias) in zip(per_60_column_titles, per_60_column_title_aliases)}
             df_temp.rename(columns=columns, inplace=True)
 
-        cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int,np.float,np.int64,np.float64]).columns) if x in df_temp.columns]
+        # cols_to_sort_numeric = [df_temp.columns.get_loc(x) for x in list(df_temp.select_dtypes([np.int,np.float,np.int64,np.float64]).columns) if x in df_temp.columns]
         cols_to_sort_descending = [df_temp.columns.get_loc(x) for x in get_config_default_sort_order_columns(config=config) if x in df_temp.columns]
 
         general_info_column_names = [f'{x.replace(" ","_")}:name' for x in get_general_info_columns(config=config) if x in df_temp.columns]
@@ -2504,7 +2511,7 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
             'cumulative_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in cumulative_column_titles],
             'per_game_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in per_game_column_titles],
             'per_60_column_titles': [{"title": col, "name": col.replace(" ","_")} for col in per_60_column_titles],
-            'numeric_columns': cols_to_sort_numeric,
+            # 'numeric_columns': cols_to_sort_numeric,
             'descending_columns': cols_to_sort_descending,
             'general_info_column_names': general_info_column_names,
             'sktr_info_column_names': sktr_info_column_names,
@@ -3104,6 +3111,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'qs', 'table column': 'quality_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
+            {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
+            {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }
 
@@ -3115,8 +3124,6 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'sv', 'table column': 'saves', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
             {'title': 'gaa', 'table column': 'gaa', 'format': lambda x: '' if pd.isna(x) or x == '' else '{:0.2f}'.format(x), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
             {'title': 'sv%', 'table column': 'save%', 'format': eval(f_3_decimals_no_leading_0), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': ('goalie', 'scoring_category')},
-            {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
-            {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'stat_type': 'Cumulative', 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }
 

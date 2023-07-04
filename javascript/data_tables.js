@@ -6,8 +6,6 @@ var colvisClicked = false;
 var manually_hidden_columns = [];
 var manually_unhidden_columns = [];
 
-const getStatsButton = document.querySelector('#getStatsButton');
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // global variables for Draft
 var draft_picks;
@@ -28,31 +26,26 @@ var dAllCategories = dOffenseCategories.concat(sktrPeripheralCategories);
 var gCountCategories = ['wins', 'saves'];
 var gRatioCategories = ['gaa', 'savePercent'];
 var gAllCategories = gCountCategories.concat(gRatioCategories);
+var allCategories = dAllCategories.concat(gAllCategories);
 
 
 
 $(document).ready(function () {
 
     var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
-    var fromSeason = $('#fromSeason').val();
-    var toSeason = $('#toSeason').val();
-    var fromDate = '"' + $('#fromDate').val() + '"';
-    var toDate = '"' + $('#toDate').val() + '"';
-    var gameType = $('#gameType').val();
-    var statType = $('#statType').val();
-    var poolID = $('#poolID').val();
+    var statType = document.querySelector('#statType');
 
-    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
+    getPlayerData(seasonOrDateRadios, function(playerData) {
 
         updateGlobalVariables(playerData);
 
-        if ( statType === 'Cumulative' ) {
+        if ( statType.value === 'Cumulative' ) {
             var data = cumulative_stats_data;
             var columns = cumulative_column_titles;
-        } else if ( statType === 'Per game' ) {
+        } else if ( statType.value === 'Per game' ) {
             var data = per_game_stats_data;
             var columns = per_game_column_titles;
-        } else if ( statType === 'Per 60 minutes' ) {
+        } else if ( statType.value === 'Per 60 minutes' ) {
             var data = per_60_stats_data;
             var columns = per_60_column_titles;
         }
@@ -112,21 +105,21 @@ $(document).ready(function () {
                             {
                                 label: 'On watch list',
                                 value: function(rowData, rowIdx) {
-                                    return rowData[$('#player_stats').DataTable().column(watch_idx).index()] === 'Yes';
+                                    return rowData[this.column(watch_idx).index()] === 'Yes';
                                 },
                                 className: 'watch_list'
                             },
                             {
                                 label: 'On roster',
                                 value: function(rowData, rowIdx) {
-                                    return rowData[$('#player_stats').DataTable().column(minors_idx).index()] === '';
+                                    return rowData[this.column(minors_idx).index()] === '';
                                 },
                                 className: 'rostered'
                             },
                             {
                                 label: 'In minors',
                                 value: function(rowData, rowIdx) {
-                                    return rowData[$('#player_stats').DataTable().column(minors_idx).index()] === 'Yes';
+                                    return rowData[this.column(minors_idx).index()] === 'Yes';
                                 },
                                 className: 'minors'
                             },
@@ -210,11 +203,11 @@ $(document).ready(function () {
             columnDefs: [
                 // first column, rank in group, is not orderable or searchable
                 {searchable: false, orderable: false, targets: rank_in_group_idx},
-                {type: 'num', targets: numeric_columns},
+                // {type: 'num', targets: numeric_columns},
+                {type: 'num', targets: [37]}, // weightedZScore_idx; otherwise doesn't sort numerically
                 {orderSequence: ['desc', 'asc'], targets: descending_columns},
-                {
-                    targets: fantrax_score_idx,
-                    render: function(data, type, row, meta) {
+                {targets: fantrax_score_idx,
+                 render: function(data, type, row, meta) {
                         if (type === 'sort' && auto_assign_picks === true && row[position_idx] === "G") {
                             return (data * 0.7).toFixed(2);
                         } else {
@@ -387,14 +380,13 @@ $(document).ready(function () {
                 { targets: sktr_category_heatmap_columns,
                     createdCell: function (td, cellData, rowData, row, col) {
                     if ( heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            var statType = $('#statType').val();
                             if ( rowData[position_idx]!=='G' ) {
                                 if ( col == points_idx && rowData[position_idx] === 'D' ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'points'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'pts_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'pts_p60'
                                     }
                                     $(td).colourize({
@@ -402,11 +394,11 @@ $(document).ready(function () {
                                         center: mean_cat['d ' + cat],
                                     });
                                 } else if ( col == goals_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'goals'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'g_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'g_p60'
                                     }
                                     $(td).colourize({
@@ -414,11 +406,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == assists_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'assists'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'a_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'a_p60'
                                     }
                                     $(td).colourize({
@@ -426,11 +418,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == ppp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'points_pp'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'ppp_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'ppp_p60'
                                     }
                                     $(td).colourize({
@@ -438,11 +430,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == sog_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'shots'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'sog_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'sog_p60'
                                     }
                                     $(td).colourize({
@@ -450,11 +442,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == sog_pp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'shots_powerplay'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'sog_pp_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'sog_pp_p60'
                                     }
                                     $(td).colourize({
@@ -462,11 +454,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == tk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'takeaways'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'tk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'tk_p60'
                                     }
                                     $(td).colourize({
@@ -474,11 +466,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == hits_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'hits'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'hits_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'hits_p60'
                                     }
                                     $(td).colourize({
@@ -486,11 +478,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == blk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'blocked'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'blk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'blk_p60'
                                     }
                                     $(td).colourize({
@@ -498,11 +490,11 @@ $(document).ready(function () {
                                         center: mean_cat['sktr ' + cat],
                                     });
                                 } else if ( col == pim_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'pim'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'pim_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'pim_p60'
                                     }
                                     $(td).colourize({
@@ -519,14 +511,13 @@ $(document).ready(function () {
                 { targets: goalie_category_heatmap_columns,
                     createdCell: function (td, cellData, rowData, row, col) {
                         if (heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            var statType = $('#statType').val();
                             if ( rowData[position_idx]==='G' ) {
                                 if ( col == wins_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'wins'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'wins_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'wins_p60'
                                     }
                                     $(td).colourize({
@@ -534,11 +525,11 @@ $(document).ready(function () {
                                         center: mean_cat[cat],
                                     });
                                 } else if ( col == saves_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'saves'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'saves_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'saves_p60'
                                     }
                                     $(td).colourize({
@@ -546,11 +537,11 @@ $(document).ready(function () {
                                         center: mean_cat[cat],
                                     });
                                 } else if ( col == gaa_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'gaa'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'gaa_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'gaa_p60'
                                     }
                                     $(td).colourize({
@@ -560,11 +551,11 @@ $(document).ready(function () {
                                         theme: 'cool-warm-reverse',
                                     });
                                 } else if ( col == saves_percent_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'save%'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'save%_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'save%_p60'
                                     }
                                     $(td).colourize({
@@ -582,14 +573,13 @@ $(document).ready(function () {
                 { targets: sktr_category_z_score_heatmap_columns,
                     createdCell: function (td, cellData, rowData, row, col) {
                         if ( heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            var statType = $('#statType').val();
                             if ( rowData[position_idx]!=='G' ) {
                                 if ( col == z_points_idx && rowData[position_idx] === 'D' ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_points'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_pts_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_pts_p60'
                                     }
                                     $(td).colourize({
@@ -598,11 +588,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_goals_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_goals'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_g_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_g_p60'
                                     }
                                     $(td).colourize({
@@ -611,11 +601,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_assists_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_assists'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_a_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_a_p60'
                                     }
                                     $(td).colourize({
@@ -624,11 +614,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_ppp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_points_pp'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_ppp_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_ppp_p60'
                                     }
                                     $(td).colourize({
@@ -637,11 +627,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_sog_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_shots'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_sog_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_sog_p60'
                                     }
                                     $(td).colourize({
@@ -650,11 +640,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_tk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_takeaways'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_tk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_tk_p60'
                                     }
                                     $(td).colourize({
@@ -663,11 +653,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_hits_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_hits'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_hits_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_hits_p60'
                                     }
                                     $(td).colourize({
@@ -676,11 +666,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_blk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_blocked'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_blk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_blk_p60'
                                     }
                                     $(td).colourize({
@@ -689,11 +679,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_pim_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_pim'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_pim_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_pim_p60'
                                     }
                                     $(td).colourize({
@@ -711,14 +701,13 @@ $(document).ready(function () {
                 { targets: goalie_category_z_score_heatmap_columns,
                     createdCell: function (td, cellData, rowData, row, col) {
                         if (heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            var statType = $('#statType').val();
                             if ( rowData[position_idx]==='G' ) {
                                 if ( col == z_wins_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_wins'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_wins_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_wins_p60'
                                     }
                                     $(td).colourize({
@@ -727,11 +716,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_saves_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_saves'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_saves_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_saves_p60'
                                     }
                                     $(td).colourize({
@@ -740,11 +729,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_gaa_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_gaa'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_gaa_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_gaa_p60'
                                     }
                                     $(td).colourize({
@@ -753,11 +742,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_saves_percent_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_save%'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_save%_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_save%_p60'
                                     }
                                     $(td).colourize({
@@ -775,13 +764,12 @@ $(document).ready(function () {
                 { targets: z_score_summary_heatmap_columns,
                     createdCell: function (td, cellData, rowData, row, col) {
                         if ( heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                                var statType = $('#statType').val();
                                 if ( col == z_score_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_score'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_score_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_score_p60'
                                     }
                                     $(td).colourize({
@@ -790,11 +778,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( col == z_score_vorp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_score_vorp'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_score_pg_vorp'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_score_p60_vorp'
                                     }
                                     $(td).colourize({
@@ -803,11 +791,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_offense_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_offense'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_offense_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_offense_p60'
                                     }
                                     $(td).colourize({
@@ -816,11 +804,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_offense_vorp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_offense_vorp'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_offense_pg_vorp'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_offense_p60_vorp'
                                     }
                                     $(td).colourize({
@@ -829,11 +817,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_peripheral_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_peripheral'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_peripheral_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_peripheral_p60'
                                     }
                                     $(td).colourize({
@@ -842,11 +830,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_sog_hits_blk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_sog_hits_blk'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_sog_hits_blk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_sog_hits_blk_p60'
                                     }
                                     $(td).colourize({
@@ -855,11 +843,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_hits_blk_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_hits_blk'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_hits_blk_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_hits_blk_p60'
                                     }
                                     $(td).colourize({
@@ -868,11 +856,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_goals_hits_pim_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_goals_hits_pim'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_goals_hits_pim_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_goals_hits_pim_p60'
                                     }
                                     $(td).colourize({
@@ -881,11 +869,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_hits_pim_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_hits_pim'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_hits_pim_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_hits_pim_p60'
                                     }
                                     $(td).colourize({
@@ -894,11 +882,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]!=='G' && col == z_peripheral_vorp_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_peripheral_vorp'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_peripheral_pg_vorp'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_peripheral_p60_vorp'
                                     }
                                     $(td).colourize({
@@ -907,11 +895,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]==='G' && col == z_g_count_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_g_count'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_g_count_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_g_count_p60'
                                     }
                                     $(td).colourize({
@@ -920,11 +908,11 @@ $(document).ready(function () {
                                         center: 0,
                                     });
                                 } else if ( rowData[position_idx]==='G' && col == z_g_ratio_idx ) {
-                                    if ( statType === 'Cumulative' ) {
+                                    if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_g_ratio'
-                                    } else if ( statType === 'Per game' ) {
+                                    } else if ( statType.value === 'Per game' ) {
                                         cat = 'z_g_ratio_pg'
-                                    } else if ( statType === 'Per 60 minutes' ) {
+                                    } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_g_ratio_p60'
                                     }
                                     $(td).colourize({
@@ -1188,7 +1176,7 @@ $(document).ready(function () {
 
                 // save current & initial previous statType (i.e., 'Cumulative')
                 $('#statType').data('previous', '');
-                $('#statType').data('current', $('#statType').val());
+                $('#statType').data('current', statType.value);
                 // set current & previous "pos" searchPane selection to '' (i.e., no selection)
                 $('#DataTables_Table_0').data('previous', '');
                 $('#DataTables_Table_0').data('current', '');
@@ -1214,8 +1202,8 @@ $(document).ready(function () {
                 createCategoryScarcityTable(categoryScarcity);
 
                 // create Category Scarcity by Z-score Range table
-                categoryZScorePlayerCounts = calcCategoryScarcityByZScoreRange(allPlayers);
-                createCategoryScarcityByZScoreRangeTable(categoryZScorePlayerCounts);
+                categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
+                createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
 
                 // show tables
                 hideSpinnerShowTables()
@@ -1231,22 +1219,15 @@ $(document).ready(function () {
         // table.searchPanes.resizePanes();
 
         // *******************************************************************
-        // select searchPane options
-        $('div.dtsp-searchPanes table').DataTable().on('user-select', function(e, dt, type, cell, originalEvent){
-            // "DataTables_Table_0" is "pos" searchPane
-            if (this.id == "DataTables_Table_0") {
-                // hideTablesShowSpinner();
-                // $('#DataTables_Table_0').data('previous', $('#DataTables_Table_0').data('current'));
-                // save "pos" searchPane selection as "current"
-                if ( $('#DataTables_Table_0').data('previous') === cell.data() ) {
-                    $('#DataTables_Table_0').data('current', '');
-                } else {
-                    $('#DataTables_Table_0').data('current', cell.data());
-                }
-                columnVisibility( 'position change' );
-                // hideSpinnerShowTables();
+        // "DataTables_Table_0" is "pos" searchPane
+        $('#DataTables_Table_0').DataTable().on('user-select', function(e, dt, type, cell, originalEvent){
+            // save "pos" searchPane selection as "current"
+            if ( $('#DataTables_Table_0').data('previous') === cell.data() ) {
+                $('#DataTables_Table_0').data('current', '');
+            } else {
+                $('#DataTables_Table_0').data('current', cell.data());
             }
-
+            columnVisibility( 'position change' );
         });
 
         // *******************************************************************
@@ -1526,16 +1507,6 @@ $(document).ready(function () {
         // // set "name" as fixed column
         // table.on('draw.dt column-visibility.dt', function () {
 
-        //     // // load stats for stat type
-        //     // var current_stat_type = $('#statType').data('current');
-        //     // if ( current_stat_type === 'Cumulative' ) {
-        //     //     var columns = cumulative_column_titles;
-        //     // } else if ( current_stat_type === 'Per game' ) {
-        //     //     var columns = per_game_column_titles;
-        //     // } else if ( current_stat_type === 'Per 60 minutes' ) {
-        //     //     var columns = per_60_column_titles;
-        //     // }
-
         //     // // Loop through each header cell and set the text to the desired value
         //     // table.columns().every(function(index) {
         //     //     $(table.column(index).header()).text(columns[index].title);
@@ -1609,61 +1580,54 @@ $(document).ready(function () {
 
     });
 
-})
+    document.getElementById('getStatsButton').addEventListener('click', async () => {
 
-getStatsButton.addEventListener('click', async () => {
+        // show spinner & hide tables
+        hideTablesShowSpinner()
 
-    // show spinner & hide tables
-    hideTablesShowSpinner()
+        var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
 
-    var seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
-    var fromSeason = $('#fromSeason').val();
-    var toSeason = $('#toSeason').val();
-    var fromDate = $('#dateControls').children()[0].value;
-    var toDate = $('#dateControls').children()[1].value;
-    var gameType = $('#gameType').val();
-    var statType = $('#statType').val();
-    var poolID = $('#poolID').val();
+        getPlayerData(seasonOrDateRadios, function(playerData) {
 
-    getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, function(playerData) {
+            caption = updateCaption();
+            let tableCaption = document.querySelector('#player_stats caption');
+            tableCaption.textContent = caption;
+            tableCaption = document.querySelector('#managerSummary caption');
+            tableCaption.textContent = caption + ' - Manager Z-Scores';
+            tableCaption = document.querySelector('#managerCategoryNeeds caption');
+            tableCaption.textContent = caption + ' - Manager Needs';
+            tableCaption = document.querySelector('#managerCategoryNeedsContainerCaption');
+            tableCaption.textContent = caption + ' - Manager Needs';
+            tableCaption = document.querySelector('#categoryScarcity caption');
+            tableCaption.textContent = caption + ' - Category Scarcity';
+            tableCaption = document.querySelector('#categoryScarcityByZScoreRange caption');
+            tableCaption.textContent = caption + ' - Category Scarcity By Z-score Range';
 
-        caption = updateCaption();
-        let tableCaption = document.querySelector('#player_stats caption');
-        tableCaption.textContent = caption;
-        tableCaption = document.querySelector('#managerSummary caption');
-        tableCaption.textContent = caption + ' - Manager Z-Scores';
-        tableCaption = document.querySelector('#managerCategoryNeeds caption');
-        tableCaption.textContent = caption + ' - Manager Needs';
-        tableCaption = document.querySelector('#managerCategoryNeedsContainerCaption');
-        tableCaption.textContent = caption + ' - Manager Needs';
-        tableCaption = document.querySelector('#categoryScarcity caption');
-        tableCaption.textContent = caption + ' - Category Scarcity';
-        tableCaption = document.querySelector('#categoryScarcityByZScoreRange caption');
-        tableCaption.textContent = caption + ' - Category Scarcity By Z-score Range';
+            updateGlobalVariables(playerData);
 
-        updateGlobalVariables(playerData);
+            if ( statType.value === 'Cumulative' ) {
+                var data = cumulative_stats_data;
+                var columns = cumulative_column_titles;
+            } else if ( statType.value === 'Per game' ) {
+                var data = per_game_stats_data;
+                var columns = per_game_column_titles;
+            } else if ( statType.value === 'Per 60 minutes' ) {
+                var data = per_60_stats_data;
+                var columns = per_60_column_titles;
+            }
 
-        if ( statType === 'Cumulative' ) {
-            var data = cumulative_stats_data;
-            var columns = cumulative_column_titles;
-        } else if ( statType === 'Per game' ) {
-            var data = per_game_stats_data;
-            var columns = per_game_column_titles;
-        } else if ( statType === 'Per 60 minutes' ) {
-            var data = per_60_stats_data;
-            var columns = per_60_column_titles;
-        }
+            updateColumnIndexes(columns);
 
-        updateColumnIndexes(columns);
+            updateHeatmapColumnLists();
 
-        updateHeatmapColumnLists();
+            updatePlayerStatsTable(data);
 
-        updatePlayerStatsTable(data);
+            // show tables
+            hideSpinnerShowTables()
 
-        // show tables
-        hideSpinnerShowTables()
+        } );
 
-    } );
+    })
 
 })
 
@@ -1673,13 +1637,15 @@ $('input[name="weightedScoreOpts"]').on('change', function() {
     var weightedAvailablePlayer = updatePlayerValueAndZScores();
     updateTableWithWeightedZScores(weightedAvailablePlayer);
 
+    $('#player_stats').DataTable().draw();
+
 })
 
 // display stat type columns
 $('#statType').on('change', function() {
 
     // save current statType (i.e., 'Cumulative')
-    $('#statType').data('current', $('#statType').val());
+    $('#statType').data('current', statType.value);
     columnVisibility( 'stat type change' );
 
     // remove table data
@@ -1695,7 +1661,7 @@ $('#statType').on('change', function() {
         table.rows.add(per_60_stats_data);
     }
 
-    data = calcManagerSummaryData(table);
+    data = calcManagerSummaryZScores(table);
     updateManagerSummaryTable(data);
 
     data = calcManagerCategoryNeedsData();
@@ -1712,7 +1678,7 @@ $('#statType').on('change', function() {
     tableCaption.textContent = caption + ' - Manager Needs';
     tableCaption = document.querySelector('#categoryScarcity caption');
     tableCaption.textContent = caption + ' - Category Scarcity';
-tableCaption = document.querySelector('#categoryScarcityByZScoreRange caption');
+    tableCaption = document.querySelector('#categoryScarcityByZScoreRange caption');
     tableCaption.textContent = caption + ' - Category Scarcity By Z-score Range';
 
     table.columns.adjust().draw();
@@ -1733,7 +1699,7 @@ $.fn.dataTable.Api.registerPlural( 'columns().names()', 'column().name()', funct
     }, 1 );
 })
 
-// event listener to the "Weight Player Z-Scores" button
+// event listener to the "Start Draft" button
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
     $("#loadingSpinner").show();
@@ -1746,7 +1712,7 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         clearDraftColumns();
 
         let table = $('#player_stats').DataTable();
-        data = calcManagerSummaryData(table);
+        data = calcManagerSummaryZScores(table);
         updateManagerSummaryTable(data);
 
         data = calcManagerCategoryNeedsData();
@@ -1777,14 +1743,19 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         columns_to_be_visible = [fantrax_score_idx, weightedZScore_idx, weightedZOffense_idx, weightedZPeripheral_idx, weightedGZCount_idx, weightedGZRatio_idx];
         table.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
 
-        // $('#startDraftButton').hide();
         $("#loadingSpinner").hide();
         $('#managerSummary').show();
-        // $('#managerCategoryNeeds').show();
+        $('#managerCategoryNeedsContainerCaption').show();
         $('#managerCategoryNeedsContainer').show();
         $('#categoryScarcityContainer').show();
+        // but hide categoryScarcity table, as I think it's not useful
+        $('#categoryScarcity').hide();
         $('#draftMessage').show();
-        // $('#categoryScarcityByZScoreRange').show();
+
+        // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
+        // declaration, even if it is added dynamically with JavaScript.
+        $('#weightedScoreOptions').removeClass('hidden').css('display', 'inline-block');
+        $('#autoAssignDraftPicks').removeClass('hidden').css('display', 'inline-block');
 
         initDraftContextMenu();
 
@@ -1814,7 +1785,7 @@ function assignManager(table, rowIndex, manager) {
     table.cell(rowIndex, draft_position_idx).data(draft_picks[0].round_pick);
     // table.cell(rowIndex, draft_overall_pick_idx).data(draft_picks[0].draft_round);
 
-    data = calcManagerSummaryData(table);
+    data = calcManagerSummaryZScores(table);
     updateManagerSummaryTable(data);
 
     data = calcManagerCategoryNeedsData();
@@ -1922,12 +1893,16 @@ function autoAssignDraftPick() {
     if (draft_manager === 'Banshee') {
         if ((fCount + dCount + gCount) <= 16) {
             table.order([weightedZOffense_idx, 'desc']);
+            // table.order([z_offense_idx, 'desc']);
         } else if ((fCount + dCount + gCount) <= 20) {
             table.order([weightedZPeripheral_idx, 'desc']);
+            // table.order([z_peripheral_idx, 'desc']);
         } else if ((fCount + dCount + gCount) <= 21) {
             table.order([weightedZScore_idx, 'desc']);
+            // table.order([z_score_idx, 'desc']);
         } else {
             table.order([weightedGZCount_idx, 'desc']);
+            // table.order([z_g_count_idx, 'desc']);
         }
     } else {
         table.order([fantrax_score_idx, 'desc']);
@@ -1937,14 +1912,20 @@ function autoAssignDraftPick() {
     // Get row indexes in filtered and sorted order
     var filteredSortedIndexes = table.rows({order: 'current', search: 'applied'}).indexes().toArray();
 
-    // if (draft_manager === "Banshee") {
-    //     // Hide the context menu
-    //     // options.$menu.trigger('contextmenu:hide');
-    //     $.contextMenu('hide');
-    //     return;
-    // }
+    // randomly select one of first 10 rows
+    var randomIndex = Math.floor(Math.random() * 10);
+    var selectedRow = filteredSortedIndexes[randomIndex];
 
-    if (assignManager(table, filteredSortedIndexes[0], draft_manager) === false) {
+    if (draft_manager === "Banshee") {
+        // Hide the context menu
+        // options.$menu.trigger('contextmenu:hide');
+        // $.contextMenu('hide');
+        // Manually select player
+        return;
+
+    }
+
+    if (assignManager(table, selectedRow, draft_manager) === false) {
         auto_assign_picks = false;
         return;
     }
@@ -1982,6 +1963,9 @@ function autoAssignDraftPicks() {
         }
     );
 
+    // Clear all search pane selections
+    $('#player_stats').DataTable().searchPanes.clearSelections();
+
     autoAssignDraftPick();
 
 }
@@ -1990,7 +1974,7 @@ function calcCategoryScarcityByZScoreRange(players) {
 
     let zScoreMinimum = 6.5;
     let zScoreMaximum = zScoreMinimum + 0.49;
-    let categoryZScorePlayerCounts = [];
+    let categoryScarcityByZScoreRange = [];
     while (zScoreMinimum >= 0) {
 
         // This code counts the number of elements in players that meet the specified conditions and stores the result in the count variable.
@@ -2044,14 +2028,14 @@ function calcCategoryScarcityByZScoreRange(players) {
             var zScoreRange = `${zScoreMinimum} - ${zScoreMaximum}`;
             // the square brackets ([]) around the zScoreRange variable tell JavaScript to use the value of the zScoreRange variable as the property name.
             // This means that the property name will be "5 - 5.49", for example, instead of "zScoreRange"
-            categoryZScorePlayerCounts.push({[zScoreRange]: {'points': dPointsZScorePlayerCounts, 'goals': goalsZScorePlayerCounts, 'assists': assistsZScorePlayerCounts, 'powerplayPoints': powerplayPointsZScorePlayerCounts, 'shotsOnGoal': shotsOnGoalZScorePlayerCounts, 'hits': hitsZScorePlayerCounts, 'blockedShots': blockedShotsZScorePlayerCounts, 'takeaways': takeawaysZScorePlayerCounts, 'penaltyMinutes': penaltyMinutesZScorePlayerCounts, 'wins': winsZScorePlayerCounts, 'saves': savesZScorePlayerCounts, 'gaa': gaaZScorePlayerCounts, 'savePercent': savePercentZScorePlayerCounts, }});
+            categoryScarcityByZScoreRange.push({[zScoreRange]: {'points': dPointsZScorePlayerCounts, 'goals': goalsZScorePlayerCounts, 'assists': assistsZScorePlayerCounts, 'powerplayPoints': powerplayPointsZScorePlayerCounts, 'shotsOnGoal': shotsOnGoalZScorePlayerCounts, 'hits': hitsZScorePlayerCounts, 'blockedShots': blockedShotsZScorePlayerCounts, 'takeaways': takeawaysZScorePlayerCounts, 'penaltyMinutes': penaltyMinutesZScorePlayerCounts, 'wins': winsZScorePlayerCounts, 'saves': savesZScorePlayerCounts, 'gaa': gaaZScorePlayerCounts, 'savePercent': savePercentZScorePlayerCounts, }});
         }
 
         zScoreMinimum -= 0.5;
         zScoreMaximum = zScoreMinimum + 0.49;
     }
 
-    // This code calculates the totals for each category across all elements in categoryZScorePlayerCounts and stores the result in the totals variable.
+    // This code calculates the totals for each category across all elements in categoryScarcityByZScoreRange and stores the result in the totals variable.
     // Then, a new element is added to the end of myArray with a property named "Totals" and a value equal to the totals object.
     // The reduce method takes a callback function and an initial value as arguments.
     // The callback function takes two arguments: an accumulator (acc) and the current element (curr).
@@ -2059,7 +2043,7 @@ function calcCategoryScarcityByZScoreRange(players) {
     // and the keys of the categories object within the current element.
     // For each category, the value is added to the accumulator object, creating a new property if it doesn’t already exist.
     // The initial value of the accumulator is set to an empty object.
-    let totals = categoryZScorePlayerCounts.reduce((acc, curr) => {
+    let totals = categoryScarcityByZScoreRange.reduce((acc, curr) => {
         Object.keys(curr).forEach(key => {
             let categories = curr[key];
             Object.keys(categories).forEach(category => {
@@ -2073,9 +2057,9 @@ function calcCategoryScarcityByZScoreRange(players) {
         return acc;
     }, {});
 
-    categoryZScorePlayerCounts.push({'Totals': totals});
+    categoryScarcityByZScoreRange.push({'Totals': totals});
 
-    return categoryZScorePlayerCounts;
+    return categoryScarcityByZScoreRange;
 
 }
 
@@ -2132,7 +2116,7 @@ function calcManagerCategoryNeedsData() {
 
 }
 
-function calcManagerSummaryData(table) {
+function calcManagerSummaryZScores(table) {
 
     // Get data from player stats table
     var originalData = table.data().toArray();
@@ -2280,7 +2264,6 @@ function calcManagerSummaryData(table) {
     // Loop through new data and set floats to 2 decimal places
     for (var i = 0; i < data.length; i++) {
         var row = data[i];
-        data[i].zScore = row.zScore.toFixed(1);
         data[i].zScoreSktr = row.zScoreSktr.toFixed(1);
         data[i].zOffense = row.zOffense.toFixed(1);
         data[i].zPeripheral = row.zPeripheral.toFixed(1);
@@ -2293,13 +2276,15 @@ function calcManagerSummaryData(table) {
         data[i].hits = row.hits.toFixed(2);
         data[i].takeaways = row.takeaways.toFixed(2);
         data[i].penaltyMinutes = row.penaltyMinutes.toFixed(2);
-        data[i].zScoreG = row.zScoreG.toFixed(1);
         data[i].zCountG = row.zCountG.toFixed(1);
-        data[i].zRatioG = row.zRatioG.toFixed(1);
         data[i].wins = row.wins.toFixed(2);
         data[i].saves = row.saves.toFixed(2);
-        data[i].gaa = row.gaa.toFixed(2);
-        data[i].savePercent = row.savePercent.toFixed(2);
+        // as a rough measure of z-sxores for gaa & save%, I think I need to use the average of the manager's goalies
+        data[i].gaa = (row.gaa/row.gCount).toFixed(2);
+        data[i].savePercent = (row.savePercent/row.gCount).toFixed(2);
+        data[i].zRatioG = (parseFloat(data[i].gaa) + parseFloat(data[i].savePercent)).toFixed(1);
+        data[i].zScoreG = (parseFloat(data[i].zCountG) + parseFloat(data[i].zRatioG)).toFixed(1);
+        data[i].zScore = (parseFloat(data[i].zScoreSktr) + parseFloat(data[i].zScoreG)).toFixed(1);
     };
 
     return data;
@@ -2407,8 +2392,6 @@ function createCategoryScarcityTable(data_dict) {
         }
         categories.push({category: label, value: data_dict[key].toFixed(2)});
     }
-
-    let properties = ['points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'wins', 'saves', 'gaa', 'savePercent'];
 
     // Initialize new DataTable with calculated data
     $('#categoryScarcity').DataTable({
@@ -2520,7 +2503,7 @@ function createManagerSummaryTable(table) {
 
     getMaxCategoryValuesAndZScores();
 
-    data = calcManagerSummaryData(table);
+    data = calcManagerSummaryZScores(table);
 
     let properties = ['picks', 'fCount', 'dCount', 'gCount', 'zScore', 'zScoreSktr', 'zOffense', 'zPeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'zScoreG', 'zCountG', 'zRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
 
@@ -2613,7 +2596,7 @@ function createManagerSummaryTable(table) {
                              .replace('wins', parseFloat(std_cat['wins']).toFixed(2))
                              .replace('saves', parseFloat(std_cat['saves']).toFixed(2))
                              .replace('gaa', parseFloat(std_cat['gaa']).toFixed(2))
-                             .replace('save%', parseFloat(std_cat['save%']).toFixed(2));
+                             .replace('save%', parseFloat(std_cat['save%']).toFixed(3));
             $("#managerSummary thead").prepend(headers);
             headers = '<tr><th>Mean</th><th colspan="8"></th><th>points</4th><th>goals</th><th>assists</th><th>ppp</th><th>sog</th><th>hits</th><th>blocks</th><th>takeaways</th><th>pim</th><th colspan="3"></th><th>wins</th><th>saves</th><th>gaa</th><th>save%</th</tr>';
             headers = headers.replace('points', parseFloat(mean_cat['d points']).toFixed(2))
@@ -2628,7 +2611,7 @@ function createManagerSummaryTable(table) {
                              .replace('wins', parseFloat(mean_cat['wins']).toFixed(2))
                              .replace('saves', parseFloat(mean_cat['saves']).toFixed(2))
                              .replace('gaa', parseFloat(mean_cat['gaa']).toFixed(2))
-                             .replace('save%', parseFloat(mean_cat['save%']).toFixed(2));
+                             .replace('save%', parseFloat(mean_cat['save%']).toFixed(3));
             $("#managerSummary thead").prepend(headers);
             headers = '<tr><th>Target Values</th><th colspan="8"></th><th>points</4th><th>goals</th><th>assists</th><th>ppp</th><th>sog</th><th>hits</th><th>blocks</th><th>takeaways</th><th>pim</th><th colspan="3"></th><th>wins</th><th>saves</th><th>gaa</th><th>save%</th</tr>';
             headers = headers.replace('points', maxCategoryValues['values']['points'])
@@ -2686,22 +2669,6 @@ function createManagerNeedsTable() {
             // left-align some colunns
             {className: 'dt-body-left', targets: [0]},
             {orderSequence: ['desc', 'asc'], targets: '_all'},
-            // {orderable: false, targets: [0]},
-            // heatmaps
-            // properties.map(function(property, index) {
-            //     return {
-            //         targets: index,
-            //         createdCell: function(td, cellData, rowData, row, col) {
-            //             // initialize colourize with default values
-            //             $(rowData).colourize({
-            //                 min: 0,
-            //                 max: 0,
-            //                 center: 0,
-            //                 theme: "cool-warm-reverse",
-            //             });
-            //         }
-            //     };
-            // }),
         ],
         // heatmaps
         drawCallback: function(settings) {
@@ -2835,7 +2802,6 @@ function createManagerNeedsTable() {
 
 }
 
-// Function to update the table with new data
 function clearDraftColumns() {
 
     var table = $('#player_stats').DataTable();
@@ -3091,18 +3057,11 @@ function getTeamCategoryValuesAndZScores(teamPlayers) {
     return teamCategoryValuesAndZScores;
 }
 
-// Function to get player data from the Flask API endpoint
-function getPlayerData(seasonOrDateRadios, fromSeason, toSeason, fromDate, toDate, poolID, gameType, statType, callback) {
+function getPlayerData(seasonOrDateRadios, callback) {
     // Set the base URL for the Flask API endpoint
     let baseUrl = 'http://localhost:5000/player-data';
 
-    // Set the query parameters for the from-season, to-season, and season-type
-    if (gameType === 'Regular Season') {
-        gameType = 'R';
-    } else { // gameType === 'Playoffs'
-        gameType = 'P';
-    }
-    let queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason}&toSeason=${toSeason}&fromDate=${fromDate}&toDate=${toDate}&poolID=${poolID}&gameType=${gameType}&statType=${statType}`;
+    let queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason.value}&toSeason=${toSeason.value}&fromDate=${fromDate.value}&toDate=${toDate.value}&poolID=${poolID.value}&gameType=${gameType.value==='Regular Season' ? 'R' : 'P'}&statType=${statType.value}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
     $.get(baseUrl + queryParams, function(playerData) {
@@ -3115,17 +3074,14 @@ function hideSpinnerShowTables() {
 
     $("#loadingSpinner").hide();
 
-    if ($('#gameType').val() === 'Regular Season') {
-        // $('#managerSummary').show();
-        // $('#managerSummary').DataTable().columns.adjust().draw();
-        $('#startDraftButton').show();
-        // $('#weightplayerZScoresButton').show();
-        $('#weightedScoreOptions').show();
+    if (gameType.value === 'Regular Season') {
+        // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
+        // declaration, even if it is added dynamically with JavaScript.
+        $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
     }
 
     $('#player_stats').DataTable().columns.adjust().draw();
     $('#player_stats-div').show();
-    // $('#player_stats').DataTable().searchPanes.rebuildPane();
 
 }
 
@@ -3134,11 +3090,12 @@ function hideTablesShowSpinner() {
     $('#player_stats-div').hide();
     $('#managerSummary').hide();
     $('#managerCategoryNeeds').hide();
+    $('#managerCategoryNeedsContainerCaption').hide();
     $('#managerCategoryNeedsContainer').hide();
     $('#categoryScarcityContainer').hide();
-    // $('#categoryScarcityByZScoreRange').hide();
     $('#startDraftButton').hide();
-    // $('#weightplayerZScoresButton').hide();
+    $('#weightedScoreOptions').hide();
+    $('#autoAssignDraftPicks').hide();
     $('#draftMessage').hide();
     $("#loadingSpinner").show();
 }
@@ -3154,13 +3111,18 @@ function initDraftContextMenu() {
                     let table = $('#player_stats').DataTable();
                     let rowIndex = table.row(this).index();
                     switch(key) {
-                    case "Draft player":
-                        assignManager(table, rowIndex, draft_manager);
-                        // Resume auto processing
-                        if (auto_assign_picks === true) {
-                            autoAssignDraftPick();
-                        }
-                        break;
+                        case "Draft player":
+
+                            assignManager(table, rowIndex, draft_manager);
+
+                            // Clear all search pane selections
+                            table.searchPanes.clearSelections();
+
+                            // Resume auto processing
+                            if (auto_assign_picks === true) {
+                                autoAssignDraftPick();
+                            }
+                            break;
                     default:
                         break;
                     }
@@ -3222,13 +3184,12 @@ function toggleHeatmaps(table) {
     // remove table data
     table.clear();
 
-    var statType = $('#statType').val();
     // load stats for stat type
-    if ( statType === 'Cumulative' ) {
+    if ( statType.value === 'Cumulative' ) {
         table.rows.add(cumulative_stats_data);
-    } else if ( statType === 'Per game' ) {
+    } else if ( statType.value === 'Per game' ) {
         table.rows.add(per_game_stats_data);
-    } else if ( statType === 'Per 60 minutes' ) {
+    } else if ( statType.value === 'Per 60 minutes' ) {
         table.rows.add(per_60_stats_data);
     }
 
@@ -3238,26 +3199,22 @@ function toggleHeatmaps(table) {
 
 function updateCaption() {
 
-    var fromSeason = $('#fromSeason').val();
-    let seasonFrom = fromSeason.substring(0, 4) + '-' + fromSeason.substring(4);
+    // var fromSeason = $('#fromSeason').val();
+    let seasonFrom = fromSeason.value.substring(0, 4) + '-' + fromSeason.value.substring(4);
 
-    var toSeason = $('#toSeason').val();
-    let seasonTo = toSeason.substring(0, 4) + '-' + toSeason.substring(4);
-
-    var gameType = $('#gameType').val();
-    var statType = $('#statType').val();
+    let seasonTo = toSeason.value.substring(0, 4) + '-' + toSeason.value.substring(4);
 
     if (fromSeason === toSeason){
-        if (gameType === 'Regular Season') {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' Season';
+        if (gameType.value === 'Regular Season') {
+            caption = statType.value + ' Statistics for the ' + seasonFrom + ' Season';
         } else {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' Playoffs';
+            caption = statType.value + ' Statistics for the ' + seasonFrom + ' Playoffs';
         }
     } else {
-        if (gameType === 'Regular Season') {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Seasons';
+        if (gameType.value === 'Regular Season') {
+            caption = statType.value + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Seasons';
         } else {
-            caption = statType + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Playoffs';
+            caption = statType.value + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Playoffs';
         }
     }
 
@@ -3463,7 +3420,6 @@ function updateGlobalVariables(playerData) {
 
 }
 
-// heatmap columns
 function updateHeatmapColumnLists() {
 
     sktr_category_heatmap_columns = [points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx];
@@ -3549,7 +3505,6 @@ function updateManagerCategoryNeedsTable(data) {
 
 }
 
-// Function to update the table with new data
 function updatePlayerStatsTable(data) {
 
     let table = $('#player_stats').DataTable();
@@ -3559,7 +3514,7 @@ function updatePlayerStatsTable(data) {
     // Add the new data to the table
     table.rows.add(data);
 
-    data = calcManagerSummaryData($('#player_stats').DataTable());
+    data = calcManagerSummaryZScores($('#player_stats').DataTable());
     updateManagerSummaryTable(data);
 
     data = calcManagerCategoryNeedsData();
@@ -3611,8 +3566,29 @@ function updatePlayerWeights(availablePlayers, teamCategoryValuesAndZScores, cat
 
     let selectedWeightedScoreOpt = $('input[name="weightedScoreOpts"]:checked').val();
 
-    categoryZScorePlayerCounts = calcCategoryScarcityByZScoreRange(availablePlayers);
-    updateCategoryScarcityByZScoreRangeTable(categoryZScorePlayerCounts);
+    let categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(availablePlayers);
+    updateCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+
+    let categoryTotals = categoryScarcityByZScoreRange.find(obj => obj.hasOwnProperty('Totals')).Totals;
+    let categories = Object.keys(categoryTotals);
+    let categoryScarcities = categories.reduce((acc, key) => {
+        acc[key] = 0;
+        return acc;
+    }, {});
+    categoryScarcityByZScoreRange.forEach(obj => {
+        let zScoreRange = Object.keys(obj)[0];
+        if (parseFloat(zScoreRange.split(' - ')[0]) >= 1.5) {
+            categories.forEach(k => {
+                if (obj[zScoreRange][k] !== "") {
+                    categoryScarcities[k] += obj[zScoreRange][k];
+                }
+            });
+        }
+    });
+
+    categories.forEach(key => {
+        categoryScarcities[key] = 1 - categoryScarcities[key]/categoryTotals[key];
+    });
 
     // Calculate the weighted z-score for each player
     availablePlayers.forEach(player => {
@@ -3626,21 +3602,15 @@ function updatePlayerWeights(availablePlayers, teamCategoryValuesAndZScores, cat
         for (let category in player.categoryZScores) {
             if (includePlayerCategoryZScore(player, category) === true) {
                 let weightFactors = [];
-                if (['need', 'both'].includes(selectedWeightedScoreOpt)) {
+                if (['need', 'both'].includes(selectedWeightedScoreOpt) || (auto_assign_picks === true && draft_manager !== 'Banshee')) {
                     weightFactors.push(managerCategoryNeeds[category]);
                 }
-                if (['scarcity', 'both'].includes(selectedWeightedScoreOpt) && draft_manager === 'Banshee') {
-                    weightFactors.push(categoryScarcity[category]);
+                if (['scarcity', 'both'].includes(selectedWeightedScoreOpt) && (auto_assign_picks === false || draft_manager === 'Banshee')) {
+                    // weightFactors.push(categoryScarcity[category]);
+                    weightFactors.push(categoryScarcities[category]);
                 }
-                catWeight = player.categoryZScores[category] * weightFactors.reduce((a, b) => a + b);
-                // if (player.position === 'G') {
-                //     catWeight = catWeight / 4;
-                //     catWeight = catWeight * 2; // Do this simply to increase goalie importance in draft
-                // } else if (player.position === 'D') {
-                //     catWeight = catWeight / 9;
-                // } else {
-                //     catWeight = catWeight / 8;
-                // }
+                // catWeight = player.categoryZScores[category] * ( 1 + weightFactors.reduce((a, b) => a + b));
+                catWeight = 1 + weightFactors.reduce((a, b) => a + b);
                 weightedZScore += catWeight;
                 if ( (player.position === 'D' && dOffenseCategories.includes(category)) || (['LW', 'C', 'RW'].includes(player.position) && fOffenseCategories.includes(category)) ) {
                     weightedZOffense += catWeight;

@@ -102,7 +102,7 @@
                 border: none;
             }
             #startDraftButton.hidden, #autoAssignDraftPicks.hidden, #weightedScoreOptions.hidden {
-                display: none;
+                display: none !important;
             }
             input[type="date"] {
                width: 200px;
@@ -176,11 +176,6 @@
         <!-- Spinner to display until data table is loaded -->
         <p class="spinner"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
 
-        <!-- Draft messages -->
-        <div id='draftMessage' style="display: none; font-size: 2em; text-align: center;">
-            <b>Draft has started...</b>
-        </div>
-
         <!-- Table for manager z-score summaries -->
         <table id="managerSummary" class="display cell-border hover compact" style="display: none;">
             <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Z-Scores</u></b></caption></table>
@@ -190,7 +185,7 @@
         <table id="managerCategoryNeeds" class="display cell-border hover compact" style="display: none;">
             <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Needs</u></b></caption>
         </table>
-        <p id="managerCategoryNeedsContainerCaption"></p>
+        <p id="managerCategoryNeedsContainerCaption" style="display: none;"></p>
         <div id="managerCategoryNeedsContainer" class="container" style="display: none;">
             <!-- new manager tables will be appended here -->
         </div>
@@ -223,6 +218,11 @@
 
         <!-- "Weight Player Z-Scores" button -->
         <button id="weightplayerZScoresButton" style="display: none; font-size: 1em;">Weight Player Z-Scores</button>
+
+        <!-- Draft messages -->
+        <div id='draftMessage' style="display: none; font-size: 2em; text-align: center;">
+            <b>Draft has started...</b>
+        </div>
 
         <!-- Table to display player data -->
         <div id="player_stats-div" class="display cell-border hover compact panel-body" style="display:none">

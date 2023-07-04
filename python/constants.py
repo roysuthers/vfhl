@@ -1,5 +1,6 @@
 # import sqlite3
 from datetime import date, datetime, timedelta
+import os
 # from typing import List, Dict
 
 # import pandas as pd
@@ -7,7 +8,9 @@ from datetime import date, datetime, timedelta
 
 # DATABASE = 'C:/users/Roy/NHL Pool/NHL Pool.db'
 # database is in parent folder
-DATABASE = 'data/NHL Pool.db'
+# DATABASE = 'data/NHL Pool.db'
+program_data_path = os.environ['ProgramData'] # get the path of %ProgramData%
+DATABASE = os.path.join(program_data_path, 'VFHL', 'NHL Pool.db') # join the path with the database location
 
 NHL_API_BASE_URL: str = 'https://statsapi.web.nhl.com'
 NHL_API_URL: str = 'https://statsapi.web.nhl.com/api/v1'
