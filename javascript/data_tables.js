@@ -1916,14 +1916,14 @@ function autoAssignDraftPick() {
     var randomIndex = Math.floor(Math.random() * 10);
     var selectedRow = filteredSortedIndexes[randomIndex];
 
-    if (draft_manager === "Banshee") {
-        // Hide the context menu
-        // options.$menu.trigger('contextmenu:hide');
-        // $.contextMenu('hide');
-        // Manually select player
-        return;
+    // if (draft_manager === "Banshee") {
+    //     // Hide the context menu
+    //     // options.$menu.trigger('contextmenu:hide');
+    //     // $.contextMenu('hide');
+    //     // Manually select player
+    //     return;
 
-    }
+    // }
 
     if (assignManager(table, selectedRow, draft_manager) === false) {
         auto_assign_picks = false;
@@ -1957,7 +1957,7 @@ function autoAssignDraftPicks() {
     $.fn.dataTable.ext.search.push(
         function(settings, data, dataIndex) {
             if (settings.nTable.id === 'player_stats' && auto_assign_picks === true && data[position_idx] === 'G') {
-                return (data[goalie_starts_idx] >= 20) ? true : false;
+                return (data[games_idx] >= 20) ? true : false;
             }
             return true;
         }
@@ -3061,7 +3061,7 @@ function getPlayerData(seasonOrDateRadios, callback) {
     // Set the base URL for the Flask API endpoint
     let baseUrl = 'http://localhost:5000/player-data';
 
-    let queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason.value}&toSeason=${toSeason.value}&fromDate=${fromDate.value}&toDate=${toDate.value}&poolID=${poolID.value}&gameType=${gameType.value==='Regular Season' ? 'R' : 'P'}&statType=${statType.value}`;
+    let queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason.value}&toSeason=${toSeason.value}&fromDate=${fromDate.value}&toDate=${toDate.value}&poolID=${poolID.value}&gameType=${gameType.value==='Regular Season' ? 'R' : gameType.value==='Playoffs' ? 'P' : 'Prj'}&statType=${statType.value}&projectionSource=${projectionSource.value}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
     $.get(baseUrl + queryParams, function(playerData) {

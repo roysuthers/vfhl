@@ -400,7 +400,212 @@ def aggregate_game_stats(df: pd.DataFrame) -> pd.DataFrame:
 
     return df_agg_stats
 
-def calc_per60_stats(df: pd.DataFrame):
+def calc_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
+
+    feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
+    height_in_feet = int(feet_and_inches[0]) + round(int(feet_and_inches[1])/12, 2)
+    # 5' 10" = 5.83 & 6' 2" = 6.17
+    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+        breakout_threshold = career_games - 200
+    # 5' 9" = 5.75 & 6' 3" = 6.25
+    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+        breakout_threshold = career_games - 400
+    else:
+        breakout_threshold = np.nan
+
+    return breakout_threshold
+
+def calc_cumulative_z_scores(df: pd.DataFrame):
+
+    try:
+
+        # implement the following to see histograms for scoring category
+        # i.e., change 'pts_pg' to desired category
+        # data = list(df.query(f'{forwards_filter} and {one_game_minimum_filter} and {z_score_minimum_games_minimum_filter}')['pts_pg'])
+        # plt.hist(data)
+        # plt.title('Forwards - Points per Game')
+        # plt.show()
+
+        # OR
+
+        # implement the following to see histograms for scoring category
+        # i.e., change 'pts_pg' to desired category
+        # import plotly.express as px
+        # fig = px.histogram(df_f, x="pts_pg")
+        # fig.show()
+
+        # see https://projectile.pro/how-to-value-players-for-fantasy/ for discussion of Rate Stats, to account for players
+        # with low number of games, to determine stat value for "games above average"
+
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
+
+        ##########################################################################
+        # skaters
+        ##########################################################################
+        #  goals
+        df['z_goals'] = (df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']
+        # calc_z_cat_vorp(df=df, z_column='z_goals', pos='f_and_d')
+
+        ##########################################################################
+        # assists
+        df['z_assists'] = (df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']
+        # calc_z_cat_vorp(df=df, z_column='z_assists', pos='f_and_d')
+
+        ##########################################################################
+        # penalty minutes
+        df['z_pim'] = (df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']
+        # calc_z_cat_vorp(df=df, z_column='z_pim', pos='f_and_d')
+        # penalties
+        df['z_penalties'] = df_sktr['penalties'].apply(lambda x: ((x - mean_cat['sktr penalties']) / std_cat['sktr penalties']) if std_cat['sktr penalties'] != 0 else np.nan)
+        # calc_z_cat_vorp(df=df, z_column='z_penalties', pos='f_and_d')
+
+        ##########################################################################
+        # shots
+        df['z_shots'] = (df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']
+        # calc_z_cat_vorp(df=df, z_column='z_shots', pos='f_and_d')
+
+        ##########################################################################
+        # powerplay points
+        df['z_points_pp'] = (df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']
+        # calc_z_cat_vorp(df=df, z_column='z_points_pp', pos='f_and_d')
+
+        ##########################################################################
+        # hits
+        df['z_hits'] = (df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']
+        # calc_z_cat_vorp(df=df, z_column='z_hits', pos='f_and_d')
+
+        ##########################################################################
+        # blocked shots
+        df['z_blocked'] = (df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']
+        # calc_z_cat_vorp(df=df, z_column='z_blocked', pos='f_and_d')
+
+        ##########################################################################
+        # takeaways
+        df['z_takeaways'] = (df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']
+        # calc_z_cat_vorp(df=df, z_column='z_takeaways', pos='f_and_d')
+
+        ##########################################################################
+        # forwards
+        ##########################################################################
+         # points
+        df['z_points'] = (df_f['points'] - mean_cat['f points']) / std_cat['f points']
+
+        ##########################################################################
+        # defense
+        ##########################################################################
+        # points
+        df.loc[df_d.index, 'z_points'] = (df_d['points'] - mean_cat['d points']) / std_cat['d points']
+        # calc_z_cat_vorp(df=df, z_column='z_points', pos='f_and_d')
+
+        # ##########################################################################
+        # #  goals
+        # df.loc[df_d.index, 'z_goals'] = (df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']
+
+        # ##########################################################################
+        # # assists
+        # df.loc[df_d.index, 'z_assists'] = (df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']
+
+        # ##########################################################################
+        # # penalty minutes
+        # df.loc[df_d.index, 'z_pim'] = (df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']
+
+        # ##########################################################################
+        # # shots
+        # df.loc[df_d.index, 'z_shots'] = (df_d['shots'] - mean_cat['d shots']) / std_cat['d shots']
+
+        # ##########################################################################
+        # # powerplay points
+        # df.loc[df_d.index, 'z_points_pp'] = (df_d['points_pp'] - mean_cat['d points_pp']) / std_cat['d points_pp']
+
+        # ##########################################################################
+        # # hits
+        # df.loc[df_d.index, 'z_hits'] = (df_d['hits'] - mean_cat['d hits']) / std_cat['d hits']
+
+        # ##########################################################################
+        # # blocked shots
+        # df.loc[df_d.index, 'z_blocked'] = (df_d['blocked'] - mean_cat['d blocked']) / std_cat['d blocked']
+
+        # ##########################################################################
+        # # takeaways
+        # df.loc[df_d.index, 'z_takeaways'] = (df_d['takeaways'] - mean_cat['d takeaways']) / std_cat['d takeaways']
+
+        ##########################################################################
+        # goalies
+        ##########################################################################
+        # wins
+        df['z_wins'] = (df_g['wins'] - mean_cat['wins']) / std_cat['wins']
+        # calc_z_cat_vorp(df=df, z_column='z_wins', pos='goalie')
+
+        ##########################################################################
+        # goals against average
+        df['z_gaa'] = 0 - (df_g['goals_against'] - (df_g['games'] * mean_cat['gaa'])) / std_cat['goals_against']
+        # calc_z_cat_vorp(df=df, z_column='z_gaa', pos='goalie')
+
+        ##########################################################################
+        # saves
+        df['z_saves'] = (df_g['saves'] - mean_cat['saves']) / std_cat['saves']
+        # calc_z_cat_vorp(df=df, z_column='z_saves', pos='goalie')
+
+        ##########################################################################
+        # save %
+        # http://hockeygoalies.org/stats/glossary.html
+        # ZSCORE = ((Saves) - (Shots * League Average SV%)) / SQRT (Shots * League Average SV% * (1 - League Average SV%))
+        ########################
+        # In the calculation of league-average save percentage, should I remove the goaltender in question from the totals?
+        ########################
+        df['z_save%'] = (df_g['saves'] - (df_g['shots_against'] * mean_cat['save%'])) / np.sqrt(df_g['shots_against'] * mean_cat['save%'] * (1 - mean_cat['save%']))
+        # calc_z_cat_vorp(df=df, z_column='z_save%', pos='goalie')
+
+        ##########################################################################
+        # Overall z-scores
+        # cumulative stats
+        # calc category z-scores
+        df['z_score'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative')
+        # calc offensive category z-scores
+        df['z_offense'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='offense')
+        # calc peripheral category z-scores
+        df['z_peripheral'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_weighted'] =  ''
+        df['z_offense_weighted'] = ''
+        df['z_peripheral_weighted'] = ''
+        df['z_count_weighted'] = ''
+        df['z_ratio_weighted'] = ''
+
+        # calc sog+hits+blocks category z-scores
+        df['z_sog_hits_blk'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='sog_hits_blk')
+        # calc hits+blocks category z-scores
+        df['z_hits_blk'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='hits_blk')
+        # calc goals+hits+pim category z-scores
+        df['z_goals_hits_pim'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='goals_hits_pim')
+        # calc hits+pim category z-scores
+        df['z_hits_pim'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='hits_pim')
+        # calc offense category z-combos
+        df['z_offense_combo'] = calc_z_combo(df=df, points_type='cumulative', group='offense')
+        # calc peripheral category z-combos
+        df['z_peripheral_combo'] = calc_z_combo(df=df, points_type='cumulative', group='peripheral')
+        # calc category z-combos
+        df['z_combo'] = calc_z_combo(df=df, points_type='cumulative')
+
+        # # calculate summary of category z-scores
+        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='cumulative')
+        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='offense')
+        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='peripheral')
+
+    except:
+        print(f'{traceback.format_exc()} in calc_cumulative_z_scores()')
+
+    return
+
+def calc_per_60_stats(df: pd.DataFrame):
 
     try:
 
@@ -467,7 +672,154 @@ def calc_per60_stats(df: pd.DataFrame):
         df['save%_p60'] = (df['saves'] / df['toi_sec'] * 3600) / (df['shots_against'] / df['toi_sec'] * 3600)
 
     except:
-        print(f'{traceback.format_exc()} in calc_per60_stats()')
+        print(f'{traceback.format_exc()} in calc_per_60_stats()')
+
+    return
+
+def calc_per_60_z_scores(df: pd.DataFrame):
+
+    try:
+
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
+
+        ##########################################################################
+        # skaters
+        ##########################################################################
+        #  goals-per-60
+        df['z_g_p60'] = (df_sktr['g_p60'] - mean_cat['sktr g_p60']) / std_cat['sktr g_p60']
+
+        ##########################################################################
+        # assists-per-60
+        df['z_a_p60'] = (df_sktr['a_p60'] - mean_cat['sktr a_p60']) / std_cat['sktr a_p60']
+
+        ##########################################################################
+        # penalty-minutes-per-60
+        df['z_pim_p60'] = (df_sktr['pim_p60'] - mean_cat['sktr pim_p60']) / std_cat['sktr pim_p60']
+        # penalties-per-60
+        df['z_penalties_p60'] = df_sktr['penalties_p60'].apply(lambda x: ((x - mean_cat['sktr penalties_p60']) / std_cat['sktr penalties_p60']) if std_cat['sktr penalties_p60'] != 0 else np.nan)
+
+        ##########################################################################
+        # shots-per-60
+        df['z_sog_p60'] = (df_sktr['sog_p60'] - mean_cat['sktr sog_p60']) / std_cat['sktr sog_p60']
+
+        ##########################################################################
+        # powerplay-points-per-60
+        df['z_ppp_p60'] = (df_sktr['ppp_p60'] - mean_cat['sktr ppp_p60']) / std_cat['sktr ppp_p60']
+
+        ##########################################################################
+        # hits-per-60
+        df['z_hits_p60'] = (df_sktr['hits_p60'] - mean_cat['sktr hits_p60']) / std_cat['sktr hits_p60']
+
+        ##########################################################################
+        # blocked-shots-per-60
+        df['z_blk_p60'] = (df_sktr['blk_p60'] - mean_cat['sktr blk_p60']) / std_cat['sktr blk_p60']
+
+        ##########################################################################
+        # takeaways-per-60
+        df['z_tk_p60'] = (df_sktr['tk_p60'] - mean_cat['sktr tk_p60']) / std_cat['sktr tk_p60']
+
+        ##########################################################################
+        # forwards
+        ##########################################################################
+        # points-per-60
+        df['z_pts_p60'] = (df_f['pts_p60'] - mean_cat['f pts_p60']) / std_cat['f pts_p60']
+
+        ##########################################################################
+        # defense
+        ##########################################################################
+        # points-per-60
+        df.loc[df_d.index, 'z_pts_p60'] = (df_d['pts_p60'] - mean_cat['d pts_p60']) / std_cat['d pts_p60']
+
+        # ##########################################################################
+        # #  goals-per-60
+        # df.loc[df_d.index, 'z_g_p60'] = (df_d['g_p60'] - mean_cat['d g_p60']) / std_cat['d g_p60']
+
+        # ##########################################################################
+        # # assists-per-60
+        # df.loc[df_d.index, 'z_a_p60'] = (df_d['a_p60'] - mean_cat['d a_p60']) / std_cat['d a_p60']
+
+        # ##########################################################################
+        # # penalty-minutes-per-60
+        # df.loc[df_d.index, 'z_pim_p60'] = (df_d['pim_p60'] - mean_cat['d pim_p60']) / std_cat['d pim_p60']
+
+        # ##########################################################################
+        # # shots-per-60
+        # df.loc[df_d.index, 'z_sog_p60'] = (df_d['sog_p60'] - mean_cat['d sog_p60']) / std_cat['d sog_p60']
+
+        # ##########################################################################
+        # # powerplay-points-per-60
+        # df.loc[df_d.index, 'z_ppp_p60'] = (df_d['ppp_p60'] - mean_cat['d ppp_p60']) / std_cat['d ppp_p60']
+
+        # ##########################################################################
+        # # hits-per-60
+        # df.loc[df_d.index, 'z_hits_p60'] = (df_d['hits_p60'] - mean_cat['d hits_p60']) / std_cat['d hits_p60']
+
+        # ##########################################################################
+        # # blocked-shots-per-60
+        # df.loc[df_d.index, 'z_blk_p60'] = (df_d['blk_p60'] - mean_cat['d blk_p60']) / std_cat['d blk_p60']
+
+        # ##########################################################################
+        # # takeaways-per-60
+        # df.loc[df_d.index, 'z_tk_p60'] = (df_d['tk_p60'] - mean_cat['d tk_p60']) / std_cat['d tk_p60']
+
+        ##########################################################################
+        # goalies
+        ##########################################################################
+        #  wins per 60
+        df['z_wins_p60'] = (df_g['wins_p60'] - mean_cat['wins_p60']) / std_cat['wins_p60']
+
+        ##########################################################################
+        # gaa per 60
+        df['z_gaa_p60'] = 0 - (df_g['gaa_p60'] - mean_cat['gaa_p60']) / std_cat['gaa_p60']
+
+        ##########################################################################
+        # saves per 60
+        df['z_saves_p60'] = (df_g['saves_p60'] - mean_cat['saves_p60']) / std_cat['saves_p60']
+
+        ##########################################################################
+        # save% per 60
+        df['z_save%_p60'] = (df_g['save%_p60'] - mean_cat['save%_p60']) / std_cat['save%_p60']
+
+        ##########################################################################
+        # Overall z-scores
+        # calc per-60 z-scores
+        df['z_score_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60')
+        # calc offensive category z-scores
+        df['z_offense_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='offense')
+        # calc peripheral category z-scores
+        df['z_peripheral_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_p60_weighted'] =  ''
+        df['z_offense_p60_weighted'] = ''
+        df['z_peripheral_p60_weighted'] = ''
+        df['z_count_p60_weighted'] = ''
+        df['z_ratio_p60_weighted'] = ''
+
+        # calc sog+hits+blocks category z-scores
+        df['z_sog_hits_blk_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='sog_hits_blk')
+        # calc hits+blocks category z-scores
+        df['z_hits_blk_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='hits_blk')
+        # calc goals+hits+pim category z-scores
+        df['z_goals_hits_pim_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='goals_hits_pim')
+        # calc hits+pim category z-scores
+        df['z_hits_pim_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='hits_pim')
+        # calc offense category p60 z-combos
+        df['z_offense_combo_p60'] = calc_z_combo(df=df, points_type='per 60', group='offense')
+        # calc peripheral category p60 z-combos
+        df['z_peripheral_combo_p60'] = calc_z_combo(df=df, points_type='per 60', group='peripheral')
+        # calc category p60 z-combos
+        df['z_combo_p60'] = calc_z_combo(df=df, points_type='per 60')
+
+    except:
+        print(f'{traceback.format_exc()} in calc_per_60_z_scores()')
 
     return
 
@@ -542,6 +894,151 @@ def calc_per_game_stats(df: pd.DataFrame, df_game_stats: pd.DataFrame):
 
     except:
         print(f'{traceback.format_exc()} in calc_per_game_stats()')
+
+    return
+
+def calc_per_game_z_scores(df: pd.DataFrame):
+
+    try:
+
+        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
+        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
+
+        ##########################################################################
+        # skaters
+        ##########################################################################
+        #  goals-per-game
+        df['z_g_pg'] = (df_sktr['g_pg'] - mean_cat['sktr g_pg']) / std_cat['sktr g_pg']
+
+        ##########################################################################
+        df['z_a_pg'] = (df_sktr['a_pg'] - mean_cat['sktr a_pg']) / std_cat['sktr a_pg']
+
+        ##########################################################################
+        # penalty-minutes-per-game
+        df['z_pim_pg'] = (df_sktr['pim_pg'] - mean_cat['sktr pim_pg']) / std_cat['sktr pim_pg']
+        # penalties-per-game
+        df['z_penalties_pg'] = df_sktr['penalties_pg'].apply(lambda x: ((x - mean_cat['sktr penalties_pg']) / std_cat['sktr penalties_pg']) if std_cat['sktr penalties_pg'] != 0 else np.nan)
+
+        ##########################################################################
+        # shots-per-game
+        df['z_sog_pg'] = (df_sktr['sog_pg'] - mean_cat['sktr sog_pg']) / std_cat['sktr sog_pg']
+
+        ##########################################################################
+        # powerplay-points-per=game
+        df['z_ppp_pg'] = (df_sktr['ppp_pg'] - mean_cat['sktr ppp_pg']) / std_cat['sktr ppp_pg']
+
+        ##########################################################################
+        # hits-per-game
+        df['z_hits_pg'] = (df_sktr['hits_pg'] - mean_cat['sktr hits_pg']) / std_cat['sktr hits_pg']
+
+        ##########################################################################
+        df['z_blk_pg'] = (df_sktr['blk_pg'] - mean_cat['sktr blk_pg']) / std_cat['sktr blk_pg']
+
+        ##########################################################################
+        # takeaways-per-game
+        df['z_tk_pg'] = (df_sktr['tk_pg'] - mean_cat['sktr tk_pg']) / std_cat['sktr tk_pg']
+
+        ##########################################################################
+        # forwards
+        ##########################################################################
+        # points-per-game
+        df['z_pts_pg'] = (df_f['pts_pg'] - mean_cat['f pts_pg']) / std_cat['f pts_pg']
+
+        ##########################################################################
+        # defense
+        ##########################################################################
+        # points-per-game
+        df.loc[df_d.index, 'z_pts_pg'] = (df_d['pts_pg'] - mean_cat['d pts_pg']) / std_cat['d pts_pg']
+
+        # ##########################################################################
+        # #  goals-per-game
+        # df.loc[df_d.index, 'z_g_pg'] = (df_d['g_pg'] - mean_cat['d g_pg']) / std_cat['d g_pg']
+
+        # ##########################################################################
+        # # assists-per-game
+        # df.loc[df_d.index, 'z_a_pg'] = (df_d['a_pg'] - mean_cat['d a_pg']) / std_cat['d a_pg']
+
+        # ##########################################################################
+        # # penalty-minutes-per-game
+        # df.loc[df_d.index, 'z_pim_pg'] = (df_d['pim_pg'] - mean_cat['d pim_pg']) / std_cat['d pim_pg']
+
+        # ##########################################################################
+        # # shots-per-game
+        # df.loc[df_d.index, 'z_sog_pg'] = (df_d['sog_pg'] - mean_cat['d sog_pg']) / std_cat['d sog_pg']
+
+        # ##########################################################################
+        # # powerplay-points-per-game
+        # df.loc[df_d.index, 'z_ppp_pg'] = (df_d['ppp_pg'] - mean_cat['d ppp_pg']) / std_cat['d ppp_pg']
+
+        # ##########################################################################
+        # # hits-per-game
+        # df.loc[df_d.index, 'z_hits_pg'] = (df_d['hits_pg'] - mean_cat['d hits_pg']) / std_cat['d hits_pg']
+
+        # ##########################################################################
+        # # blocked-shots-per-game
+        # df.loc[df_d.index, 'z_blk_pg'] = (df_d['blk_pg'] - mean_cat['d blk_pg']) / std_cat['d blk_pg']
+
+        # ##########################################################################
+        # # takeaways-per-game
+        # df.loc[df_d.index, 'z_tk_pg'] = (df_d['tk_pg'] - mean_cat['d tk_pg']) / std_cat['d tk_pg']
+
+        ##########################################################################
+        # goalies
+        ##########################################################################
+        #  wins per game
+        df['z_wins_pg'] = (df_g['wins_pg'] - mean_cat['wins_pg']) / std_cat['wins_pg']
+
+        ##########################################################################
+        # gaa per game
+        df['z_gaa_pg'] = 0 - (df_g['gaa_pg'] - mean_cat['gaa_pg']) / std_cat['gaa_pg']
+
+        ##########################################################################
+        # saves per game
+        df['z_saves_pg'] = (df_g['saves_pg'] - mean_cat['saves_pg']) / std_cat['saves_pg']
+
+        ##########################################################################
+        # save% per game
+        df['z_save%_pg'] = (df_g['save%_pg'] - mean_cat['save%_pg']) / std_cat['save%_pg']
+
+        ##########################################################################
+        # Overall z-scores
+        # per-game
+        df['z_score_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game')
+        # calc offensive category z-scores
+        df['z_offense_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='offense')
+        # calc peripheral category z-scores
+        df['z_peripheral_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='peripheral')
+        # calc goalie count category z-scores
+        df['z_g_count_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_count')
+        # calc goalie ratio category z-scores
+        df['z_g_ratio_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_ratio')
+
+        # weighted z-scores are calculated in javascript code
+        df['z_score_pg_weighted'] =  ''
+        df['z_offense_pg_weighted'] = ''
+        df['z_peripheral_pg_weighted'] = ''
+        df['z_count_pg_weighted'] = ''
+        df['z_ratio_pg_weighted'] = ''
+
+        # calc sog+hits+blocks category z-scores
+        df['z_sog_hits_blk_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='sog_hits_blk')
+        # calc hits+blocks category z-scores
+        df['z_hits_blk_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='hits_blk')
+        # calc goals+hits+pim category z-scores
+        df['z_goals_hits_pim_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='goals_hits_pim')
+        # calc hits+pim category z-scores
+        df['z_hits_pim_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='hits_pim')
+        # calc offense category pg z-combos
+        df['z_offense_combo_pg'] = calc_z_combo(df=df, points_type='per game', group='offense')
+        # calc peripheral category pg z-combos
+        df['z_peripheral_combo_pg'] = calc_z_combo(df=df, points_type='per game', group='peripheral')
+        # calc category pg z-combos
+        df['z_combo_pg'] = calc_z_combo(df=df, points_type='per game')
+
+    except:
+        print(f'{traceback.format_exc()} in calc_per_game_z_scores()')
 
     return
 
@@ -1076,7 +1573,7 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
         for cat in goalie_cumulative_stat_categories:
             std_cat[cat] = df_g[cat].std() if cat in columns else None
 
-        # also need goals_against, used when calculatikng gaa z-scores
+        # also need goals_against, used when calculating gaa z-scores
         std_cat['goals_against'] = df_g['goals_against'].std()
 
         for cat in goalie_per_game_categories:
@@ -1087,488 +1584,6 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
 
     except:
         print(f'{traceback.format_exc()} in calc_scoring_category_std_deviations()')
-
-    return
-
-def calc_cumulative_z_scores(df: pd.DataFrame):
-
-    try:
-
-        # implement the following to see histograms for scoring category
-        # i.e., change 'pts_pg' to desired category
-        # data = list(df.query(f'{forwards_filter} and {one_game_minimum_filter} and {z_score_minimum_games_minimum_filter}')['pts_pg'])
-        # plt.hist(data)
-        # plt.title('Forwards - Points per Game')
-        # plt.show()
-
-        # OR
-
-        # implement the following to see histograms for scoring category
-        # i.e., change 'pts_pg' to desired category
-        # import plotly.express as px
-        # fig = px.histogram(df_f, x="pts_pg")
-        # fig.show()
-
-        # see https://projectile.pro/how-to-value-players-for-fantasy/ for discussion of Rate Stats, to account for players
-        # with low number of games, to determine stat value for "games above average"
-
-        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-
-        ##########################################################################
-        # skaters
-        ##########################################################################
-        #  goals
-        df['z_goals'] = (df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']
-        # calc_z_cat_vorp(df=df, z_column='z_goals', pos='f_and_d')
-
-        ##########################################################################
-        # assists
-        df['z_assists'] = (df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']
-        # calc_z_cat_vorp(df=df, z_column='z_assists', pos='f_and_d')
-
-        ##########################################################################
-        # penalty minutes
-        df['z_pim'] = (df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']
-        # calc_z_cat_vorp(df=df, z_column='z_pim', pos='f_and_d')
-        # penalties
-        df['z_penalties'] = df_sktr['penalties'].apply(lambda x: ((x - mean_cat['sktr penalties']) / std_cat['sktr penalties']) if std_cat['sktr penalties'] != 0 else np.nan)
-        # calc_z_cat_vorp(df=df, z_column='z_penalties', pos='f_and_d')
-
-        ##########################################################################
-        # shots
-        df['z_shots'] = (df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']
-        # calc_z_cat_vorp(df=df, z_column='z_shots', pos='f_and_d')
-
-        ##########################################################################
-        # powerplay points
-        df['z_points_pp'] = (df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']
-        # calc_z_cat_vorp(df=df, z_column='z_points_pp', pos='f_and_d')
-
-        ##########################################################################
-        # hits
-        df['z_hits'] = (df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']
-        # calc_z_cat_vorp(df=df, z_column='z_hits', pos='f_and_d')
-
-        ##########################################################################
-        # blocked shots
-        df['z_blocked'] = (df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']
-        # calc_z_cat_vorp(df=df, z_column='z_blocked', pos='f_and_d')
-
-        ##########################################################################
-        # takeaways
-        df['z_takeaways'] = (df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']
-        # calc_z_cat_vorp(df=df, z_column='z_takeaways', pos='f_and_d')
-
-        ##########################################################################
-        # forwards
-        ##########################################################################
-         # points
-        df['z_points'] = (df_f['points'] - mean_cat['f points']) / std_cat['f points']
-
-        ##########################################################################
-        # defense
-        ##########################################################################
-        # points
-        df.loc[df_d.index, 'z_points'] = (df_d['points'] - mean_cat['d points']) / std_cat['d points']
-        # calc_z_cat_vorp(df=df, z_column='z_points', pos='f_and_d')
-
-        # ##########################################################################
-        # #  goals
-        # df.loc[df_d.index, 'z_goals'] = (df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']
-
-        # ##########################################################################
-        # # assists
-        # df.loc[df_d.index, 'z_assists'] = (df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']
-
-        # ##########################################################################
-        # # penalty minutes
-        # df.loc[df_d.index, 'z_pim'] = (df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']
-
-        # ##########################################################################
-        # # shots
-        # df.loc[df_d.index, 'z_shots'] = (df_d['shots'] - mean_cat['d shots']) / std_cat['d shots']
-
-        # ##########################################################################
-        # # powerplay points
-        # df.loc[df_d.index, 'z_points_pp'] = (df_d['points_pp'] - mean_cat['d points_pp']) / std_cat['d points_pp']
-
-        # ##########################################################################
-        # # hits
-        # df.loc[df_d.index, 'z_hits'] = (df_d['hits'] - mean_cat['d hits']) / std_cat['d hits']
-
-        # ##########################################################################
-        # # blocked shots
-        # df.loc[df_d.index, 'z_blocked'] = (df_d['blocked'] - mean_cat['d blocked']) / std_cat['d blocked']
-
-        # ##########################################################################
-        # # takeaways
-        # df.loc[df_d.index, 'z_takeaways'] = (df_d['takeaways'] - mean_cat['d takeaways']) / std_cat['d takeaways']
-
-        ##########################################################################
-        # goalies
-        ##########################################################################
-        # wins
-        df['z_wins'] = (df_g['wins'] - mean_cat['wins']) / std_cat['wins']
-        # calc_z_cat_vorp(df=df, z_column='z_wins', pos='goalie')
-
-        ##########################################################################
-        # goals against average
-        df['z_gaa'] = 0 - (df_g['goals_against'] - (df_g['games'] * mean_cat['gaa'])) / std_cat['goals_against']
-        # calc_z_cat_vorp(df=df, z_column='z_gaa', pos='goalie')
-
-        ##########################################################################
-        # saves
-        df['z_saves'] = (df_g['saves'] - mean_cat['saves']) / std_cat['saves']
-        # calc_z_cat_vorp(df=df, z_column='z_saves', pos='goalie')
-
-        ##########################################################################
-        # save %
-        # http://hockeygoalies.org/stats/glossary.html
-        # ZSCORE = ((Saves) - (Shots * League Average SV%)) / SQRT (Shots * League Average SV% * (1 - League Average SV%))
-        ########################
-        # In the calculation of league-average save percentage, should I remove the goaltender in question from the totals?
-        ########################
-        df['z_save%'] = (df_g['saves'] - (df_g['shots_against'] * mean_cat['save%'])) / np.sqrt(df_g['shots_against'] * mean_cat['save%'] * (1 - mean_cat['save%']))
-        # calc_z_cat_vorp(df=df, z_column='z_save%', pos='goalie')
-
-        ##########################################################################
-        # Overall z-scores
-        # cumulative stats
-        # calc category z-scores
-        df['z_score'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative')
-        # calc offensive category z-scores
-        df['z_offense'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='offense')
-        # calc peripheral category z-scores
-        df['z_peripheral'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='peripheral')
-        # calc goalie count category z-scores
-        df['z_g_count'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_count')
-        # calc goalie ratio category z-scores
-        df['z_g_ratio'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='g_ratio')
-
-        # weighted z-scores are calculated in javascript code
-        df['z_score_weighted'] =  ''
-        df['z_offense_weighted'] = ''
-        df['z_peripheral_weighted'] = ''
-        df['z_count_weighted'] = ''
-        df['z_ratio_weighted'] = ''
-
-        # calc sog+hits+blocks category z-scores
-        df['z_sog_hits_blk'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='sog_hits_blk')
-        # calc hits+blocks category z-scores
-        df['z_hits_blk'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='hits_blk')
-        # calc goals+hits+pim category z-scores
-        df['z_goals_hits_pim'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='goals_hits_pim')
-        # calc hits+pim category z-scores
-        df['z_hits_pim'] = calc_z_scores_by_stat_type(df=df, points_type='cumulative', score_type='hits_pim')
-        # calc offense category z-combos
-        df['z_offense_combo'] = calc_z_combo(df=df, points_type='cumulative', group='offense')
-        # calc peripheral category z-combos
-        df['z_peripheral_combo'] = calc_z_combo(df=df, points_type='cumulative', group='peripheral')
-        # calc category z-combos
-        df['z_combo'] = calc_z_combo(df=df, points_type='cumulative')
-
-        # # calculate summary of category z-scores
-        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='cumulative')
-        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='offense')
-        # calc_summary_z_cat_vorp(df=df, stat_type='cumulative', vorp_type='peripheral')
-
-    except:
-        print(f'{traceback.format_exc()} in calc_cumulative_z_scores()')
-
-    return
-
-def calc_per_game_z_scores(df: pd.DataFrame):
-
-    try:
-
-        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-
-        ##########################################################################
-        # skaters
-        ##########################################################################
-        #  goals-per-game
-        df['z_g_pg'] = (df_sktr['g_pg'] - mean_cat['sktr g_pg']) / std_cat['sktr g_pg']
-
-        ##########################################################################
-        df['z_a_pg'] = (df_sktr['a_pg'] - mean_cat['sktr a_pg']) / std_cat['sktr a_pg']
-
-        ##########################################################################
-        # penalty-minutes-per-game
-        df['z_pim_pg'] = (df_sktr['pim_pg'] - mean_cat['sktr pim_pg']) / std_cat['sktr pim_pg']
-        # penalties-per-game
-        df['z_penalties_pg'] = df_sktr['penalties_pg'].apply(lambda x: ((x - mean_cat['sktr penalties_pg']) / std_cat['sktr penalties_pg']) if std_cat['sktr penalties_pg'] != 0 else np.nan)
-
-        ##########################################################################
-        # shots-per-game
-        df['z_sog_pg'] = (df_sktr['sog_pg'] - mean_cat['sktr sog_pg']) / std_cat['sktr sog_pg']
-
-        ##########################################################################
-        # powerplay-points-per=game
-        df['z_ppp_pg'] = (df_sktr['ppp_pg'] - mean_cat['sktr ppp_pg']) / std_cat['sktr ppp_pg']
-
-        ##########################################################################
-        # hits-per-game
-        df['z_hits_pg'] = (df_sktr['hits_pg'] - mean_cat['sktr hits_pg']) / std_cat['sktr hits_pg']
-
-        ##########################################################################
-        df['z_blk_pg'] = (df_sktr['blk_pg'] - mean_cat['sktr blk_pg']) / std_cat['sktr blk_pg']
-
-        ##########################################################################
-        # takeaways-per-game
-        df['z_tk_pg'] = (df_sktr['tk_pg'] - mean_cat['sktr tk_pg']) / std_cat['sktr tk_pg']
-
-        ##########################################################################
-        # forwards
-        ##########################################################################
-        # points-per-game
-        df['z_pts_pg'] = (df_f['pts_pg'] - mean_cat['f pts_pg']) / std_cat['f pts_pg']
-
-        ##########################################################################
-        # defense
-        ##########################################################################
-        # points-per-game
-        df.loc[df_d.index, 'z_pts_pg'] = (df_d['pts_pg'] - mean_cat['d pts_pg']) / std_cat['d pts_pg']
-
-        # ##########################################################################
-        # #  goals-per-game
-        # df.loc[df_d.index, 'z_g_pg'] = (df_d['g_pg'] - mean_cat['d g_pg']) / std_cat['d g_pg']
-
-        # ##########################################################################
-        # # assists-per-game
-        # df.loc[df_d.index, 'z_a_pg'] = (df_d['a_pg'] - mean_cat['d a_pg']) / std_cat['d a_pg']
-
-        # ##########################################################################
-        # # penalty-minutes-per-game
-        # df.loc[df_d.index, 'z_pim_pg'] = (df_d['pim_pg'] - mean_cat['d pim_pg']) / std_cat['d pim_pg']
-
-        # ##########################################################################
-        # # shots-per-game
-        # df.loc[df_d.index, 'z_sog_pg'] = (df_d['sog_pg'] - mean_cat['d sog_pg']) / std_cat['d sog_pg']
-
-        # ##########################################################################
-        # # powerplay-points-per-game
-        # df.loc[df_d.index, 'z_ppp_pg'] = (df_d['ppp_pg'] - mean_cat['d ppp_pg']) / std_cat['d ppp_pg']
-
-        # ##########################################################################
-        # # hits-per-game
-        # df.loc[df_d.index, 'z_hits_pg'] = (df_d['hits_pg'] - mean_cat['d hits_pg']) / std_cat['d hits_pg']
-
-        # ##########################################################################
-        # # blocked-shots-per-game
-        # df.loc[df_d.index, 'z_blk_pg'] = (df_d['blk_pg'] - mean_cat['d blk_pg']) / std_cat['d blk_pg']
-
-        # ##########################################################################
-        # # takeaways-per-game
-        # df.loc[df_d.index, 'z_tk_pg'] = (df_d['tk_pg'] - mean_cat['d tk_pg']) / std_cat['d tk_pg']
-
-        ##########################################################################
-        # goalies
-        ##########################################################################
-        #  wins per game
-        df['z_wins_pg'] = (df_g['wins_pg'] - mean_cat['wins_pg']) / std_cat['wins_pg']
-
-        ##########################################################################
-        # gaa per game
-        df['z_gaa_pg'] = 0 - (df_g['gaa_pg'] - mean_cat['gaa_pg']) / std_cat['gaa_pg']
-
-        ##########################################################################
-        # saves per game
-        df['z_saves_pg'] = (df_g['saves_pg'] - mean_cat['saves_pg']) / std_cat['saves_pg']
-
-        ##########################################################################
-        # save% per game
-        df['z_save%_pg'] = (df_g['save%_pg'] - mean_cat['save%_pg']) / std_cat['save%_pg']
-
-        ##########################################################################
-        # Overall z-scores
-        # per-game
-        df['z_score_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game')
-        # calc offensive category z-scores
-        df['z_offense_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='offense')
-        # calc peripheral category z-scores
-        df['z_peripheral_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='peripheral')
-        # calc goalie count category z-scores
-        df['z_g_count_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_count')
-        # calc goalie ratio category z-scores
-        df['z_g_ratio_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='g_ratio')
-
-        # weighted z-scores are calculated in javascript code
-        df['z_score_pg_weighted'] =  ''
-        df['z_offense_pg_weighted'] = ''
-        df['z_peripheral_pg_weighted'] = ''
-        df['z_count_pg_weighted'] = ''
-        df['z_ratio_pg_weighted'] = ''
-
-        # calc sog+hits+blocks category z-scores
-        df['z_sog_hits_blk_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='sog_hits_blk')
-        # calc hits+blocks category z-scores
-        df['z_hits_blk_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='hits_blk')
-        # calc goals+hits+pim category z-scores
-        df['z_goals_hits_pim_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='goals_hits_pim')
-        # calc hits+pim category z-scores
-        df['z_hits_pim_pg'] = calc_z_scores_by_stat_type(df=df, points_type='per game', score_type='hits_pim')
-        # calc offense category pg z-combos
-        df['z_offense_combo_pg'] = calc_z_combo(df=df, points_type='per game', group='offense')
-        # calc peripheral category pg z-combos
-        df['z_peripheral_combo_pg'] = calc_z_combo(df=df, points_type='per game', group='peripheral')
-        # calc category pg z-combos
-        df['z_combo_pg'] = calc_z_combo(df=df, points_type='per game')
-
-    except:
-        print(f'{traceback.format_exc()} in calc_per_game_z_scores()')
-
-    return
-
-def calc_per_60_z_scores(df: pd.DataFrame):
-
-    try:
-
-        df_sktr = df.query(f'{skaters_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_f = df.query(f'{forwards_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_d = df.query(f'{defense_filter} and {minimum_one_game_filter}').copy(deep=True)
-        df_g = df.query(f'{goalie_filter} and {minimum_one_game_filter}').copy(deep=True)
-
-        ##########################################################################
-        # skaters
-        ##########################################################################
-        #  goals-per-60
-        df['z_g_p60'] = (df_sktr['g_p60'] - mean_cat['sktr g_p60']) / std_cat['sktr g_p60']
-
-        ##########################################################################
-        # assists-per-60
-        df['z_a_p60'] = (df_sktr['a_p60'] - mean_cat['sktr a_p60']) / std_cat['sktr a_p60']
-
-        ##########################################################################
-        # penalty-minutes-per-60
-        df['z_pim_p60'] = (df_sktr['pim_p60'] - mean_cat['sktr pim_p60']) / std_cat['sktr pim_p60']
-        # penalties-per-60
-        df['z_penalties_p60'] = df_sktr['penalties_p60'].apply(lambda x: ((x - mean_cat['sktr penalties_p60']) / std_cat['sktr penalties_p60']) if std_cat['sktr penalties_p60'] != 0 else np.nan)
-
-        ##########################################################################
-        # shots-per-60
-        df['z_sog_p60'] = (df_sktr['sog_p60'] - mean_cat['sktr sog_p60']) / std_cat['sktr sog_p60']
-
-        ##########################################################################
-        # powerplay-points-per-60
-        df['z_ppp_p60'] = (df_sktr['ppp_p60'] - mean_cat['sktr ppp_p60']) / std_cat['sktr ppp_p60']
-
-        ##########################################################################
-        # hits-per-60
-        df['z_hits_p60'] = (df_sktr['hits_p60'] - mean_cat['sktr hits_p60']) / std_cat['sktr hits_p60']
-
-        ##########################################################################
-        # blocked-shots-per-60
-        df['z_blk_p60'] = (df_sktr['blk_p60'] - mean_cat['sktr blk_p60']) / std_cat['sktr blk_p60']
-
-        ##########################################################################
-        # takeaways-per-60
-        df['z_tk_p60'] = (df_sktr['tk_p60'] - mean_cat['sktr tk_p60']) / std_cat['sktr tk_p60']
-
-        ##########################################################################
-        # forwards
-        ##########################################################################
-        # points-per-60
-        df['z_pts_p60'] = (df_f['pts_p60'] - mean_cat['f pts_p60']) / std_cat['f pts_p60']
-
-        ##########################################################################
-        # defense
-        ##########################################################################
-        # points-per-60
-        df.loc[df_d.index, 'z_pts_p60'] = (df_d['pts_p60'] - mean_cat['d pts_p60']) / std_cat['d pts_p60']
-
-        # ##########################################################################
-        # #  goals-per-60
-        # df.loc[df_d.index, 'z_g_p60'] = (df_d['g_p60'] - mean_cat['d g_p60']) / std_cat['d g_p60']
-
-        # ##########################################################################
-        # # assists-per-60
-        # df.loc[df_d.index, 'z_a_p60'] = (df_d['a_p60'] - mean_cat['d a_p60']) / std_cat['d a_p60']
-
-        # ##########################################################################
-        # # penalty-minutes-per-60
-        # df.loc[df_d.index, 'z_pim_p60'] = (df_d['pim_p60'] - mean_cat['d pim_p60']) / std_cat['d pim_p60']
-
-        # ##########################################################################
-        # # shots-per-60
-        # df.loc[df_d.index, 'z_sog_p60'] = (df_d['sog_p60'] - mean_cat['d sog_p60']) / std_cat['d sog_p60']
-
-        # ##########################################################################
-        # # powerplay-points-per-60
-        # df.loc[df_d.index, 'z_ppp_p60'] = (df_d['ppp_p60'] - mean_cat['d ppp_p60']) / std_cat['d ppp_p60']
-
-        # ##########################################################################
-        # # hits-per-60
-        # df.loc[df_d.index, 'z_hits_p60'] = (df_d['hits_p60'] - mean_cat['d hits_p60']) / std_cat['d hits_p60']
-
-        # ##########################################################################
-        # # blocked-shots-per-60
-        # df.loc[df_d.index, 'z_blk_p60'] = (df_d['blk_p60'] - mean_cat['d blk_p60']) / std_cat['d blk_p60']
-
-        # ##########################################################################
-        # # takeaways-per-60
-        # df.loc[df_d.index, 'z_tk_p60'] = (df_d['tk_p60'] - mean_cat['d tk_p60']) / std_cat['d tk_p60']
-
-        ##########################################################################
-        # goalies
-        ##########################################################################
-        #  wins per 60
-        df['z_wins_p60'] = (df_g['wins_p60'] - mean_cat['wins_p60']) / std_cat['wins_p60']
-
-        ##########################################################################
-        # gaa per 60
-        df['z_gaa_p60'] = 0 - (df_g['gaa_p60'] - mean_cat['gaa_p60']) / std_cat['gaa_p60']
-
-        ##########################################################################
-        # saves per 60
-        df['z_saves_p60'] = (df_g['saves_p60'] - mean_cat['saves_p60']) / std_cat['saves_p60']
-
-        ##########################################################################
-        # save% per 60
-        df['z_save%_p60'] = (df_g['save%_p60'] - mean_cat['save%_p60']) / std_cat['save%_p60']
-
-        ##########################################################################
-        # Overall z-scores
-        # calc per-60 z-scores
-        df['z_score_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60')
-        # calc offensive category z-scores
-        df['z_offense_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='offense')
-        # calc peripheral category z-scores
-        df['z_peripheral_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='peripheral')
-        # calc goalie count category z-scores
-        df['z_g_count_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_count')
-        # calc goalie ratio category z-scores
-        df['z_g_ratio_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='g_ratio')
-
-        # weighted z-scores are calculated in javascript code
-        df['z_score_p60_weighted'] =  ''
-        df['z_offense_p60_weighted'] = ''
-        df['z_peripheral_p60_weighted'] = ''
-        df['z_count_p60_weighted'] = ''
-        df['z_ratio_p60_weighted'] = ''
-
-        # calc sog+hits+blocks category z-scores
-        df['z_sog_hits_blk_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='sog_hits_blk')
-        # calc hits+blocks category z-scores
-        df['z_hits_blk_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='hits_blk')
-        # calc goals+hits+pim category z-scores
-        df['z_goals_hits_pim_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='goals_hits_pim')
-        # calc hits+pim category z-scores
-        df['z_hits_pim_p60'] = calc_z_scores_by_stat_type(df=df, points_type='per 60', score_type='hits_pim')
-        # calc offense category p60 z-combos
-        df['z_offense_combo_p60'] = calc_z_combo(df=df, points_type='per 60', group='offense')
-        # calc peripheral category p60 z-combos
-        df['z_peripheral_combo_p60'] = calc_z_combo(df=df, points_type='per 60', group='peripheral')
-        # calc category p60 z-combos
-        df['z_combo_p60'] = calc_z_combo(df=df, points_type='per 60')
-
-    except:
-        print(f'{traceback.format_exc()} in calc_per_60_z_scores()')
 
     return
 
@@ -1598,25 +1613,381 @@ def calc_player_breakout_threshold(df: pd.DataFrame) -> pd.Series:
                                                         or x['career_games']==''
                                                         or x['pos'] == 'G'
                                                     )
-                                                 else calculate_breakout_threshold(name=x['name'], height=x['height'], weight=x['weight'], career_games=x['career_games']),
+                                                 else calc_breakout_threshold(name=x['name'], height=x['height'], weight=x['weight'], career_games=x['career_games']),
                                                  axis='columns')
 
     return breakout_thresholds
 
-def calculate_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
+def calc_player_projected_stats(current_season_stats: bool, season_id: str, projection_source: str):
 
-    feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
-    height_in_feet = int(feet_and_inches[0]) + round(int(feet_and_inches[1])/12, 2)
-    # 5' 10" = 5.83 & 6' 2" = 6.17
-    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
-        breakout_threshold = career_games - 200
-    # 5' 9" = 5.75 & 6' 3" = 6.25
-    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
-        breakout_threshold = career_games - 400
-    else:
-        breakout_threshold = np.nan
+    try:
 
-    return breakout_threshold
+        ##########################################################################
+        # need to get basic player info, without statistics
+        sql = textwrap.dedent(f'''\
+            select *
+            from TeamRosters tr
+                 left outer join PlayerStats ps on ps.player_id = tr.player_id and ps.seasonID == {season_id}
+            where tr.seasonID == {season_id}
+        ''')
+        df = pd.read_sql(sql=sql, con=get_db_connection())
+        # Drop the duplicate columns from the resulting DataFrame
+        df = df.loc[:, ~df.columns.duplicated(keep='first')]
+        ##########################################################################
+
+        # Get prior year & 3 years prior, if needed
+        from_year = int(season_id[:-4])
+        to_year = int(season_id[-4:])
+        prior_year_str = str(from_year - 1) + str(to_year - 1)
+        three_years_prior_str = str(from_year - 3) + str(to_year - 3)
+
+        ##########################################################################
+        # skaters
+        ##########################################################################
+
+        # must set index here & remove at end of function; otherwise projections won't calculate
+        df.set_index('player_id', inplace=True)
+
+        if projection_source in ('Athletic', 'Averaged'):
+            # get The Athletic's projections
+            sktr_prj_athletic = pd.read_sql('select * from AthleticSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+            goalie_prj_athletic = pd.read_sql('select * from AthleticGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+
+            sktr_prj_all = sktr_prj_athletic
+            goalie_prj_all = goalie_prj_athletic
+
+            sktr_prj = sktr_prj_athletic.to_dict('index')
+            goalie_prj = goalie_prj_athletic.to_dict('index')
+
+        if projection_source in ('DFO', 'Averaged'):
+            # get Daily Faceoff's projections
+            sktr_prj_dfo = pd.read_sql('select * from DFOSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+            goalie_prj_dfo = pd.read_sql('select * from DFOGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+
+            sktr_prj_all = sktr_prj_dfo
+            goalie_prj_all = goalie_prj_dfo
+
+            sktr_prj = sktr_prj_dfo.to_dict('index')
+            goalie_prj = goalie_prj_dfo.to_dict('index')
+
+        if projection_source in ('Dobber', 'Averaged'):
+            # get Dobber's projections
+            sktr_prj_dobber = pd.read_sql('select * from DobberSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+            goalie_prj_dobber = pd.read_sql('select * from DobberGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+
+            #  projected powerplay points
+            sql = textwrap.dedent(f'''\
+                select CAST(SUM(points_pp) AS FLOAT) / CAST(SUM(games) AS FLOAT) AS ppp_pg, player_id
+                from PlayerStats
+                where seasonID >= {three_years_prior_str} and seasonID <= {prior_year_str}
+                group by player_id
+            ''')
+            df_temp = pd.read_sql(sql=sql, con=get_db_connection())
+            df_temp.set_index('player_id', inplace=True)
+            df = pd.merge(df, df_temp, how='left', on=['player_id'])
+
+            df['PPP'] = df.apply(lambda x: x['ppp_pg'] * x['games']
+                                                if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                                else 0,
+                                        axis='columns')
+            # for lack of a better method, simply use the saves_pg multiplied projected games
+            sql = textwrap.dedent(f'''\
+                select CAST(SUM(saves) AS FLOAT) / CAST(SUM(games) AS FLOAT) AS saves_pg, player_id
+                from PlayerStats
+                where seasonID >= {three_years_prior_str} and seasonID <= {prior_year_str}
+                group by player_id
+            ''')
+            df_temp = pd.read_sql(sql=sql, con=get_db_connection())
+            df_temp.set_index('player_id', inplace=True)
+            df = pd.merge(df, df_temp, how='left', on=['player_id'])
+
+            df['Saves'] = df.apply(lambda x: x['saves_pg'] * goalie_prj[x.name]['Games']
+                                                if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                                else np.nan,
+                                axis='columns')
+
+            # for lack of a better method, simply use the save% from the previous 3 years stats
+            sql = textwrap.dedent(f'''\
+                select CAST(SUM(saves) AS FLOAT) / CAST(SUM(shots_against) AS FLOAT) AS save_percent, player_id
+                from PlayerStats
+                where seasonID >= {three_years_prior_str} and seasonID <= {prior_year_str}
+                group by player_id
+            ''')
+            df_temp = pd.read_sql(sql=sql, con=get_db_connection())
+            df_temp.set_index('player_id', inplace=True)
+            df = pd.merge(df, df_temp, how='left', on=['player_id'])
+
+            df['Save%'] = df.apply(lambda x: x['save_percent']
+                                                if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                                else np.nan,
+                                        axis='columns')
+
+            sktr_prj_all = sktr_prj_dobber
+            goalie_prj_all = goalie_prj_dobber
+
+            sktr_prj = sktr_prj_dobber.to_dict('index')
+            goalie_prj = goalie_prj_dobber.to_dict('index')
+
+        if projection_source in ('DtZ', 'Averaged'):
+            # get DatsyukToZetterberg's projections
+            sktr_prj_dtz = pd.read_sql('select * from DtZSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+            goalie_prj_dtz = pd.read_sql('select * from DtZGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+
+            sktr_prj_all = sktr_prj_dtz
+            goalie_prj_all = goalie_prj_dtz
+
+            sktr_prj = sktr_prj_dtz.to_dict('index')
+            goalie_prj = goalie_prj_dtz.to_dict('index')
+
+        if projection_source in ('Fantrax', 'Averaged'):
+            # get Fantrax projections
+            sktr_prj_fantrax = pd.read_sql('select * from FantraxSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+            goalie_prj_fantrax = pd.read_sql('select * from FantraxGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+
+            sktr_prj_all = sktr_prj_fantrax
+            goalie_prj_all = goalie_prj_fantrax
+
+            sktr_prj = sktr_prj_fantrax.to_dict('index')
+            goalie_prj = goalie_prj_fantrax.to_dict('index')
+
+        if projection_source == 'Averaged':
+            # get means
+            sktr_prj_all = pd.concat([sktr_prj_athletic, sktr_prj_dfo, sktr_prj_dobber, sktr_prj_dtz, sktr_prj_fantrax])
+            goalie_prj_all = pd.concat([goalie_prj_athletic, goalie_prj_dfo, goalie_prj_dobber, goalie_prj_dtz, goalie_prj_fantrax])
+
+            sktr_prj = sktr_prj_all.groupby(level=0).mean(numeric_only=True).to_dict('index')
+            goalie_prj = goalie_prj_all.groupby(level=0).mean(numeric_only=True).to_dict('index')
+
+            sktr_prj_dobber = sktr_prj_dobber.to_dict('index')
+            goalie_prj_dobber = goalie_prj_dobber.to_dict('index')
+
+            sktr_prj_fantrax = sktr_prj_fantrax.to_dict('index')
+            goalie_prj_fantrax = goalie_prj_fantrax.to_dict('index')
+
+        # if projection_source not in ('Athletic', 'DFO', 'Dobber', 'DtZ', 'Fantrax', 'Averaged'):
+        #     df_sktr = df_game_stats.query(skaters_filter).copy(deep=True)
+        #     df_sktr.sort_values(['player_id', 'date'], ascending=[True, True], inplace=True)
+        #     df_sktr.fillna(value={'points': 0, 'goals': 0, 'assists': 0, 'pim': 0, 'shots': 0, 'points_pp': 0, 'hits': 0, 'blocked': 0,'takeaways': 0}, inplace=True)
+        #     df_sktr = df_sktr[df_sktr.groupby('player_id')['date'].transform('size') >= 2]
+        #     df_sktr = df_sktr.groupby('player_id', group_keys=False)
+
+        #     df_g = df_game_stats.query(goalie_filter).copy(deep=True)
+        #     df_g['toi_sec'] = df_g['toi'].apply(lambda x: 0 if x in (None, '') else string_to_time(x))
+        #     df_g.sort_values(['player_id', 'date'], ascending=[True, True], inplace=True)
+        #     df_g.fillna(value={'wins': 0, 'saves': 0, 'goals_against': 0, 'saves%': 0, 'shots_against': 0, 'toi_sec': 0}, inplace=True)
+        #     df_g = df_g[df_g.groupby('player_id')['date'].transform('size') >= 2]
+        #     df_g = df_g.groupby('player_id', group_keys=False)
+
+        # player may not be in df (e.g., Simon Edvinsson)
+        for player_id in sktr_prj:
+            if player_id not in df.index:
+                player = sktr_prj_all.query('player_id==@player_id').head(1)
+                df_player = pd.DataFrame(data={'seasonID': season_id, 'player_id': player_id, 'name': player['Player'], 'pos': player['Pos'], 'team_abbr': player['Team']})
+                df_player.set_index('player_id', inplace=True)
+                df = pd.concat([df,df_player] )
+
+        #  projected games
+        df['games'] = df.apply(lambda x: sktr_prj[x.name]['Games']
+                                            if x.name in sktr_prj
+                                            else goalie_prj[x.name]['Games']
+                                                if x.name in goalie_prj
+                                                else 0,
+                                axis='columns')
+
+        # add Dobber sleeper, upside, & 3YP, Band-Aid Boy
+        if projection_source in ('Dobber', 'Averaged'):
+            #  Dobber's sleeper
+            df['sleeper'] = df.apply(lambda x: sktr_prj[x.name]['Sleeper']
+                                                    if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                                    else 0,
+                                        axis='columns')
+            #  Dobber's upside
+            df['upside'] = df.apply(lambda x: sktr_prj[x.name]['Upside']
+                                                    if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                                    else 0,
+                                        axis='columns')
+
+            #  Dobber's 3YP
+            df['3yp'] = df.apply(lambda x: sktr_prj[x.name]['3YP']
+                                                if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                                else 0,
+                                    axis='columns')
+
+            #  Dobber's Band-Aid Boy
+            df['bandaid'] = df.apply(lambda x: (sktr_prj_dobber[x.name]['Band-Aid Boy']).lower()
+                                                                                        if x.name in sktr_prj_dobber and sktr_prj_dobber[x.name]['Games'] > 0 and sktr_prj_dobber[x.name]['Band-Aid Boy'] is not None
+                                                                                        else '',
+                                                                            axis='columns')
+
+        # add Fantrax Score
+        if projection_source in ('Fantrax', 'Averaged'):
+            # average draft position
+            # after season has started, "ADP" isn't included in Fantrax's projections... so setting ton NaN for now
+
+            # fantrax score may have been added in insert_fantrax_columns()
+            if 'fantrax_score' in df.columns:
+                df.drop(columns=['fantrax_score'], inplace=True)
+
+            df['fantrax_score'] = df.apply(lambda x: float(sktr_prj_fantrax[x.name]['Score'])
+                                                    if x.name in sktr_prj_fantrax and sktr_prj_fantrax[x.name]['Score'] != '-'
+                                                    else float(goalie_prj_fantrax[x.name]['Score'])
+                                                        if x.name in goalie_prj_fantrax and goalie_prj_fantrax[x.name]['Score'] != '-'
+                                                        else np.nan,
+                                            axis='columns')
+
+        # add Fantrax ADP
+        if projection_source in ('Fantrax', 'Averaged'):
+            # average draft position
+            # after season has started, "ADP" isn't included in Fantrax's projections... so setting ton NaN for now
+            df['adp'] = df.apply(lambda x: float(sktr_prj_fantrax[x.name]['ADP'])
+                                            if x.name in sktr_prj_fantrax and 'ADP' in sktr_prj_fantrax[x.name] and sktr_prj_fantrax[x.name]['ADP'] != '-'
+                                            else float(goalie_prj_fantrax[x.name]['ADP'])
+                                                if x.name in goalie_prj_fantrax and 'ADP' in goalie_prj_fantrax[x.name] and goalie_prj_fantrax[x.name]['ADP'] != '-'
+                                                else np.nan,
+                                    axis='columns')
+
+        #  projected goals
+        df['goals'] = df.apply(lambda x: sktr_prj[x.name]['Goals']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                axis='columns')
+
+        #  projected assists
+        df['assists'] = df.apply(lambda x: sktr_prj[x.name]['Assists']
+                                        if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                        else 0,
+                                axis='columns')
+
+        # points = sum of goals & assists
+        df['points'] = df['goals'] + df['assists']
+
+        #  projected penality minutes
+        df['pim'] = df.apply(lambda x: sktr_prj[x.name]['PIM']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                axis='columns')
+
+        # penalties
+        df['penalties'] = np.nan
+
+        #  projected shots
+        df['shots'] = df.apply(lambda x: sktr_prj[x.name]['SOG']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                    axis='columns')
+
+        #  projected powerplay shots
+        df['shots_powerplay'] = 0
+
+        # powerplay points
+        df['points_pp'] = df.apply(lambda x: sktr_prj[x.name]['PPP']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                    axis='columns')
+
+        #  projected hits
+        df['hits'] = df.apply(lambda x: sktr_prj[x.name]['Hits']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                    axis='columns')
+
+        #  projected blocks
+        df['blocked'] = df.apply(lambda x: sktr_prj[x.name]['BLKS']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                axis='columns')
+
+        #  projected takeaways
+        sql = textwrap.dedent(f'''\
+            select  CAST(SUM(takeaways) AS FLOAT) / CAST(SUM(games) AS FLOAT) AS tk_pg, player_id
+            from PlayerStats
+            where seasonID >= {three_years_prior_str} and seasonID <= {prior_year_str}
+            group by player_id
+        ''')
+        df_temp = pd.read_sql(sql=sql, con=get_db_connection())
+        df_temp.set_index('player_id', inplace=True)
+        df = pd.merge(df, df_temp, how='left', on=['player_id'])
+
+        df['takeaways'] = df.apply(lambda x: x['tk_pg'] * x['games']
+                                            if x.name in sktr_prj and sktr_prj[x.name]['Games'] > 0
+                                            else 0,
+                                    axis='columns')
+
+        # powerplay unit
+        if projection_source in ('Dobber', 'Averaged'):
+            #  projected takeaways
+            df['pp_line'] = df.apply(lambda x: sktr_prj_dobber[x.name]['PP Unit']
+                                                    if x.name in sktr_prj_dobber
+                                                    else 0,
+                                            axis='columns')
+
+        ##########################################################################
+        # goalies
+        ##########################################################################
+
+        # player may not be in df (e.g., Simon Edvinsson)
+        for player_id in goalie_prj:
+            if player_id not in df.index:
+                player = goalie_prj_all.query('player_id==@player_id').head(1)
+                df_player = pd.DataFrame(data={'seasonID': season_id, 'player_id': player_id, 'name': player['Player'], 'pos': player['Pos'], 'team_abbr': player['Team']})
+                df_player.set_index('player_id', inplace=True)
+                df = pd.concat([df, df_player])
+
+        # add Dobber goalie tier
+        if projection_source in ('Dobber', 'Averaged'):
+            df['tier'] = df.apply(lambda x: goalie_prj_dobber[x.name]['Notes']
+                                                if x.name in goalie_prj_dobber
+                                                else '',
+                                    axis='columns')
+
+        # get projected wins
+        df['wins'] = df.apply(lambda x: goalie_prj[x.name]['Wins']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                            else np.nan,
+                                axis='columns')
+
+        # saves
+        df['saves'] = df.apply(lambda x: goalie_prj[x.name]['Saves']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                            else np.nan,
+                                axis='columns')
+
+        # projected gaa
+        df['gaa'] = df.apply(lambda x: goalie_prj[x.name]['GAA']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                            else np.nan,
+                                axis='columns')
+
+        # get projected save%
+        df['save%'] = df.apply(lambda x: goalie_prj[x.name]['Save%']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                            else np.nan,
+                                axis='columns')
+
+        # shots against
+        df['shots_against'] = df.apply(lambda x: x['saves'] / x['save%']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0 and x['save%'] > 0
+                                            else np.nan,
+                                    axis='columns')
+
+        # goals against
+        df['goals_against'] = df.apply(lambda x: x['gaa'] * x['games']
+                                            if x.name in goalie_prj and goalie_prj[x.name]['Games'] > 0
+                                            else np.nan,
+                                axis='columns')
+
+        # add projected team games
+        df['team_games'] = 82
+
+        # add column for ratio of games to team games
+        df['percent_of_team_games'] = df['games'].div(df['team_games']).round(2)
+
+        df.reset_index(inplace=True)
+
+    except Exception as e:
+        sg.PopupScrolled(''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)), modal=True)
+
+    return df
 
 def calc_summary_z_scores_vorp(df: pd.DataFrame, stat_type: str='cumulative', vorp_type: str='cumulative'):
 
@@ -2539,12 +2910,14 @@ def rankings_to_html(df: pd.DataFrame, config: Dict, stat_type: str='Cumulative'
     # return the JSON object as a response to the frontend
     return data_dict
 
-def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative') -> dict:
+def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative', projection_source: str='') -> dict:
 
     if game_type == 'R':
         season_type = 'Regular Season'
-    else: # game_type == 'P'
+    elif game_type == 'P':
         season_type = 'Playoffs'
+    else: # game_type == 'Prj'
+        season_type = 'Projected Season'
 
     global timeframe
     timeframe =  season_type
@@ -2552,17 +2925,6 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     # # settings to determine columns to show in html
     # global stat_type
     # stat_type = 'Cumulative'
-
-    #######################################################################################
-    #######################################################################################
-    # generate games statitics
-
-    if season_or_date_radios == 'date':
-        df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
-    else: #  season_or_date_radios == 'season'
-        # (start_year, _) = split_seasonID_into_component_years(season_id=from_season_id)
-        # (_, end_year) = split_seasonID_into_component_years(season_id=to_season_id)
-        df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
 
     # add team games played for each player
     # Get teams to save in dictionary
@@ -2573,9 +2935,23 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
         df_teams = pd.read_sql(f'select team_id, sum(games) as games from TeamStats where seasonID between {from_season_id} and {to_season_id} and game_type="{game_type}" group by team_id', con=get_db_connection())
     teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
 
-    #######################################################################################
-    # aggregate per game stats per player
-    df_player_stats = aggregate_game_stats(df=df_game_stats)
+    if season_type == 'Projected Season':
+        df_player_stats = calc_player_projected_stats(current_season_stats=True, season_id=from_season_id, projection_source=projection_source)
+    else:
+        #######################################################################################
+        #######################################################################################
+        # generate games statitics
+
+        if season_or_date_radios == 'date':
+            df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
+        else: #  season_or_date_radios == 'season'
+            # (start_year, _) = split_seasonID_into_component_years(season_id=from_season_id)
+            # (_, end_year) = split_seasonID_into_component_years(season_id=to_season_id)
+            df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
+
+        #######################################################################################
+        # aggregate per game stats per player
+        df_player_stats = aggregate_game_stats(df=df_game_stats)
 
     # # merge with current player info
     # if season.SEASON_HAS_STARTED is True and season.type == 'R':
@@ -2591,22 +2967,24 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     # add fantrax "score" & "minors" columns
     insert_fantrax_columns(df=df_player_stats)
 
-    # need to add these columns after the stats have been partitioned
-    # per-game stats
-    calc_per_game_stats(df=df_player_stats, df_game_stats=df_game_stats)
+    # no need for per game & per 60 stats for season projections
+    if game_type in ('R', 'P'):
+        # need to add these columns after the stats have been partitioned
+        # per-game stats
+        calc_per_game_stats(df=df_player_stats, df_game_stats=df_game_stats)
 
-    # per-60 stats
-    calc_per60_stats(df=df_player_stats)
+        # per-60 stats
+        calc_per_60_stats(df=df_player_stats)
 
     # calc global mean and std dev for z-score calculations
     calc_scoring_category_means(df=df_player_stats)
     calc_scoring_category_std_deviations(df=df_player_stats)
     # z-scores
     calc_cumulative_z_scores(df=df_player_stats)
-    calc_per_game_z_scores(df=df_player_stats)
-    calc_per_60_z_scores(df=df_player_stats)
-
-    # calc_projection_z_scores(df=df_player_stats)
+    # no need for per game & per 60 z-scores for season projections
+    if game_type in ('R', 'P'):
+        calc_per_game_z_scores(df=df_player_stats)
+        calc_per_60_z_scores(df=df_player_stats)
 
     # vorp = value over replacement player
     if timeframe == 'Regular Season': # regular season
@@ -2714,22 +3092,21 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
 
     df_k = df_stats.copy(deep=True)
 
-    if stat_type == 'Cumulative':
-        sort_columns = ['z_score_pg', 'z_score_p60', 'z_score']
-    elif stat_type == 'Per game':
-        sort_columns = ['z_score_p60', 'z_score', 'z_score_pg']
-    elif stat_type == 'Per 60 minutes':
-        sort_columns = ['z_score', 'z_score_pg', 'z_score_p60']
-    for sort_column in sort_columns:
-        df_k.sort_values([sort_column], ascending=[False], inplace=True)
-        df_k[f'{sort_column}_rank'] = df_k[sort_column].rank(method='min', na_option='bottom', ascending=False)
+    # if stat_type == 'Cumulative':
+    #     sort_columns = ['z_score_pg', 'z_score_p60', 'z_score']
+    # elif stat_type == 'Per game':
+    #     sort_columns = ['z_score_p60', 'z_score', 'z_score_pg']
+    # elif stat_type == 'Per 60 minutes':
+    #     sort_columns = ['z_score', 'z_score_pg', 'z_score_p60']
+    # for sort_column in sort_columns:
+    #     df_k.sort_values([sort_column], ascending=[False], inplace=True)
+    #     df_k[f'{sort_column}_rank'] = df_k[sort_column].rank(method='min', na_option='bottom', ascending=False)
 
-    sort_column = sort_columns[-1]
+    # sort_column = sort_columns[-1]
 
-    # add rank & overall rank, hopefully based on my z-scores
-    # overall rank will remain fixed in datatable
     # rank will renumber based on the rows currently displayed in datatable
-    df_k['rank'] = df_k[sort_column].rank(method='min', na_option='bottom', ascending=False)
+    # df_k['rank'] = df_k[sort_column].rank(method='min', na_option='bottom', ascending=False)
+    df_k['rank'] = df_k['z_score'].rank(method='min', na_option='bottom', ascending=False)
 
     config = stats_config(position='all')
     column_headings = get_config_column_headings(config=config)

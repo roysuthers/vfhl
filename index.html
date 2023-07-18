@@ -22,27 +22,32 @@
         <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.js"></script>
 
-        <!-- Pyodide -->
-        <!-- <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script> -->
-
         <style>
             .stat_gen_args {
                 display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: flex-start;
             }
-            .stat_gen_args label {
-                display: inline-block;
-                width: 200px;
+
+            .stat_gen_args .form-group {
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 20px; /* Adjust as necessary */
+                margin-right: 20px;
+            }
+
+            .stat_gen_args .form-group label,
+            .stat_gen_args {
                 font-size: 1em;
-                }
+                margin-bottom: 5px; /* Adjust as necessary */
+            }
+
             .stat_gen_args select {
-                display: inline-block;
-                width: 200px;
+                min-width: 150px; /* Adjust as necessary */
                 font-size: 1em;
             }
-            .stat_gen_args .radio-label {
-                width: 200px;
-                font-size: 1em;
-            }
+
             .spinner {
                 display: block;
                 position: fixed;
@@ -52,108 +57,125 @@
                 margin-top: -32px; /* half of the element height */
                 margin-right: -32px; /* half of the element width */
             }
+
             #managerSummary, #managerCategoryNeeds, #categoryScarcity , #categoryScarcityByZScoreRange {
                 margin-left: 0;
                 margin: 10px;
                 white-space: nowrap;
             }
+
             /* #managerSummary td:nth-child(1) {
                 white-space: nowrap;
             } */
+
             #managerSummary th[colspan] {
                 text-align: center;
             }
+
             #managerSummary tr:first-child th[colspan="12"] {
                 background-color: darkcyan;
             }
+
             #managerSummary tr:first-child th[colspan="7"] {
                 background-color: lightgreen;
             }
+
             #managerCategoryNeeds th[colspan="9"] {
                 background-color: darkcyan;
             }
+
             #managerCategoryNeeds th[colspan="4"] {
                 background-color: lightgreen;
             }
+
             #managerCategoryNeeds th[colspan] {
                 text-align: center;
             }
+
             #managerCategoryNeedsContainer, #categoryScarcityContainer {
                 display: flex;
                 flex-wrap: wrap;
             }
+
             #managerCategoryNeedsContainerCaption {
                 text-align: center;
             }
+
             #categoryScarcityByZScoreRange th[colspan="9"] {
                 background-color: darkcyan;
             }
+
             #categoryScarcityByZScoreRange th[colspan="4"] {
                 background-color: lightgreen;
             }
+
             #categoryScarcityByZScoreRange th[colspan] {
                 text-align: center;
             }
+
             #startDraftButton, #autoAssignDraftPicks, #weightedScoreOptions {
                 display: inline-block !important;
                 font-size: 1em;
             }
+
             #weightedScoreOptions {
                 border: none;
             }
+
             #startDraftButton.hidden, #autoAssignDraftPicks.hidden, #weightedScoreOptions.hidden {
                 display: none !important;
             }
+
             input[type="date"] {
                width: 200px;
                font-size: 1em;
             }
+
         </style>
 
-        <!-- Control labels to show on line above control -->
         <div class="stat_gen_args">
-            <label for="poolID">FANTRAX POOL</label>
-            <label for="gameType">GAME TYPE</label>
-            <!-- Radio buttons to select between season or date -->
-            <label class="radio-label"><input type="radio" name="seasonOrDate" value="season" checked>SEASON RANGE</label>
-            <label class="radio-label"><input type="radio" name="seasonOrDate" value="date">DATE RANGE</label>
-        </div>
-
-        <div class="stat_gen_args">
-
-            <select id="poolID">
-            <option value=0>None</option>
-            <option value=4>VFHL 2021-2022</option>
-            <option value=6>VFHL 2022-2023</option>
-            <option value=7 selected>VFHL 2023-2024</option>
-            </select>
-
-            <select id="gameType">
-                <option value="Regular Season" selected>Regular Season</option>
-                <option value="Playoffs">Playoffs</option>
-            </select>
-
-            <div id="seasonControls">
-                <!-- Season controls -->
-                <select id="fromSeason">
-                    <option value="20172018">2017-18</option>
-                    <option value="20182019">2018-19</option>
-                    <option value="20192020">2019-20</option>
-                    <option value="20202021">2020-21</option>
-                    <option value="20212022">2021-22</option>
-                    <option value="20222023" selected>2022-23</option>
-                </select>
-                <select id="toSeason">
-                    <option value="20222023" selected>2022-23</option>
+            <div class="form-group">
+                <label for="poolID">FANTRAX POOL</label>
+                <select id="poolID">
+                    <option value=0>None</option>
+                    <option value=4>VFHL 2021-2022</option>
+                    <option value=6>VFHL 2022-2023</option>
+                    <option value=7 selected>VFHL 2023-2024</option>
                 </select>
             </div>
-
-            <!-- Date controls -->
-            <div id="dateControls" style="display: none;">
-                <input id="fromDate" type="date">
-                <input id="toDate" type="date">
+            <div class="form-group">
+                <label for="gameType">GAME TYPE</label>
+                <select id="gameType">
+                    <option value="Regular Season" selected>Regular Season</option>
+                    <option value="Playoffs">Playoffs</option>
+                    <option value="Projected Season">Projected Season</option>
+                </select>
             </div>
-
+            <div class="form-group">
+                <div>
+                    <label class="radio-label"><input type="radio" name="seasonOrDate" value="season" checked>SEASON RANGE</label>
+                    <label class="radio-label"><input type="radio" name="seasonOrDate" value="date">DATE RANGE</label>
+                </div>
+                <div id="seasonControls">
+                    <select id="fromSeason"></select>
+                    <select id="toSeason"></select>
+                </div>
+                <div id="dateControls" style="display: none;">
+                    <input id="fromDate" type="date">
+                    <input id="toDate" type="date">
+                </div>
+            </div>
+            <div class="form-group" id="projectionSourceWrap">
+                <label for="projectionSource">PROJECTION SOURCE</label>
+                <select id="projectionSource">
+                    <option value="Averaged" selected>Averaged</option>
+                    <option value="Athletic">The Athletic</option>
+                    <option value="Dobber">Dobber</option>
+                    <option value="DtZ">Datsyuk To Zetterberg</option>
+                    <option value="DFO">Daily FaceOff </option>
+                    <option value="Fantrax">Fantrax</option>
+                </select>
+            </div>
         </div>
 
         <p>
@@ -244,6 +266,11 @@
             const dateControls = document.querySelector('#dateControls');
             const fromDate = document.querySelector('#fromDate');
             const toDate = document.querySelector('#toDate');
+            const projectionSource = document.querySelector('#projectionSource');
+            const projectionSourceLabel = document.querySelector('#projectionSourceWrap label');
+            const statType = document.querySelector("#statType");
+
+            const upcomingSeason = '20232024';
 
             // Object to store the start and end dates for each season
             const regularSeasonDates = {
@@ -257,12 +284,13 @@
 
             // Object to store the start and end dates for each season
             const playoffsSeasonDates = {
-                '20172018': { startDate: '2018-04-11', endDate: '2018-06-07' },
-                '20182019': { startDate: '2019-04-10', endDate: '2019-06-12' },
-                '20192020': { startDate: '2020-08-01', endDate: '2020-09-28' },
-                '20202021': { startDate: '2021-05-15', endDate: '2021-07-07' },
                 '20212022': { startDate: '2022-05-02', endDate: '2022-06-30' },
                 '20222023': { startDate: '2023-04-17', endDate: '2023-06-19' },
+            };
+
+            // Object to store the start and end dates for the next season's projections
+            const projectedSeasonDates = {
+                '20232024': { startDate: '2023-10-10', endDate: '2024-04-18' },
             };
 
             // trigger change event on first select
@@ -305,6 +333,75 @@
                 }
             }
 
+            // Function to set the values from & to seasons
+            function setSeasons() {
+                // Get the selected game type
+                let selectedGameType = gameType.value;
+
+                // Get references to the fromSeason and toSeason elements
+                let fromSeason = document.querySelector('#fromSeason');
+                let toSeason = document.querySelector('#toSeason');
+
+                // Clear the current options in the fromSeason and toSeason elements
+                fromSeason.innerHTML = '';
+                toSeason.innerHTML = '';
+
+                // Get a reference to the "DATE RANGE" radio button
+                let dateRangeRadioButton = document.querySelector('input[type="radio"][value="date"]');
+
+                // Create new options for the fromSeason and toSeason elements based on the selected game type
+                if (selectedGameType === 'Regular Season') {
+                    var seasons = Object.keys(regularSeasonDates);
+                } else if (selectedGameType === 'Playoffs') {
+                    seasons = Object.keys(playoffsSeasonDates);
+                } else if (selectedGameType === 'Projected Season') {
+                    seasons = Object.keys(projectedSeasonDates);
+                }
+                // Add options for seasons up to the latest season, to the fromSeason element
+                seasons.forEach(season => {
+                    let option = document.createElement('option');
+                    option.value = season;
+                    option.text = season.slice(0, 4) + '-' + season.slice(4);
+                    fromSeason.add(option);
+                });
+
+                // Set the last option as the selected option
+                fromSeason.options[fromSeason.options.length - 1].selected = true;
+
+                // Add options for all seasons starting with the selected season & up to the most recent season to the toSeason element
+                let selectedFromSeason = fromSeason.value;
+                let index = seasons.indexOf(selectedFromSeason);
+                let availableToSeasons = seasons.slice(index);
+                availableToSeasons.forEach(season => {
+                    let option = document.createElement('option');
+                    option.value = season;
+                    option.text = season.slice(0, 4) + '-' + season.slice(4);
+                    toSeason.add(option);
+                });
+
+                if (selectedGameType === 'Regular Season' || selectedGameType === 'Playoffs') {
+                    dateRangeRadioButton.disabled = false;
+                } else if (selectedGameType === 'Projected Season') {
+                    dateRangeRadioButton.disabled = true;
+                }
+            };
+
+            // function to set statType options based on selected gameType
+            function updateStatTypeOptions() {
+
+                if (gameType.value === "Projected Season") {
+                    // Only allow the Cumulative option
+                    statType.innerHTML = '<option value="Cumulative" selected>Cumulative</option>';
+                    statType.setAttribute("readonly", true);
+                } else {
+                    // Allow all options
+                    statType.innerHTML = '<option value="Cumulative" selected>Cumulative</option>' +
+                                            '<option value="Per game">Per game</option>' +
+                                            '<option value="Per 60 minutes">Per 60 minutes</option>';
+                    statType.removeAttribute("readonly");
+                }
+            }
+
             // Function to set the values of the date inputs based on the selected season
             function setDateValues() {
 
@@ -318,9 +415,28 @@
                 if (gameType.value === 'Regular Season') {
                     fromDate.value = regularSeasonDates[fromSeason.value].startDate;
                     toDate.value = regularSeasonDates[toSeason.value].endDate;
-                } else {
+                } else if (gameType.value === 'Playoffs') {
                     fromDate.value = playoffsSeasonDates[fromSeason.value].startDate;
                     toDate.value = playoffsSeasonDates[toSeason.value].endDate;
+                } else { // gameType.value === 'Projected Season'
+                    fromSeason.value = '20232024';
+                    toSeason.value = '20232024';
+                    fromDate.value = projectedSeasonDates[fromSeason.value].startDate;
+                    toDate.value = projectedSeasonDates[toSeason.value].endDate;
+                }
+            }
+
+            function setProjectionSourceVisibility() {
+                // Get the selected game type
+                let selectedGameType = gameType.value;
+                // Show or hide the element based on the selected game type
+                if (selectedGameType === 'Projected Season') {
+                    projectionSource.style.display = 'inline-block';
+                    projectionSourceLabel.style.display = 'inline-block';
+
+                } else {
+                    projectionSource.style.display = 'none';
+                    projectionSourceLabel.style.display = 'none';
                 }
             }
 
@@ -339,12 +455,18 @@
 
             // Add event listeners to the gameType selector to listen for changes
             gameType.addEventListener('change', () => {
+                setSeasons();
                 setDateValues();
+                setProjectionSourceVisibility();
+                updateStatTypeOptions();
             });
 
             // execute the setDateValues function when the page is loaded
             document.addEventListener("DOMContentLoaded", function() {
+                setSeasons();
                 setDateValues();
+                setProjectionSourceVisibility();
+                updateStatTypeOptions();
             });
 
         </script>

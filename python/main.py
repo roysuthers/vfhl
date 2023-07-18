@@ -21,12 +21,16 @@ def player_data():
     game_type = request.args.get('gameType')
     stat_type = request.args.get('statType')
     pool_id = request.args.get('poolID')
+    projection_source = request.args.get('projectionSource')
 
     if season_or_date_radios == 'date':
         file_name = 'player_data_from_{}_to_{}_for_{}{}_to_{}{}_seasons'.format(from_date.replace('"', ''), to_date.replace('"', ''), from_season, game_type, to_season, game_type)
 
     else:
-        file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons'
+        if game_type == 'Prj':
+            file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}-{projection_source}_seasons'
+        else:
+            file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons'
 
     file_incl_path = f'./json/{file_name}.json'
 
@@ -42,7 +46,7 @@ def player_data():
     else:
 
         # Call your get_player_data function with the specified parameters
-        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type)
+        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source)
 
         with open(file_incl_path, 'w') as f:
             json.dump(player_data, f)
