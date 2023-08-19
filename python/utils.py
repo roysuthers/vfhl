@@ -1,8 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from time import strftime, strptime
 from typing import Dict, Tuple
 
 
 def calculate_age(birth_date: str) -> int:
+    """Calculate the age in years given a birth date in YYYY-MM-DD format."""
 
     born = datetime.strptime(birth_date, "%Y-%m-%d").date()
     today = date.today()
@@ -11,36 +13,35 @@ def calculate_age(birth_date: str) -> int:
 
     return age
 
-def seconds_to_string_time(seconds: int):
+def seconds_to_string_time(seconds: int) -> str:
+    """Convert seconds to a string time in MM:SS format."""
 
-    str_time = ''
     try:
-        str_time = "{:02}:{:02}".format(*divmod(int(seconds), 60)).strip()
-    except AttributeError as e:
-        if 'float' in e.args[0]:
-            pass
-        else:
-            raise
+        minutes, seconds = divmod(seconds, 60)
+        str_time = f"{minutes:02}:{seconds:02}"
+    except ValueError:
+        str_time = "00:00"
 
     return str_time
 
 def split_seasonID_into_component_years(season_id: int) -> Tuple[int, int]:
+    """Split a season ID into two component years."""
 
-    if type(season_id) is str:
+    try:
         season_id = int(season_id)
+        first_year, second_year = divmod(season_id, 10000)
+    except ValueError:
+        first_year, second_year = 0, 0
 
-    return divmod(season_id, 10000)
+    return first_year, second_year
 
-def string_to_time(string: str):
+def string_to_time(string: str) -> int:
+    """Convert a string time in MM:SS format to seconds."""
 
-    seconds = 0
     try:
         minutes, seconds = map(int, string.split(':'))
         seconds += minutes * 60
-    except AttributeError as e:
-        if 'float' in e.args[0]:
-            pass
-        else:
-            raise
+    except ValueError:
+        seconds = 0
 
     return seconds

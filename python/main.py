@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
-import os
+from pathlib import Path
 
 from get_player_data import rank_players
 from fantrax import scrape_draft_picks
@@ -9,10 +9,13 @@ from fantrax import scrape_draft_picks
 app = Flask(__name__, static_folder='./json')
 CORS(app)
 
+# Constant
+JSON_FOLDER = Path('./json')
+
 @app.route('/player-data')
 def player_data():
+    """Return the player data as a JSON object based on the request arguments."""
 
-    # Get the values for the request parameters
     season_or_date_radios = request.args.get('seasonOrDateRadios')
     from_season = request.args.get('fromSeason')
     to_season = request.args.get('toSeason')
@@ -23,21 +26,12 @@ def player_data():
     pool_id = request.args.get('poolID')
     projection_source = request.args.get('projectionSource')
 
-    if season_or_date_radios == 'date':
-        file_name = 'player_data_from_{}_to_{}_for_{}{}_to_{}{}_seasons'.format(from_date.replace('"', ''), to_date.replace('"', ''), from_season, game_type, to_season, game_type)
+    file_name = generate_file_name(season_or_date_radios, from_season, to_season, from_date, to_date, game_type, projection_source)
+    file_path = JSON_FOLDER / f"{file_name}.json"
 
-    else:
-        if game_type == 'Prj':
-            file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}-{projection_source}_seasons'
-        else:
-            file_name = f'player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons'
+    if file_path.is_file():
 
-    file_incl_path = f'./json/{file_name}.json'
-
-   # Check if draft_picks.json file exists
-    if os.path.isfile(file_incl_path):
-
-        with open(file_incl_path, 'r') as f:
+        with open(file_path, 'r') as f:
             # Load the data from file
             player_data = json.load(f)
 
@@ -45,38 +39,53 @@ def player_data():
 
     else:
 
-        # Call your get_player_data function with the specified parameters
         player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source)
 
-        with open(file_incl_path, 'w') as f:
-            json.dump(player_data, f)
+        # ##########################################################################################################
+        # Upon returning to jquery datatables, if getPlayerData(seasonOrDateRadios, function(playerData) {...} does call back,
+        # it's likely because some cumulative_stats_data columns have np.nan values, which don't jasonify.
+        # ##########################################################################################################
 
-        # Return the player data as JSON
+        # with open(file_path, 'w') as f:
+        #     json.dump(player_data, f)
+
         return jsonify(player_data).get_json()
+
+def generate_file_name(season_or_date_radios: str, from_season: str, to_season: str, from_date: str, to_date: str, game_type: str, projection_source: str) -> str:
+    """Generate a file name based on the arguments."""
+
+    if season_or_date_radios == 'date':
+        file_name = f"player_data_from_{from_date}_to_{to_date}_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons"
+
+    else:
+        if game_type == 'Prj':
+            file_name = f"player_data_for_{from_season}{game_type}_to_{to_season}{game_type}-{projection_source}_seasons"
+        else:
+            file_name = f"player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons"
+
+    return file_name
 
 @app.route('/draft-order')
 def draft_order():
+    """Returns the draft order data as JSON."""
 
-    file_incl_path = './json/draft_picks.json'
+    file_path = JSON_FOLDER / "draft_picks.json"
 
    # Check if draft_picks.json file exists
-    if os.path.isfile(file_incl_path):
-
-        with open(file_incl_path, 'r') as f:
+    try:
+        # Try to open and read the file
+        with open(file_path, 'r') as f:
             # Load the data from file
             draft_picks = json.load(f)
 
-        return draft_picks
-
-    else:
-
+    except FileNotFoundError:
+        # If the file does not exist, scrape the data and save it to the file
         draft_picks = scrape_draft_picks()
-
-        with open(file_incl_path, 'w') as f:
+        with open(file_path, 'w') as f:
             json.dump(draft_picks, f)
 
-        # Return the data as JSON
-        return jsonify(draft_picks).get_json()
+    # Return the data as JSON
+    return jsonify(draft_picks)
 
 if __name__ == '__main__':
     app.run()

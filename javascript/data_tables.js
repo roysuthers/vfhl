@@ -365,7 +365,7 @@ $(document).ready(function () {
                 // custom sort for 'dobber z-score rank' column
                 // custom sort for 'dtz z-score rank' column
                 // custom sort for 'fantrax z-score rank' column
-                { targets: [line_idx, pp_unit_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx], type: "custom_integer_sort", orderSequence: ['asc']},
+                { targets: [line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx], type: "custom_integer_sort", orderSequence: ['asc']},
 
                 // custom sort for ''toi pg (trend)' column
                 // custom sort for 'toi even pg (trend)' column
@@ -777,19 +777,6 @@ $(document).ready(function () {
                                         min: rowData[position_idx] === 'G' ? min_cat['g ' + cat]: min_cat['sktr ' + cat],
                                         center: 0,
                                     });
-                                } else if ( col == z_score_vorp_idx ) {
-                                    if ( statType.value === 'Cumulative' ) {
-                                        cat = 'z_score_vorp'
-                                    } else if ( statType.value === 'Per game' ) {
-                                        cat = 'z_score_pg_vorp'
-                                    } else if ( statType.value === 'Per 60 minutes' ) {
-                                        cat = 'z_score_p60_vorp'
-                                    }
-                                    $(td).colourize({
-                                        max: rowData[position_idx] === 'G' ? max_cat['g ' + cat]: max_cat['sktr ' + cat],
-                                        min: rowData[position_idx] === 'G' ? min_cat['g ' + cat]: min_cat['sktr ' + cat],
-                                        center: 0,
-                                    });
                                 } else if ( rowData[position_idx]!=='G' && col == z_offense_idx ) {
                                     if ( statType.value === 'Cumulative' ) {
                                         cat = 'z_offense'
@@ -797,19 +784,6 @@ $(document).ready(function () {
                                         cat = 'z_offense_pg'
                                     } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_offense_p60'
-                                    }
-                                    $(td).colourize({
-                                        max: rowData[position_idx] !== 'G' ? max_cat['sktr ' + cat] : 0,
-                                        min: rowData[position_idx] !== 'G' ? min_cat['sktr ' + cat] : 0,
-                                        center: 0,
-                                    });
-                                } else if ( rowData[position_idx]!=='G' && col == z_offense_vorp_idx ) {
-                                    if ( statType.value === 'Cumulative' ) {
-                                        cat = 'z_offense_vorp'
-                                    } else if ( statType.value === 'Per game' ) {
-                                        cat = 'z_offense_pg_vorp'
-                                    } else if ( statType.value === 'Per 60 minutes' ) {
-                                        cat = 'z_offense_p60_vorp'
                                     }
                                     $(td).colourize({
                                         max: rowData[position_idx] !== 'G' ? max_cat['sktr ' + cat] : 0,
@@ -875,19 +849,6 @@ $(document).ready(function () {
                                         cat = 'z_hits_pim_pg'
                                     } else if ( statType.value === 'Per 60 minutes' ) {
                                         cat = 'z_hits_pim_p60'
-                                    }
-                                    $(td).colourize({
-                                        max: rowData[position_idx] !== 'G' ? max_cat['sktr ' + cat] : 0,
-                                        min: rowData[position_idx] !== 'G' ? min_cat['sktr ' + cat] : 0,
-                                        center: 0,
-                                    });
-                                } else if ( rowData[position_idx]!=='G' && col == z_peripheral_vorp_idx ) {
-                                    if ( statType.value === 'Cumulative' ) {
-                                        cat = 'z_peripheral_vorp'
-                                    } else if ( statType.value === 'Per game' ) {
-                                        cat = 'z_peripheral_pg_vorp'
-                                    } else if ( statType.value === 'Per 60 minutes' ) {
-                                        cat = 'z_peripheral_p60_vorp'
                                     }
                                     $(td).colourize({
                                         max: rowData[position_idx] !== 'G' ? max_cat['sktr ' + cat] : 0,
@@ -1822,7 +1783,7 @@ function autoAssignDraftPick() {
 
     var table = $('#player_stats').DataTable();
 
-    // probably only a maximum of 12 forwards & 9 defensemen, or 9 defensement & 11 forwards, to ensure 4 goalies drafted
+    // probably only a maximum of 12 forwards & 8 defensemen, or 11 forwards & 9 defensemen, to ensure 4 goalies drafted
     if ((fCount === 11 && dCount === 9) || (fCount === 12 && dCount === 8)) {
         if (!f_limit_reached.includes(draft_manager)) {
             f_limit_reached.push(draft_manager);
@@ -1834,15 +1795,13 @@ function autoAssignDraftPick() {
             function(settings, data, dataIndex) {
                 if (settings.nTable.id === 'player_stats' && auto_assign_picks === true) {
                     return (['LW', 'C', 'RW', 'D'].includes(data[position_idx]) && f_limit_reached.includes(draft_manager) && d_limit_reached.includes(draft_manager)) ? false: true;
+                    // return (['LW', 'C', 'RW', 'D'].includes(data[position_idx]) && data[manager_idx] === draft_manager) ? false: true;
                 }
                 return true;
             }
         );
-        // table.draw();
-    }
-
     // probably only a maximum of 12 forwards
-    if (fCount === 12) {
+    } else if (fCount === 12) {
         if (!f_limit_reached.includes(draft_manager)) {
             f_limit_reached.push(draft_manager);
         }
@@ -1850,15 +1809,13 @@ function autoAssignDraftPick() {
             function(settings, data, dataIndex) {
                 if (settings.nTable.id === 'player_stats' && auto_assign_picks === true) {
                     return (['LW', 'C', 'RW'].includes(data[position_idx]) && f_limit_reached.includes(draft_manager)) ? false: true;
+                    // return (['LW', 'C', 'RW'].includes(data[position_idx]) && data[manager_idx] === draft_manager) ? false: true;
                 }
                 return true;
             }
         );
-        // table.draw();
-    }
-
     // probably only a maximum of 9 defensemen
-    if (dCount === 9) {
+    } else if (dCount === 9) {
         if (!d_limit_reached.includes(draft_manager)) {
             d_limit_reached.push(draft_manager);
         }
@@ -1866,11 +1823,11 @@ function autoAssignDraftPick() {
             function(settings, data, dataIndex) {
                 if (settings.nTable.id === 'player_stats' && auto_assign_picks === true) {
                     return (data[position_idx] === 'D' && d_limit_reached.includes(draft_manager)) ? false: true;
+                    // return (data[position_idx] === 'D' && data[manager_idx] === draft_manager) ? false: true;
                 }
                 return true;
             }
         );
-        // table.draw();
     }
 
     // can only a maximum of 4 goalies
@@ -1882,6 +1839,7 @@ function autoAssignDraftPick() {
             function(settings, data, dataIndex) {
                 if (settings.nTable.id === 'player_stats' && auto_assign_picks === true) {
                     return (data[position_idx] === 'G' && g_limit_reached.includes(draft_manager)) ? false: true;
+                    // return (data[position_idx] === 'G' && data[manager_idx] === draft_manager) ? false: true;
                 }
                 return true;
             }
@@ -1891,17 +1849,22 @@ function autoAssignDraftPick() {
 
     // Apply sort
     if (draft_manager === 'Banshee') {
-        if ((fCount + dCount + gCount) <= 16) {
-            table.order([weightedZOffense_idx, 'desc']);
+        if ((fCount + dCount) <= 16) {
+            // the first 4 picks should cover skater offensive categories
+            table.order([weightedZOffense_idx, 'desc'], [weightedZScore_idx, 'desc'], [z_score_idx, 'desc']);
             // table.order([z_offense_idx, 'desc']);
-        } else if ((fCount + dCount + gCount) <= 20) {
-            table.order([weightedZPeripheral_idx, 'desc']);
+        } else if ((fCount + dCount) <= 20) {1
+            // the next 4 picks should cover skater peripheral categories
+            table.order([weightedZPeripheral_idx, 'desc'], [weightedZScore_idx, 'desc'], [z_score_idx, 'desc']);
             // table.order([z_peripheral_idx, 'desc']);
-        } else if ((fCount + dCount + gCount) <= 21) {
-            table.order([weightedZScore_idx, 'desc']);
-            // table.order([z_score_idx, 'desc']);
+        // } else if ((fCount + dCount + gCount) <= 21) {
+        //     // the next pick (i.e. skater) should cover all categories
+        //     table.order([[weightedZScore_idx, 'desc'], [z_score_idx, 'desc']]);
+        //     // table.order([z_score_idx, 'desc']);
         } else {
-            table.order([weightedGZCount_idx, 'desc']);
+            // the last picks should cover goalie categories
+            table.order([weightedGZCount_idx, 'desc'], [weightedZScore_idx, 'desc'], [z_score_idx, 'desc']);
+            // table.order([weightedGZCount_idx, 'desc']);
             // table.order([z_g_count_idx, 'desc']);
         }
     } else {
@@ -1916,14 +1879,13 @@ function autoAssignDraftPick() {
     var randomIndex = Math.floor(Math.random() * 10);
     var selectedRow = filteredSortedIndexes[randomIndex];
 
-    // if (draft_manager === "Banshee") {
-    //     // Hide the context menu
-    //     // options.$menu.trigger('contextmenu:hide');
-    //     // $.contextMenu('hide');
-    //     // Manually select player
-    //     return;
-
-    // }
+    if (draft_manager === "Banshee") {
+        // Hide the context menu
+        // options.$menu.trigger('contextmenu:hide');
+        // $.contextMenu('hide');
+        // Manually select player
+        return;
+    }
 
     if (assignManager(table, selectedRow, draft_manager) === false) {
         auto_assign_picks = false;
@@ -1963,8 +1925,11 @@ function autoAssignDraftPicks() {
         }
     );
 
-    // Clear all search pane selections
-    $('#player_stats').DataTable().searchPanes.clearSelections();
+    // Clear all search pane & serach builder selections
+    var table = $('#player_stats').DataTable();
+    table.searchPanes.clearSelections()
+    table.searchBuilder.rebuild();
+
 
     autoAssignDraftPick();
 
@@ -3035,24 +3000,28 @@ function getTeamCategoryValuesAndZScores(teamPlayers) {
             }
         }
         for (let category in player.categoryZScores) {
-            if (!teamCategoryValuesAndZScores[manager]['zScores'][category]) {
-                teamCategoryValuesAndZScores[manager]['zScores'][category] = 0;
-            }
-            if (!isNaN(player.categoryZScores[category])) {
-                if (includePlayerCategoryZScore(player, category) === true || (category === 'toiSec' && player.position === 'G')) {
-                    teamCategoryValuesAndZScores[manager]['zScores'][category] += player.categoryZScores[category];
+            if (category !== 'gaa' && category !== 'savePercent') {
+                if (!teamCategoryValuesAndZScores[manager]['zScores'][category]) {
+                    teamCategoryValuesAndZScores[manager]['zScores'][category] = 0;
+                }
+                if (!isNaN(player.categoryZScores[category])) {
+                    if (includePlayerCategoryZScore(player, category) === true || (category === 'toiSec' && player.position === 'G')) {
+                        teamCategoryValuesAndZScores[manager]['zScores'][category] += player.categoryZScores[category];
+                    }
                 }
             }
         }
 
-        // need to calculate gaa & save %
+    });
+
+    // need to calculate gaa & save %
+    for (let manager in teamCategoryValuesAndZScores) {
         teamCategoryValuesAndZScores[manager]['values']['gaa'] = teamCategoryValuesAndZScores[manager]['values']['goalsAgainst'] / teamCategoryValuesAndZScores[manager]['values']['toiSec'] * 3600
         teamCategoryValuesAndZScores[manager]['values']['savePercent'] = teamCategoryValuesAndZScores[manager]['values']['saves'] / teamCategoryValuesAndZScores[manager]['values']['shotsAgainst']
 
         teamCategoryValuesAndZScores[manager]['zScores']['gaa'] = (mean_cat['gaa'] - teamCategoryValuesAndZScores[manager]['values']['gaa']) / std_cat['gaa']
         teamCategoryValuesAndZScores[manager]['zScores']['savePercent'] = (teamCategoryValuesAndZScores[manager]['values']['savePercent'] - mean_cat['save%']) / std_cat['save%']
-
-    });
+    }
 
     return teamCategoryValuesAndZScores;
 }
@@ -3115,8 +3084,9 @@ function initDraftContextMenu() {
 
                             assignManager(table, rowIndex, draft_manager);
 
-                            // Clear all search pane selections
+                            // Clear all search pane & serach builder selections
                             table.searchPanes.clearSelections();
+                            table.searchBuilder.rebuild();
 
                             // Resume auto processing
                             if (auto_assign_picks === true) {
@@ -3204,18 +3174,10 @@ function updateCaption() {
 
     let seasonTo = toSeason.value.substring(0, 4) + '-' + toSeason.value.substring(4);
 
-    if (fromSeason === toSeason){
-        if (gameType.value === 'Regular Season') {
-            caption = statType.value + ' Statistics for the ' + seasonFrom + ' Season';
-        } else {
-            caption = statType.value + ' Statistics for the ' + seasonFrom + ' Playoffs';
-        }
+    if (fromSeason.value === toSeason.value){
+        caption = statType.value + ' Statistics for the ' + seasonFrom + ' ' + gameType.value;
     } else {
-        if (gameType.value === 'Regular Season') {
-            caption = statType.value + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Seasons';
-        } else {
-            caption = statType.value + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' Playoffs';
-        }
+        caption = statType.value + ' Statistics for the ' + seasonFrom + ' to ' + seasonTo + ' ' + gameType.value + 's';
     }
 
     return caption
@@ -3279,10 +3241,12 @@ function updateCategoryScarcityByZScoreRangeTable(data_dict) {
 function updateColumnIndexes(columns) {
 
     // column indexes
+    three_yp_idx = columns.findIndex(column => column.title === '3yp');
     adp_idx = columns.findIndex(column => column.title === 'fantrax adp');
     age_idx = columns.findIndex(function(column) { return column.title == 'age' });
     assists_idx = columns.findIndex(column => ['a', 'a pg', 'a p60', 'a prj'].includes(column.title));
     athletic_zscore_rank_idx = columns.findIndex(column => column.title === 'athletic z-score rank');
+    bandaid_boy_idx = columns.findIndex(column => column.title === 'bandaid boy');
     blk_idx = columns.findIndex(column => ['blk', 'blk pg', 'blk p60', 'blk prj'].includes(column.title));
     breakout_threshold_idx = columns.findIndex(column => column.title === 'bt');
     corsi_for_percent_idx = columns.findIndex(column => column.title === 'cf%');
@@ -3320,6 +3284,7 @@ function updateColumnIndexes(columns) {
     goals_against_idx = columns.findIndex(column => column.title === 'goals against');
     pp_percent_idx = columns.findIndex(column => column.title === '%pp');
     pp_unit_idx = columns.findIndex(column => column.title === 'pp unit');
+    pp_unit_prj_idx = columns.findIndex(column => column.title === 'pp unit prj');
     ppp_idx = columns.findIndex(column => ['ppp', 'ppp pg', 'ppp p60', 'ppp prj'].includes(column.title));
     predraft_keeper_idx = columns.findIndex(column => column.title === 'pre-draft keeper');
     // prj_draft_round_idx = columns.findIndex(column => column.title === 'prj draft round');
@@ -3331,6 +3296,7 @@ function updateColumnIndexes(columns) {
     saves_idx = columns.findIndex(column => ['sv', 'sv pg', 'sv p60', 'sv prj'].includes(column.title));
     saves_percent_idx = columns.findIndex(column => ['sv%', 'sv% pg', 'sv% p60', 'sv% prj'].includes(column.title));
     shooting_percent_idx = columns.findIndex(column => column.title === 'sh%');
+    sleeper_idx = columns.findIndex(column => column.title === 'sleeper');
     sog_idx = columns.findIndex(column => ['sog', 'sog pg', 'sog p60', 'sog prj'].includes(column.title));
     shots_against_idx = columns.findIndex(column => column.title === 'shots against');
     sog_pp_idx = columns.findIndex(column => column.title === 'pp sog');
@@ -3346,6 +3312,7 @@ function updateColumnIndexes(columns) {
     toi_seconds_idx = columns.findIndex(column => column.title === 'toi (sec)');
     toi_sh_pg_trend_idx = columns.findIndex(column => column.title === 'toi sh pg (trend)');
     toi_sec_idx = columns.findIndex(column => column.title === 'toi (sec)');
+    upside_idx = columns.findIndex(column => column.title === 'upside');
     watch_idx = columns.findIndex(column => column.title === 'watch');
     wins_idx = columns.findIndex(column => ['w', 'w pg', 'w p60', 'w prj'].includes(column.title));
     z_assists_idx = columns.findIndex(column => ['z-a', 'z-a pg', 'z-a p60', 'z-a prj'].includes(column.title));
@@ -3360,16 +3327,13 @@ function updateColumnIndexes(columns) {
     z_hits_idx = columns.findIndex(column => ['z-hits', 'z-hits pg', 'z-hits p60', 'z-hits prj'].includes(column.title));
     z_hits_pim_idx = columns.findIndex(column => ['z-hits +penalties', 'z-hits +penalties pg', 'z-hits +penalties p60', 'z-hits +penalties prj'].includes(column.title));
     z_offense_idx = columns.findIndex(column => ['z-offense', 'z-offense pg', 'z-offense p60', 'z-offense prj'].includes(column.title));
-    z_offense_vorp_idx = columns.findIndex(column => ['z-offense vorp', 'z-offense vorp pg', 'z-offense vorp p60', 'z-offense vorp prj'].includes(column.title));
     z_peripheral_idx = columns.findIndex(column => ['z-peripheral', 'z-peripheral pg', 'z-peripheral p60', 'z-peripheral prj'].includes(column.title));
-    z_peripheral_vorp_idx = columns.findIndex(column => ['z-peripheral vorp', 'z-peripheral vorp pg', 'z-peripheral vorp p60', 'z-peripheral vorp prj'].includes(column.title));
     z_pim_idx = columns.findIndex(column => ['z-pim', 'z-pim pg', 'z-pim p60', 'z-pim prj'].includes(column.title));
     z_points_idx = columns.findIndex(column => ['z-pts', 'z-pts pg', 'z-pts p60', 'z-pts prj'].includes(column.title));
     z_ppp_idx = columns.findIndex(column => ['z-ppp', 'z-ppp pg', 'z-ppp p60', 'z-ppp prj'].includes(column.title));
     z_saves_idx = columns.findIndex(column => ['z-sv', 'z-sv pg', 'z-sv p60', 'z-sv prj'].includes(column.title));
     z_saves_percent_idx = columns.findIndex(column => ['z-sv%', 'z-sv% pg', 'z-sv% p60', 'z-sv% prj'].includes(column.title));
     z_score_idx = columns.findIndex(column => ['z-score', 'z-score pg', 'z-score p60', 'z-score prj'].includes(column.title));
-    z_score_vorp_idx = columns.findIndex(column => ['z-score vorp', 'z-score vorp pg', 'z-score vorp p60', 'z-score vorp prj'].includes(column.title));
     z_sog_hits_blk_idx = columns.findIndex(column => ['z-sog +hits +blk', 'z-sog +hits +blk pg', 'z-sog +hits +blk p60', 'z-sog +hits +blk prj'].includes(column.title));
     z_sog_idx = columns.findIndex(column => ['z-sog', 'z-sog pg', 'z-sog p60', 'z-sog prj'].includes(column.title));
     z_tk_idx = columns.findIndex(column => ['z-tk', 'z-tk pg', 'z-tk p60', 'z-tk prj'].includes(column.title));
@@ -3389,7 +3353,7 @@ function updateGlobalVariables(playerData) {
     cumulative_column_titles = playerData['cumulative_column_titles'];
     per_game_column_titles = playerData['per_game_column_titles'];
     per_60_column_titles = playerData['per_60_column_titles'];
-    numeric_columns = playerData['numeric_columns'];
+    // numeric_columns = playerData['numeric_columns'];
     descending_columns = playerData['descending_columns'];
 
     cumulative_stats_data = playerData['cumulative_stats_data'];
@@ -3426,7 +3390,7 @@ function updateHeatmapColumnLists() {
     goalie_category_heatmap_columns = [wins_idx, saves_idx, gaa_idx, saves_percent_idx];
     sktr_category_z_score_heatmap_columns = [z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx];
     goalie_category_z_score_heatmap_columns = [z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx];
-    z_score_summary_heatmap_columns = [z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx, z_score_vorp_idx, z_offense_vorp_idx, z_peripheral_vorp_idx];
+    z_score_summary_heatmap_columns = [z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx];
 
 }
 
@@ -3602,15 +3566,17 @@ function updatePlayerWeights(availablePlayers, teamCategoryValuesAndZScores, cat
         for (let category in player.categoryZScores) {
             if (includePlayerCategoryZScore(player, category) === true) {
                 let weightFactors = [];
-                if (['need', 'both'].includes(selectedWeightedScoreOpt) || (auto_assign_picks === true && draft_manager !== 'Banshee')) {
-                    weightFactors.push(managerCategoryNeeds[category]);
+                // if (['need', 'both'].includes(selectedWeightedScoreOpt) || (auto_assign_picks === true && draft_manager !== 'Banshee')) {
+                if (['need', 'both'].includes(selectedWeightedScoreOpt)) {
+                        weightFactors.push(managerCategoryNeeds[category]);
                 }
-                if (['scarcity', 'both'].includes(selectedWeightedScoreOpt) && (auto_assign_picks === false || draft_manager === 'Banshee')) {
-                    // weightFactors.push(categoryScarcity[category]);
+                // if (['scarcity', 'both'].includes(selectedWeightedScoreOpt) && (auto_assign_picks === false || draft_manager === 'Banshee')) {
+                if (['scarcity', 'both'].includes(selectedWeightedScoreOpt)) {
                     weightFactors.push(categoryScarcities[category]);
                 }
                 // catWeight = player.categoryZScores[category] * ( 1 + weightFactors.reduce((a, b) => a + b));
-                catWeight = 1 + weightFactors.reduce((a, b) => a + b);
+                catWeight = player.categoryZScores[category] * weightFactors.reduce((a, b) => a + b);
+                // catWeight = 1 + weightFactors.reduce((a, b) => a + b);
                 weightedZScore += catWeight;
                 if ( (player.position === 'D' && dOffenseCategories.includes(category)) || (['LW', 'C', 'RW'].includes(player.position) && fOffenseCategories.includes(category)) ) {
                     weightedZOffense += catWeight;

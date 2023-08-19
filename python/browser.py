@@ -1,18 +1,21 @@
 import os
-import sys
 import traceback
+from pathlib import Path
 from selenium.webdriver import Firefox
-from selenium.webdriver import DesiredCapabilities
 from selenium.webdriver.firefox.options import Options
+
+# Constants
+PROFILE_PATH = Path('C:/Users/Roy/AppData/Roaming/Mozilla/Firefox/Profiles/wafmugwl.Fantrax')
+DRIVER_NAME = 'geckodriver.exe'
 
 def setBrowserOptions():
 
     try:
-        opts = Options()
-        opts.headless = True
-        opts.profile = 'C:/Users/Roy/AppData/Roaming/Mozilla/Firefox/Profiles/wafmugwl.Fantrax'
-        geckodriver_path = os.path.join(os.getcwd(), 'geckodriver.exe')
-        driver = Firefox(executable_path=geckodriver_path, options=opts)
+        options = Options()
+        options.headless = True
+        options.profile = str(PROFILE_PATH)
+        driver_path  = Path(os.getcwd()) / DRIVER_NAME
+        driver = Firefox(executable_path=str(driver_path) , options=options)
 
     except Exception as e:
         print(f'{traceback.format_exception(type(e))} in setBrowserOptions()')

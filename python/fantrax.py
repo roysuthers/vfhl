@@ -1,17 +1,15 @@
 import traceback
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-# from selenium.webdriver import Firefox
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-# from selenium.webdriver.support.expected_conditions import _find_element
-from selenium.webdriver.support.ui import Select, WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait
 
 # Hockey Pool classes
 import browser
 
 
 def scrape_draft_picks():
+    """Scrapes the draft picks data from Fantrax and returns a list of dictionaries."""
 
     try:
 
@@ -22,22 +20,26 @@ def scrape_draft_picks():
 
         driver.get('https://www.fantrax.com/newui/fantasy/draftPicks.go?leagueId=fcchh3fklgl33mrk&season=2023&viewType=ROUND')
 
-        tables = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'draftResultsTable')))
+        # Find all the draft results tables
+        draft_results_tables = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'draftResultsTable')))
 
-        draft_picks = []
-        for i, table in enumerate(tables):
-            # skip first row that is for the table column headings
-            rows = table.find_elements(By.TAG_NAME, 'tr')[1:]
-            for row in rows:
-                data = row.find_elements(By.TAG_NAME, 'td')
-                manager = data[0].text
-                draft_round = i + 1
-                round_pick = int(data[1].text)
-                overall_pick = int(data[2].text)
-                draft_picks.append({'manager': manager, 'draft_round': draft_round, 'round_pick': round_pick, 'overall_pick': overall_pick})
+        # Create a list of dictionaries for each draft pick
+        draft_picks = [
+            {
+                 "manager": draft_pick_data.find_elements(By.TAG_NAME, "td")[0].text,
+                "draft_round": i + 1,
+                "round_pick": int(draft_pick_data.find_elements(By.TAG_NAME, "td")[1].text),
+                "overall_pick": int(draft_pick_data.find_elements(By.TAG_NAME, "td")[2].text),
+            }
+            for i, table in enumerate(draft_results_tables)
+            for draft_pick_data in table.find_elements(By.TAG_NAME, "tr")[1:]  # Skip the first row with column headings
+        ]
 
     except Exception as e:
-        print(f'{traceback.format_exception(type(e))} in scrape_draft_picks()')
+        print(f"An exception occurred in scrape_draft_picks(): {e}\n{traceback.format_exc()}")
+
+    finally:
+        # Delete the driver object
         del driver
 
     return draft_picks
