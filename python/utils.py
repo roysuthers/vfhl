@@ -39,9 +39,10 @@ def string_to_time(string: str) -> int:
     """Convert a string time in MM:SS format to seconds."""
 
     try:
+        # some string values may be None, and this will fail, so set seconds = 0
         minutes, seconds = map(int, string.split(':'))
         seconds += minutes * 60
-    except ValueError:
+    except AttributeError:
         seconds = 0
 
     return seconds
