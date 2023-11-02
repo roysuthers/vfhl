@@ -734,9 +734,14 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                     // },
                     {
                         text: 'Toggle Heatmaps',
-                        // extend: 'selected',
                         action: function (e, dt, node, config) {
                             toggleHeatmaps(table)
+                        }
+                    },
+                    {
+                        text: 'Unselect Rows',
+                        action: function () {
+                            $(table.rows().nodes()).removeClass('selected');
                         }
                     },
                 ],
@@ -810,12 +815,6 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
             // *******************************************************************
             // select rows
             $('#player_stats tbody').on('click', 'tr', function () {
-                // if ($(this).hasClass('selected')) {
-                //     $(this).removeClass('selected');
-                // } else {
-                //     table.$('tr.selected').removeClass('selected');
-                //     $(this).addClass('selected');
-                // }
                 $(this).toggleClass('selected');
             });
             // *******************************************************************
