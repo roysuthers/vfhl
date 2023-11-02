@@ -9,19 +9,26 @@
         <!-- JQuery UI - A collection of Javascript widgets as well as a styling framework -->
         <!-- DataTables - Enhance HTML tables with advanced interaction controls -->
         <!-- Buttons - A common framework for user interaction buttons -->
-        <!--   Column - End user buttons to control column visibility -->
-        <!--   HTML5  - Copy to clipboard and create Excel, PDF and CSV files from the table's data. -->
+        <!--   Column visbility - End user buttons to control column visibility -->
+        <!--   HTML5 export  - Copy to clipboard and create Excel, PDF and CSV files from the table's data. -->
         <!--     jSZip  - Required for the Excel HTML5 export button visibility control -->
+        <!-- DateTime - Date picker used in Editor, SearchBuilder and other components for DataTables  -->
         <!-- FixedColumns: Fix one or more columns to the left or right of a scrolling table. -->
         <!-- FixedHeader:  Sticky header and / or footer for the table -->
         <!-- SearchBuilder: User defined complex search builder.-->
         <!-- SearchPanes: Search panels for DataTables allowing rapid and customisable filtering. -->
         <!-- Select: Adds row, column and cell selection abilities to a table. -->
-        <link href="https://cdn.datatables.net/v/ju/jszip-3.10.1/dt-1.13.6/b-2.4.2/b-colvis-2.4.2/b-html5-2.4.2/fc-4.3.0/fh-3.4.0/sb-1.6.0/sp-2.2.0/sl-1.7.0/datatables.min.css" rel="stylesheet">
-         <script src="https://cdn.datatables.net/v/ju/jszip-3.10.1/dt-1.13.6/b-2.4.2/b-colvis-2.4.2/b-html5-2.4.2/fc-4.3.0/fh-3.4.0/sb-1.6.0/sp-2.2.0/sl-1.7.0/datatables.min.js"></script>
+        <link href="https://cdn.datatables.net/v/ju/jszip-3.10.1/dt-1.13.6/b-2.4.2/b-colvis-2.4.2/b-html5-2.4.2/date-1.5.1/fc-4.3.0/fh-3.4.0/sb-1.6.0/sp-2.2.0/sl-1.7.0/datatables.min.css" rel="stylesheet">
+        <script src="https://cdn.datatables.net/v/ju/jszip-3.10.1/dt-1.13.6/b-2.4.2/b-colvis-2.4.2/b-html5-2.4.2/date-1.5.1/fc-4.3.0/fh-3.4.0/sb-1.6.0/sp-2.2.0/sl-1.7.0/datatables.min.js"></script>
 
+        <!-- Context menu -->
         <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.js"></script>
+
+        <!-- Date Range Picker -->
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 
     </head>
     <body>
@@ -52,14 +59,52 @@
                 font-size: 1em;
             }
 
-            .spinner {
-                display: block;
+            .pulsing-bar {
+                display: none;
                 position: fixed;
-                z-index: 1031;
-                top: 50%;
-                right: 50%;
-                margin-top: -32px;
-                margin-right: -32px;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 10px;
+                background-color: #3498db;
+                /* remove the existing 'animation' rule */
+                /* animation: pulse 1s infinite; */
+                animation: none;
+                /* add a new 'steps' animation rule */
+                animation-name: progress;
+                animation-duration: 2s;
+                animation-iteration-count: infinite;
+            }
+
+            @keyframes progress {
+                0% {
+                    /* start off at the left edge */
+                    transform: translateX(-100%);
+                    opacity: 1;
+                }
+                10% {
+                    /* move to the first step */
+                    transform: translateX(-90%);
+                    opacity: 1;
+                }
+                20% {
+                    /* move to the second step */
+                    transform: translateX(-80%);
+                    opacity: 1;
+                }
+                /* repeat for all 10 steps */
+                30% { transform: translateX(-70%); opacity: 1; }
+                40% { transform: translateX(-60%); opacity: 1; }
+                50% { transform: translateX(-50%); opacity: 1; }
+                60% { transform: translateX(-40%); opacity: 1; }
+                70% { transform: translateX(-30%); opacity: 1; }
+                80% { transform: translateX(-20%); opacity: 1; }
+                90% { transform: translateX(-10%); opacity: 1; }
+                100% {
+                    /* move to the right edge */
+                    transform: translateX(0%);
+                    opacity: 1;
+                }
             }
 
             .odd-row {
@@ -70,7 +115,7 @@
                 color: red;  /* Change 'red' to your desired color for even rows */
             }
 
-            #managerSummary, #categoryScarcity , #categoryScarcityByZScoreRange, #weightedScoreOptions, #weightplayerZScoresContainer, #draftBoard {
+                #managerSummary, #categoryScarcity , #categoryScarcityByZScoreRange, #draftBoard {
                 margin-left: 0;
                 margin: 10px;
                 white-space: nowrap;
@@ -91,22 +136,14 @@
                 text-align: center;
             }
 
-            #managerCategoryNeedsContainer, #myCategoryNeedsContainer, #categoryScarcityContainer, #managerSummaryContainer {
-                display: flex;
+            #categoryScarcityContainer, #managerSummaryContainer {
+                display: none;
                 flex-wrap: wrap;
             }
 
-            #managerCategoryNeedsContainerCaption {
-                text-align: center;
-            }
-
-            #getStatsButton, #weightplayerZScoresButton, #startDraftButton, #autoAssignDraftPicks, #manuallySelectMyPicks, #weightedScoreOptions, #undoDraftPick {
+            #getStatsButton, #calcPlayerZScoresButton, #startDraftButton, #autoAssignDraftPicks, #manuallySelectMyPicks, #undoDraftPick {
                 display: inline-block!important;
                 font-size: 1em;
-            }
-
-            #weightedScoreOptions {
-                border: none;
             }
 
             #startDraftButton.hidden, #autoAssignDraftPicksContainer.hidden, #undoDraftPick.hidden {
@@ -116,6 +153,19 @@
             input[type="date"] {
                 width: 200px;
                 font-size: 1em;
+            }
+
+            #dateRange {
+                width: 200px;
+                font-size: 1em;
+            }
+
+            #statType {
+                font-size: 1em;
+            }
+
+            .indented {
+                margin-left: 20px;
             }
 
         </style>
@@ -133,9 +183,18 @@
             <div class="form-group">
                 <label for="gameType">GAME TYPE</label>
                 <select id="gameType">
-                    <option value="Regular Season">Regular Season</option>
+                    <option value="Regular Season" selected>Regular Season</option>
                     <option value="Playoffs">Playoffs</option>
-                    <option value="Projected Season" selected>Projected Season</option>
+                    <option value="Projected Season">Projected Season</option>
+                </select>
+            </div>
+            <div class="form-group" id="projectionSourceWrap">
+                <label for="projectionSource">PROJECTION SOURCE</label>
+                <select id="projectionSource">
+                    <option value="Averaged" selected>Averaged</option>
+                    <option value="Athletic">The Athletic</option>
+                    <option value="Dobber">Dobber</option>
+                    <option value="Fantrax">Fantrax</option>
                 </select>
             </div>
             <div class="form-group">
@@ -148,74 +207,33 @@
                     <select id="toSeason"></select>
                 </div>
                 <div id="dateControls" style="display: none;">
-                    <input id="fromDate" type="date">
-                    <input id="toDate" type="date">
+                    <input id="fromDate" type="date" style="display: none;">
+                    <input id="toDate" type="date" style="display: none;">
+                    <!-- <input id="dateRange" type="text"> -->
+                    <div id="dateRange" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; width: 100%">
+                        <i class="fa fa-calendar"></i>&nbsp;
+                        <span></span> <i class="fa fa-caret-down"></i>
+                    </div>
                 </div>
             </div>
-            <div class="form-group" id="projectionSourceWrap">
-                <label for="projectionSource">PROJECTION SOURCE</label>
-                <select id="projectionSource">
-                    <option value="Averaged" selected>Averaged</option>
-                    <option value="Athletic">The Athletic</option>
-                    <option value="Bangers">Bangers</option>
-                    <option value="Dobber">Dobber</option>
-                    <option value="DtZ">Datsyuk To Zetterberg</option>
-                    <option value="DFO">Daily FaceOff </option>
-                    <option value="Fantrax">Fantrax</option>
-                </select>
+            <div class="form-group">
+                <button id="getStatsButton" style="font-size: 1.5em;">Get Stats</button>
             </div>
         </div>
 
-        <p>
-            <button id="getStatsButton">Get Stats</button>
-        </p>
-
-        <p>
+        <div id="statTypeContainer" style="display: none;">
             <label for="statType">Statistic Type</label>
-            <select id="statType">
+            <select id="statType" style="margin-right: 20px;">
                 <option value="Cumulative" selected>Cumulative</option>
                 <option value="Per game">Per game</option>
                 <option value="Per 60 minutes">Per 60 minutes</option>
             </select>
-        </p>
-
-        <p class="spinner"><img id="loadingSpinner" src="./images/Spinner-3.gif"></p>
-
-        <div id="managerSummaryContainer">
-            <table id="managerSummary" class="display cell-border hover compact">
-                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Z-Scores</u></b></caption>
-            </table>
+            <label for="showAsVorpCheckbox">Show z-scores as VORP</label>
+            <input type="checkbox" id="showAsVorpCheckbox">
         </div>
 
-        <p id="managerCategoryNeedsContainerCaption" style="display: none;"></p>
-        <div id="managerCategoryNeedsContainer" style="display: none;">
-            <!-- new manager tables will be appended here -->
-        </div>
-
-        <div id="categoryScarcityContainer">
-            <div id="myCategoryNeedsContainer">
-                <!-- new manager tables will be appended here -->
-            </div>
-            <table id="categoryScarcity" class="display cell-border hover compact">
-                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity</u></b></caption>
-            </table>
-            <table id="categoryScarcityByZScoreRange" class="display cell-border hover compact">
-                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity by Z-Score Range</u></b></caption>
-            </table>
-        </div>
-
-        <div id="weightedScoreOptions">
-            <div>Weight My Player Z-Scores by:</div>
-            <p>
-                <input type="radio" name="weightedScoreOpts" value="need">Team Need
-                <input type="radio" name="weightedScoreOpts" value="scarcity">Category Scarcity
-                <input type="radio" name="weightedScoreOpts" value="both" checked>Both
-            </p>
-        </div>
-
-        <div id="weightplayerZScoresContainer">
-            <div>Weight My Player Z-Scores using:</div>
-            <p>
+        <div id="calcZScoresContainer" style="display: none; margin-top: 10px;">
+            <div>Calculate Z-Scores Using:
                 <input type="checkbox" id="points" name="points" checked>
                 <label for="points">d-pts</label>
                 <input type="checkbox" id="goals" name="goals" checked>
@@ -242,14 +260,37 @@
                 <label for="gaa">gaa</label>
                 <input type="checkbox" id="savePercent" name="savePercent" checked>
                 <label for="savePercent">sv%</label>
-            </p>
+                <button id="calcSummaryZScoresButton">Calculate</button>
+            </div>
+        </div>
+
+        <div id="toggleCheckboxContainer" style="display: none;" class="indented">
             <p>
-                <button id="weightplayerZScoresButton">Weight Player Z-Scores</button>
+                <input type="checkbox" id="toggleSummary" onclick="toggleManagerSummary()">Show Manager Summary</input>
+                <input type="checkbox" id="toggleScarcity" onclick="toggleCategoryScarcity()">Show Category Scarcity</input>
             </p>
         </div>
 
+        <div id="managerSummaryContainer">
+            <table id="managerSummary" class="display cell-border hover compact">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Z-Scores</u></b></caption>
+            </table>
+        </div>
+
+        <div id="categoryScarcityContainer">
+            <div id="myCategoryNeedsContainer">
+                <!-- new manager tables will be appended here -->
+            </div>
+            <table id="categoryScarcity" class="display cell-border hover compact">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity</u></b></caption>
+            </table>
+            <table id="categoryScarcityByZScoreRange" class="display cell-border hover compact">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Category Scarcity by Z-Score Range</u></b></caption>
+            </table>
+        </div>
+
         <p>
-            <button id="startDraftButton">Start Draft</button>
+            <button id="startDraftButton" class="hidden">Start Draft</button>
         </p>
 
         <p>
@@ -280,6 +321,8 @@
             </table>
         </div>
 
+        <div id="pulsing-bar" class="pulsing-bar"></div>
+
         <script src="./javascript/data_tables.js"></script>
 
         <script>
@@ -293,6 +336,7 @@
             const dateControls = document.querySelector('#dateControls');
             const fromDate = document.querySelector('#fromDate');
             const toDate = document.querySelector('#toDate');
+            const dateRange = document.querySelector('#dateRange');
             const projectionSource = document.querySelector('#projectionSource');
             const projectionSourceLabel = document.querySelector('#projectionSourceWrap label');
             const statType = document.querySelector("#statType");
@@ -307,6 +351,7 @@
                 '20202021': { startDate: '2021-01-13', endDate: '2021-05-19' },
                 '20212022': { startDate: '2021-10-12', endDate: '2022-05-01' },
                 '20222023': { startDate: '2022-10-07', endDate: '2023-04-14' },
+                '20232024': { startDate: '2023-10-10', endDate: '2024-04-18' },
             };
 
             // Object to store the start and end dates for each season
@@ -347,6 +392,27 @@
                     }
                 }
 
+            });
+
+            // Add event listeners to the gameType selector to listen for changes
+            gameType.addEventListener('change', () => {
+                if (gameType.value === 'Projected Season') {
+                    // Check the 'season' radio button
+                    document.querySelector('input[name="seasonOrDate"][value="season"]').checked = true;
+                    updateControls();
+                }
+                setSeasons();
+                setDateValues();
+                setProjectionSourceVisibility();
+                updateStatTypeOptions();
+            });
+
+            // execute the setDateValues function when the page is loaded
+            document.addEventListener("DOMContentLoaded", function() {
+                setSeasons();
+                setDateValues();
+                setProjectionSourceVisibility();
+                updateStatTypeOptions();
             });
 
             // Function to update the display of the controls based on the selected radio button
@@ -432,24 +498,17 @@
             // Function to set the values of the date inputs based on the selected season
             function setDateValues() {
 
-                // // Get the selected season
-                // const fromSeason = fromSeason.value;
-                // const toSeason = toSeason.value;
-                // const gameType = gameType.value;
-
                 // Set the values of the date inputs
-                // if (seasonOrDateRadios[0].checked) {
+                minDate = moment();
+                maxDate = moment();
                 if (gameType.value === 'Regular Season') {
-                    fromDate.value = regularSeasonDates[fromSeason.value].startDate;
-                    toDate.value = regularSeasonDates[toSeason.value].endDate;
+                    minDate = moment(regularSeasonDates[fromSeason.value].startDate);
+                    maxDate = moment(regularSeasonDates[fromSeason.value].endDate);
                 } else if (gameType.value === 'Playoffs') {
-                    fromDate.value = playoffsSeasonDates[fromSeason.value].startDate;
-                    toDate.value = playoffsSeasonDates[toSeason.value].endDate;
-                } else { // gameType.value === 'Projected Season'
-                    fromSeason.value = '20232024';
-                    toSeason.value = '20232024';
-                    fromDate.value = projectedSeasonDates[fromSeason.value].startDate;
-                    toDate.value = projectedSeasonDates[toSeason.value].endDate;
+                    minDate = moment(playoffsSeasonDates[fromSeason.value].startDate);
+                    maxDate = moment(playoffsSeasonDates[fromSeason.value].endDate);
+                } else { // "Projected Season"
+                    return;
                 }
             }
 
@@ -480,22 +539,62 @@
                 });
             });
 
-            // Add event listeners to the gameType selector to listen for changes
-            gameType.addEventListener('change', () => {
-                setSeasons();
+            $(function() {
+
                 setDateValues();
-                setProjectionSourceVisibility();
-                updateStatTypeOptions();
+                var start = minDate;
+                var end = maxDate;
+
+                function cb(start, end) {
+                    $('#dateRange span').html(start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY'));
+                    fromDate.value = start.format('YYYY-MM-DD');
+                    toDate.value = end.format('YYYY-MM-DD');
+                }
+
+                $('#dateRange').daterangepicker({
+                    startDate: start,
+                    endDate: end,
+                    ranges: {
+                        // 'Today': [moment(), moment()],
+                        'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                        'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                        'Last 14 Days': [moment().subtract(13, 'days'), moment()],
+                        // 'Last 21 Days': [moment().subtract(20, 'days'), moment()],
+                        'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                        'Last 60 Days': [moment().subtract(59, 'days'), moment()],
+                        'This Month': [moment().startOf('month'), moment().endOf('month')],
+                        'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    }
+                }, cb);
+
+                cb(start, end);
+
             });
 
-            // execute the setDateValues function when the page is loaded
-            document.addEventListener("DOMContentLoaded", function() {
-                setSeasons();
-                setDateValues();
-                setProjectionSourceVisibility();
-                updateStatTypeOptions();
-            });
+        </script>
 
+        <script>
+            function toggleManagerSummary() {
+                var checkBox = document.getElementById("toggleSummary");
+                var managerSummaryContainer = document.getElementById("managerSummaryContainer");
+                if (checkBox.checked == true){
+                    managerSummaryContainer.style.display = "flex";
+                } else {
+                    managerSummaryContainer.style.display = "none";
+                }
+            }
+        </script>
+
+        <script>
+            function toggleCategoryScarcity() {
+                var checkBox = document.getElementById("toggleScarcity");
+                var categoryScarcityContainer = document.getElementById("categoryScarcityContainer");
+                if (checkBox.checked == true){
+                    categoryScarcityContainer.style.display = "flex";
+                } else {
+                    categoryScarcityContainer.style.display = "none";
+                }
+            }
         </script>
 
     </body>

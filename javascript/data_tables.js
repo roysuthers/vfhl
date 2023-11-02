@@ -60,1109 +60,110 @@ var baseSearchBuilderCriteria = {
     "logic": "AND"
 }
 
-$(document).ready(function () {
-
-    const seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
-    const statType = document.querySelector('#statType');
-
-    getPlayerData(seasonOrDateRadios, function(playerData) {
-
-        updateGlobalVariables(playerData);
-
-        // if ( statType.value === 'Cumulative' ) {
-        let data = cumulative_stats_data;
-        let columns = cumulative_column_titles;
-        if ( statType.value === 'Per game' ) {
-            data = per_game_stats_data;
-            columns = per_game_column_titles;
-        } else if ( statType.value === 'Per 60 minutes' ) {
-            data = per_60_stats_data;
-            columns = per_60_column_titles;
-        }
-
-        updateColumnIndexes(columns);
-
-        updateHeatmapColumnLists();
-
-        var table = $('#player_stats').DataTable( {
-
-            data: data,
-            columns: columns,
-
-            // initial table order
-            order: [[z_score_idx, "desc"]],
-
-            // disable zebra strips on alternating rows; it messes with heatmap colours
-            stripeClasses: [],
-
-            // 'col-sm-4' is "Show x page entries"
-            // 'col-sm-5' is "Export to Excel", "Column Visibility", "Hide Selected Rows", & "Toggle Heatmaps"
-            // 'col-sm-7' is "Showing x to y of z entries" at the top of the table
-            // 'col-sm-12' is "player_stats" able
-            // 'col-sm-7' is "Showing x to y of z entries" at the botton of the table
-            dom: "PQ" +
-                "<'row'<'col-sm-4'l>>" +
-                "<'row'<'col-sm-5'B>>" +
-                "<'row'<'col-sm-6'ip>>" +
-                "<'row'<'col-sm-12'tr>>" +
-                "<'row'<'col-sm-7'ip>>",
-
-            autoWidth: false,
-
-            // search panes extension
-            searchPanes: {
-                columns: [position_idx, injury_idx, manager_idx],
-                orderable: false,
-                viewCount: false,
-                clear: false,
-                dtOpts: {
-                    dom: 'ltp',
-                    scrollY: '100px',
-                    scrollCollapse: true,
-                    searching: true,
-                },
-                panes: [
-                    {
-                        header: 'additional filters',
-                        options: [
-                            {
-                                label: 'Rookies',
-                                value: function(rowData, rowIdx) {
-                                    return rowData[rookie_idx] === 'Yes';
-                                },
-                                className: 'rookie'
-                            },
-                            {
-                                label: 'On watch list',
-                                value: function(rowData, rowIdx) {
-                                    return rowData[this.column(watch_idx).index()] === 'Yes';
-                                },
-                                className: 'watch_list'
-                            },
-                            {
-                                label: 'On roster',
-                                value: function(rowData, rowIdx) {
-                                    return rowData[this.column(minors_idx).index()] === '';
-                                },
-                                className: 'rostered'
-                            },
-                            {
-                                label: 'Minors',
-                                value: function(rowData, rowIdx) {
-                                    return rowData[this.column(minors_idx).index()] === 'Yes';
-                                },
-                                className: 'minors'
-                            },
-                            {
-                                label: 'Minors (Fantasy)',
-                                value: function(rowData, rowIdx) {
-                                    return (rowData[this.column(position_idx).index()] !== 'G' && rowData[this.column(career_games_idx).index()] < 160) ||
-                                           (rowData[this.column(position_idx).index()] === 'G' && rowData[this.column(career_games_idx).index()] < 80);
-                                },
-                                className: 'mfCount'
-                            },
-                        ],
-                        dtOpts: {
-                            searching: false,
-                            order: [[0, 'asc']],
-                            select: 'single',
-                        }
-                    }
-                ]
-            },
-
-            searchBuilder: {
-                columns: [
-                    age_idx,
-                    assists_idx,
-                    blk_idx,
-                    breakout_threshold_idx,
-                    career_games_idx,
-                    draft_position_idx,
-                    draft_round_idx,
-                    fantrax_roster_status_idx,
-                    gaa_idx,
-                    game_today_idx,
-                    games_idx,
-                    goalie_starts_idx,
-                    goals_idx,
-                    hits_idx,
-                    keeper_idx,
-                    last_game_idx,
-                    manager_idx,
-                    minors_idx,
-                    name_idx,
-                    nhl_roster_status_idx,
-                    prj_draft_round_idx,
-                    picked_by_idx,
-                    pim_idx,
-                    points_idx,
-                    position_idx,
-                    pp_goals_p120_idx,
-                    pp_points_p120_idx,
-                    ppp_idx,
-                    predraft_keeper_idx,
-                    rookie_idx,
-                    saves_idx,
-                    saves_percent_idx,
-                    sog_idx,
-                    sog_pp_idx,
-                    team_idx,
-                    tier_idx,
-                    tk_idx,
-                    toi_pp_percent_3gm_avg_idx,
-                    toi_pp_percent_idx,
-                    toi_seconds_idx,
-                    watch_idx,
-                    wins_idx,
-                    z_assists_idx,
-                    z_blk_idx,
-                    z_combo_idx,
-                    z_g_count_idx,
-                    z_g_ratio_idx,
-                    z_gaa_idx,
-                    z_goals_hits_pim_idx,
-                    z_goals_idx,
-                    z_hits_blk_idx,
-                    z_hits_idx,
-                    z_hits_pim_idx,
-                    z_offense_idx,
-                    z_peripheral_idx,
-                    z_pim_idx,
-                    z_points_idx,
-                    z_ppp_idx,
-                    z_saves_idx,
-                    z_saves_percent_idx,
-                    z_score_idx,
-                    z_sog_hits_blk_idx,
-                    z_sog_idx,
-                    z_tk_idx,
-                    z_wins_idx,
-                ],
-                // preDefined: {
-                //     criteria: [
-                //         {
-                //             condition: '!=',
-                //             data: 'team',
-                //             value: ['(N/A)']
-                //         }
-                //     ],
-                //     logic: 'AND',
-                // }
-            },
-
-            columnDefs: [
-                // first column, rank in group, is not orderable or searchable
-                {searchable: false, orderable: false, targets: rank_in_group_idx},
-                // {type: 'num', targets: numeric_columns},
-                {type: 'num', targets: [37]}, // z_score_weighted_idx; otherwise doesn't sort numerically
-                {orderSequence: ['desc', 'asc'], targets: descending_columns},
-                // {targets: fantrax_score_idx,
-                //  render: function(data, type, row, meta) {
-                //         if (type === 'sort' && auto_assign_picks === true && row[position_idx] === "G") {
-                //             return (data * 0.7).toFixed(2);
-                //         } else {
-                //             return data;
-                //         }
-                //     },
-                // },
-                // default is center-align all colunns, header & body
-                {className: 'dt-center', targets: '_all'},
-                // left-align some colunns
-                {className: 'dt-body-left', targets: [name_idx, injury_idx, injury_note_idx, manager_idx]},
-
-                // "position" search pane
-                {searchPanes: {
-                    show: true,
-                    options: [
-                        {
-                            label: 'Sktr',
-                            value: rowData => ['LW', 'C', 'RW', 'D'].includes(rowData[position_idx])
-                        },
-                        {
-                            label: 'F',
-                            value: rowData => ['LW', 'C', 'RW'].includes(rowData[position_idx])
-                        },
-                        {
-                            label: 'D',
-                            value: rowData => rowData[position_idx] === 'D'
-                        },
-                        {
-                            label: 'G',
-                            value: rowData => rowData[position_idx] === 'G'
-                        },
-                    ]
-                }, targets: position_idx},
-
-                // "injury" search pane
-                {searchPanes: {
-                    show: true,
-                    options: [
-                        {
-                            label: '<i>No data</i>',
-                            value: rowData => {
-                                const injury_text = `${rowData[injury_idx]}`;
-                                return injury_text === '' ||
-                                    !injury_text.startsWith('DAY-TO-DAY - ') &&
-                                    !injury_text.startsWith('IR - ') &&
-                                    !injury_text.startsWith('IR-LT - ') &&
-                                    !injury_text.startsWith('IR-NR - ') &&
-                                    !injury_text.startsWith('OUT - ');
-                            }
-                        },
-                        {
-                            label: 'DAY-TO-DAY',
-                            value: rowData => `${rowData[injury_idx]}`.startsWith('DAY-TO-DAY - ')
-                        },
-                        {
-                            label: 'IR',
-                            value: rowData => {
-                                const injury_text = `${rowData[injury_idx]}`;
-                                return injury_text.startsWith('IR - ') ||
-                                    injury_text.startsWith('IR-LT - ') ||
-                                    injury_text.startsWith('IR-NR - ');
-                            }
-                        },
-                        {
-                            label: 'OUT',
-                            value: rowData => `${rowData[injury_idx]}`.startsWith('OUT - ')
-                        },
-                    ],
-                    dtOpts: {
-                        select: 'single',
-                        columnDefs: [
-                        {
-                            targets: [0],
-                            render: (data, type, row, meta) => {
-                                if (type === 'sort') {
-                                    const injuryOptOrder = {
-                                    '<i>No data</i>': 1,
-                                    'DAY-TO-DAY': 2,
-                                    'IR': 3,
-                                    'OUT': 4,
-                                    }[data];
-                                    return injuryOptOrder;
-                                } else {
-                                    return data;
-                                }
-                            },
-                        },
-                        ],
-                    },
-                }, targets: [injury_idx]},
-
-                // searchBuilder default conditions
-                {targets: [name_idx], searchBuilder: { defaultCondition: 'contains' } },
-                {targets: [games_idx, goalie_starts_idx, points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
-                        sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
-                        toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_seconds_idx,
-                        z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
-                        z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
-                        z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_hits_blk_idx, z_sog_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx, z_g_count_idx, z_g_ratio_idx], searchBuilder: { defaultCondition: '>=' } },
-                {targets: [age_idx, career_games_idx], searchBuilder: { defaultCondition: '<=' } },
-                {targets: [draft_position_idx, draft_round_idx, keeper_idx, last_game_idx, manager_idx, minors_idx, nhl_roster_status_idx, picked_by_idx, position_idx,
-                        predraft_keeper_idx, prj_draft_round_idx, rookie_idx, team_idx, watch_idx], searchBuilder: { defaultCondition: '=' } },
-                {targets: [breakout_threshold_idx], searchBuilder: { defaultCondition: 'between' } },
-                {targets: [game_today_idx], searchBuilder: { defaultCondition: '!null' } },
-
-                // searchBuilder rename columns
-                {targets: breakout_threshold_idx, searchBuilderTitle: 'breakout threshold' },
-                {targets: points_idx, searchBuilderTitle: 'points' },
-                {targets: goals_idx, searchBuilderTitle: 'goals' },
-                {targets: assists_idx, searchBuilderTitle: 'assists' },
-                {targets: ppp_idx, searchBuilderTitle: 'powerplay points' },
-                {targets: sog_idx, searchBuilderTitle: 'shots on goal' },
-                {targets: tk_idx, searchBuilderTitle: 'takeaways' },
-                {targets: blk_idx, searchBuilderTitle: 'blocks' },
-                {targets: wins_idx, searchBuilderTitle: 'wins' },
-                {targets: saves_idx, searchBuilderTitle: 'saves' },
-                {targets: saves_percent_idx, searchBuilderTitle: 'saves %' },
-                {targets: career_games_idx, searchBuilderTitle: 'career games' },
-
-                // searchBuilder type columns
-                {targets: breakout_threshold_idx, searchBuilderType: 'num' },
-
-                // custom sort for 'prj draft round' column
-                // { targets: [prj_draft_round_idx], type: "custom_pdr_sort", orderSequence: ['asc']},
-
-                // custom sort for 'fantrax adp' column
-                // custom sort for 'line' and 'line prj' column
-                // custom sort for 'pp unit' and 'pp unit prj' column
-                // custom sort for 'athletic z-score rank' column
-                // custom sort for 'athletic z-score rank' column
-                // custom sort for 'dobber z-score rank' column
-                // custom sort for 'dtz z-score rank' column
-                // custom sort for 'fantrax z-score rank' column
-                { targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx], type: "custom_integer_sort", orderSequence: ['asc']},
-
-                // custom sort for ''toi pg (trend)' column
-                // custom sort for 'toi even pg (trend)' column
-                // custom sort for 'toi pp pg (trend)' column
-                // custom sort for ''toi sh pg (trend)' column
-                { targets: [toi_pg_trend_idx, toi_even_pg_trend_idx, toi_pp_pg_trend_idx, toi_sh_pg_trend_idx], type: "custom_time_delta_sort", orderSequence: ['desc']},
-
-                // custom sort for 'breakout threshold' column
-                { targets: [breakout_threshold_idx], type: "custom_breakout_sort", orderSequence: ['asc']},
-
-                // skater scoring category heatmaps
-                { targets: sktr_category_heatmap_columns,
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        if (heatmaps && rowData[games_idx] !== '') {
-                            const position = rowData[position_idx];
-                            if (position !== 'G') {
-                                if (col === points_idx) {
-                                    if (position === 'D') {
-                                        const categoryLookup = {Cumulative: 'points', 'Per game': 'pts_pg', 'Per 60 minutes': 'pts_p60'};
-                                        const category = categoryLookup[statType.value];
-                                        const { [`d ${category}`]: max } = max_cat;
-                                        const { [`d ${category}`]: center } = mean_cat;
-                                        $(td).colourize({ max, center });
-                                    }
-                                } else {
-                                    const categoryLookup = {
-                                        [goals_idx]: {Cumulative: 'goals', 'Per game': 'g_pg', 'Per 60 minutes': 'g_p60'},
-                                        [assists_idx]: {Cumulative: 'assists', 'Per game': 'a_pg', 'Per 60 minutes': 'a_p60'},
-                                        [ppp_idx]: {Cumulative: 'points_pp', 'Per game': 'ppp_pg', 'Per 60 minutes': 'ppp_p60'},
-                                        [sog_idx]: {Cumulative: 'shots', 'Per game': 'sog_pg', 'Per 60 minutes': 'sog_p60'},
-                                        [sog_pp_idx]: {Cumulative: 'shots_powerplay', 'Per game': 'sog_pp_pg', 'Per 60 minutes': 'sog_pp_p60'},
-                                        [tk_idx]: {Cumulative: 'takeaways', 'Per game': 'tk_pg', 'Per 60 minutes': 'tk_p60'},
-                                        [hits_idx]: {Cumulative: 'hits', 'Per game': 'hits_pg', 'Per 60 minutes': 'hits_p60'},
-                                        [blk_idx]: {Cumulative: 'blocked', 'Per game': 'blk_pg', 'Per 60 minutes': 'blk_p60'},
-                                        [pim_idx]: {Cumulative: 'pim', 'Per game': 'pim_pg', 'Per 60 minutes': 'pim_p60'},
-                                    };
-                                    const category = categoryLookup[col][statType.value];
-                                    const { [`sktr ${category}`]: max } = max_cat;
-                                    const { [`sktr ${category}`]: center } = mean_cat;
-                                    $(td).colourize({ max, center });
-                                }
-                            }
-                        }
-                    }
-                },
-
-                // goalie scoring category heatmaps
-                { targets: goalie_category_heatmap_columns,
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        if (heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            const position = rowData[position_idx];
-                            if ( position === 'G' ) {
-                                const categoryLookup = {
-                                    [wins_idx]: {Cumulative: 'wins', 'Per game': 'wins_pg', 'Per 60 minutes': 'wins_p60'},
-                                    [saves_idx]: {Cumulative: 'saves', 'Per game': 'saves_pg', 'Per 60 minutes': 'saves_p60'},
-                                    [gaa_idx]: {Cumulative: 'gaa', 'Per game': 'gaa_pg', 'Per 60 minutes': 'gaa_p60'},
-                                    [saves_percent_idx]: {Cumulative: 'save%', 'Per game': 'save%_pg', 'Per 60 minutes': 'save%_p60'},
-                                };
-                                const category = categoryLookup[col][statType.value];
-                                const { [`${category}`]: min } = min_cat;
-                                const { [`${category}`]: max } = max_cat;
-                                const { [`${category}`]: center } = mean_cat;
-                                if ( col === gaa_idx ) {
-                                    $(td).colourize({ min, max, center, theme: 'cool-warm-reverse' });
-                                } else {
-                                    $(td).colourize({ min, max, center });
-                                }
-                            }
-                        }
-                    }
-                },
-
-                // skater scoring category z-score heatmaps
-                { targets: sktr_category_z_score_heatmap_columns,
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        if ( heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            const position = rowData[position_idx];
-                            if (position !== 'G') {
-                                if (col === z_points_idx) {
-                                    if (position === 'D') {
-                                        const categoryLookup = {Cumulative: 'z_points', 'Per game': 'z_pts_pg', 'Per 60 minutes': 'z_pts_p60'};
-                                        const category = categoryLookup[statType.value];
-                                        const { [`d ${category}`]: min } = min_cat;
-                                        const { [`d ${category}`]: max } = max_cat;
-                                        const center = 0;
-                                        $(td).colourize({ min, max, center });
-                                    }
-                                } else {
-                                    const categoryLookup = {
-                                        [z_goals_idx]: {Cumulative: 'z_goals', 'Per game': 'z_g_pg', 'Per 60 minutes': 'z_g_p60'},
-                                        [z_assists_idx]: {Cumulative: 'z_assists', 'Per game': 'z_a_pg', 'Per 60 minutes': 'z_a_p60'},
-                                        [z_ppp_idx]: {Cumulative: 'z_points_pp', 'Per game': 'z_ppp_pg', 'Per 60 minutes': 'z_ppp_p60'},
-                                        [z_sog_idx]: {Cumulative: 'z_shots', 'Per game': 'z_sog_pg', 'Per 60 minutes': 'z_sog_p60'},
-                                        [z_tk_idx]: {Cumulative: 'z_takeaways', 'Per game': 'z_tk_pg', 'Per 60 minutes': 'z_tk_p60'},
-                                        [z_hits_idx]: {Cumulative: 'z_hits', 'Per game': 'z_hits_pg', 'Per 60 minutes': 'z_hits_p60'},
-                                        [z_blk_idx]: {Cumulative: 'z_blocked', 'Per game': 'z_blk_pg', 'Per 60 minutes': 'z_blk_p60'},
-                                        [z_pim_idx]: {Cumulative: 'z_pim', 'Per game': 'z_pim_pg', 'Per 60 minutes': 'z_pim_p60'},
-                                        [z_penalties_idx]: {Cumulative: 'z_penalties', 'Per game': 'z_penalties_pg', 'Per 60 minutes': 'z_penalties_p60'},
-                                    };
-                                    const category = categoryLookup[col][statType.value];
-                                    const { [`sktr ${category}`]: min } = min_cat;
-                                    const { [`sktr ${category}`]: max } = max_cat;
-                                    const center = 0;
-                                    $(td).colourize({ min, max, center });
-                                }
-                            }
-                        }
-                    }
-                },
-
-                // goalie scoring category z-score heatmaps
-                { targets: goalie_category_z_score_heatmap_columns,
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        if (heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            const position = rowData[position_idx];
-                            if ( position === 'G' ) {
-                                const categoryLookup = {
-                                    [z_wins_idx]: {Cumulative: 'z_wins', 'Per game': 'z_wins_pg', 'Per 60 minutes': 'z_wins_p60'},
-                                    [z_saves_idx]: {Cumulative: 'z_saves', 'Per game': 'z_saves_pg', 'Per 60 minutes': 'z_saves_p60'},
-                                    [z_gaa_idx]: {Cumulative: 'z_gaa', 'Per game': 'z_gaa_pg', 'Per 60 minutes': 'z_gaa_p60'},
-                                    [z_saves_percent_idx]: {Cumulative: 'z_save%', 'Per game': 'z_save%_pg', 'Per 60 minutes': 'z_save%_p60'},
-                                };
-                                const category = categoryLookup[col][statType.value];
-                                const { [`${category}`]: min } = min_cat;
-                                const { [`${category}`]: max } = max_cat;
-                                const center = 0;
-                                $(td).colourize({ min, max, center });
-                            }
-                        }
-                    }
-                },
-
-                // z-score summary heatmaps
-                { targets: z_score_summary_heatmap_columns,
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        if ( heatmaps == true && !( rowData[games_idx]== "" ) ) {
-                            const position = rowData[position_idx];
-                            if ( position !== 'G' && sktr_z_score_summary_heatmap_columns.includes(col) ) {
-                                const categoryLookup = {
-                                    [z_score_idx]: {Cumulative: 'z_score', 'Per game': 'z_score_pg', 'Per 60 minutes': 'z_score_p60'},
-                                    [z_offense_idx]: {Cumulative: 'z_offense', 'Per game': 'z_offense_pg', 'Per 60 minutes': 'z_offense_p60'},
-                                    [z_peripheral_idx]: {Cumulative: 'z_peripheral', 'Per game': 'z_peripheral_pg', 'Per 60 minutes': 'z_peripheral_p60'},
-                                    [z_sog_hits_blk_idx]: {Cumulative: 'z_sog_hits_blk', 'Per game': 'z_sog_hits_blk_pg', 'Per 60 minutes': 'z_sog_hits_blk_p60'},
-                                    [z_hits_blk_idx]: {Cumulative: 'z_hits_blk', 'Per game': 'z_hits_blk_pg', 'Per 60 minutes': 'z_hits_blk_p60'},
-                                    [z_goals_hits_pim_idx]: {Cumulative: 'z_goals_hits_pim', 'Per game': 'z_goals_hits_pim_pg', 'Per 60 minutes': 'z_goals_hits_pim_p60'},
-                                    [z_hits_pim_idx]: {Cumulative: 'z_hits_pim', 'Per game': 'z_hits_pim_pg', 'Per 60 minutes': 'z_hits_pim_p60'},
-                                };
-                                const category = categoryLookup[col][statType.value];
-                                const { [`sktr ${category}`]: min } = min_cat;
-                                const { [`sktr ${category}`]: max } = max_cat;
-                                const center = 0;
-                                $(td).colourize({ min, max, center });
-                            } else if ( position === 'G'  && goalie_z_score_summary_heatmap_columns.includes(col) ) {
-                                const categoryLookup = {
-                                    [z_score_idx]: {Cumulative: 'z_score', 'Per game': 'z_score_pg', 'Per 60 minutes': 'z_score_p60'},
-                                    [z_g_count_idx]: {Cumulative: 'z_g_count', 'Per game': 'z_g_count_pg', 'Per 60 minutes': 'z_g_count_p60'},
-                                    [z_g_ratio_idx]: {Cumulative: 'z_g_ratio', 'Per game': 'z_g_ratio_pg', 'Per 60 minutes': 'z_g_ratio_p60'},
-                                };
-                                const category = categoryLookup[col][statType.value];
-                                const { [`g ${category}`]: min } = min_cat;
-                                const { [`g ${category}`]: max } = max_cat;
-                                const center = 0;
-                                $(td).colourize({ min, max, center });
-                            }
-                        }
-                    }
-                }
-            ],
-
-            fixedHeader: true,
-            fixedColumns: true,
-            orderCellsTop: true,
-            pagingType: 'full_numbers',
-
-            lengthMenu: [
-                [20, 50, 100, 250, 500, -1],
-                ['20 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
-            ],
-            pageLength: 50,
-            // use 'api' selection style; was using 'multi+shift'
-            select: 'api',
-            buttons: [
-                {
-                    extend: 'spacer',
-                    style: 'bar',
-                    text: ''
-                },
-                // 'createState',
-                // 'savedStates',
-                {
-                    extend: 'excelHtml5',
-                    text: 'Export to Excel',
-                    exportOptions: {columns: ':visible'}
-                },
-                {
-                    extend: 'collection',
-                    text: 'Column Visibility',
-                    buttons: [
-                        {
-                            text: 'General Info',
-                            popoverTitle: 'General Info Columns',
-                            extend: 'colvis',
-                            columns: general_info_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, general_info_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Skater Info',
-                            popoverTitle: 'Skater Columns',
-                            extend: 'colvis',
-                            columns: sktr_info_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, sktr_info_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Goalie Info',
-                            popoverTitle: 'Goalie Columns',
-                            extend: 'colvis',
-                            columns: goalie_info_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, goalie_info_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Skater Scoring Cats',
-                            popoverTitle: 'Skater Scoring Category Columns',
-                            extend: 'colvis',
-                            columns: sktr_scoring_categories_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, sktr_scoring_categories_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Goalie Scoring Cats',
-                            popoverTitle: 'Goalie Scoring Category Columns',
-                            extend: 'colvis',
-                            columns: goalie_scoring_categories_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, goalie_scoring_categories_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Skater Summary Z-Scores',
-                            popoverTitle: 'Skater Z-Score Columns',
-                            extend: 'colvis',
-                            columns: sktr_z_score_summary_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, sktr_z_score_summary_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Goalie Summary Z-Scores',
-                            popoverTitle: 'Goalie Z-Score Columns',
-                            extend: 'colvis',
-                            columns: goalie_z_score_summary_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, goalie_z_score_summary_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Skater Cat Z-Scores',
-                            popoverTitle: 'Skater Category Z-Score Columns',
-                            extend: 'colvis',
-                            columns: sktr_z_score_categories_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, sktr_z_score_categories_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Goalie Cat Z-Scores',
-                            popoverTitle: 'Goalie Category Z-Score Columns',
-                            extend: 'colvis',
-                            columns: goalie_z_score_categories_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, goalie_z_score_categories_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            text: 'Draft Info',
-                            popoverTitle: 'Draft Info Columns',
-                            extend: 'colvis',
-                            columns: draft_info_column_names,
-                            collectionLayout: 'three-column',
-                            postfixButtons: [
-                                {
-                                    text: 'Restore Columns',
-                                    action: function (e, dt, node, config) {
-                                        restoreColVisColumns( table, draft_info_column_names )
-                                    }
-                                }
-                            ]
-                        },
-                    ]
-                },
-                // {
-                //     text: 'Hide Selected Rows',
-                //     extend: 'selected',
-                //     action: function (e, dt, node, config) {
-                //         hideRows(table)
-                //     }
-                // },
-                // {
-                //     text: 'Restore Hidden Rows',
-                //     action: function (e, dt, node, config) {
-                //         showRows(table)
-                //     }
-                // },
-                {
-                    text: 'Toggle Heatmaps',
-                    // extend: 'selected',
-                    action: function (e, dt, node, config) {
-                        toggleHeatmaps(table)
-                    }
-                },
-            ],
-
-            initComplete: function () {
-
-                let playerStatsTable = $('#player_stats').DataTable();
-
-                // hide columns that are to be hidden on initial display
-                playerStatsTable.columns(initially_hidden_column_names).visible(show=false, redrawCalculations=false);
-
-                // save current & initial previous gameType (i.e., 'Regular Season')
-                $('#gameType').data('previous', '');
-                $('#gameType').data('current', gameType.value);
-                // set current & previous "pos" searchPane selection to '' (i.e., no selection)
-                $('#DataTables_Table_0').data('previous', '');
-                $('#DataTables_Table_0').data('current', '');
-                columnVisibility('game type initialization');
-
-                // set "name" as fixed column
-                setFixedColumn( playerStatsTable );
-
-                createManagerSummaryTable(playerStatsTable);
-
-                createManagerNeedsTable();
-
-                // Create the allPlayers array
-                let allPlayers = getAllPlayers();
-
-                // create Category Scarcity by Z-score Range table
-                categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
-                createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
-
-                // Filter out rows with no team manager
-                let allAvailablePlayers = allPlayers.filter(function (row) {
-                    return row['manager'] === "";
-                });
-                // create Category Scarcity table
-                categoryScarcity = getCategoryScarcity(allAvailablePlayers);
-                createCategoryScarcityTable(categoryScarcity);
-
-                updatePlayerStatsTable(data);
-
-                let api = this.api();
-                api.rows().every(function() {
-                    let data = this.data();
-                    let name = data[name_idx].match(/>(.*?)</)[1];
-                    let index = this.index();
-                    if (!nameToIndex[name]) {
-                        nameToIndex[name] = [];
-                    }
-                    nameToIndex[name].push(index);
-                });
-
-                // show tables
-                hideSpinnerShowTables()
-                $('#player_stats').DataTable().searchPanes.rebuildPane();
-
-                positionSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[1]).DataTable();
-                additionalFiltersSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[7]).DataTable();
-
-            },
-
-        } );
-
-        // // search panes
-        // new $.fn.dataTable.SearchPanes(table, {});
-        // table.searchPanes.container().prependTo(table.table().container());
-        // table.searchPanes.resizePanes();
-
-        // *******************************************************************
-        // "DataTables_Table_0" is "pos" searchPane
-        $('#DataTables_Table_0').DataTable().on('user-select', function(e, dt, type, cell, originalEvent){
-            // save "pos" searchPane selection as "current"
-            if ( $('#DataTables_Table_0').data('previous') === cell.data() ) {
-                $('#DataTables_Table_0').data('current', '');
-            } else {
-                $('#DataTables_Table_0').data('current', cell.data());
-            }
-            columnVisibility( 'position change' );
-        });
-
-        // *******************************************************************
-        // select rows
-        $('#player_stats tbody').on('click', 'tr', function () {
-            // if ($(this).hasClass('selected')) {
-            //     $(this).removeClass('selected');
-            // } else {
-            //     table.$('tr.selected').removeClass('selected');
-            //     $(this).addClass('selected');
-            // }
-            $(this).toggleClass('selected');
-        });
-        // *******************************************************************
-        // remove() actually removes the rows. If you want to be able to restore
-        // removed rows, maintain a list of removed rows
-        // let removedRows = {};
-        // $.fn.dataTable.Api.register('row().hide()', function(index) {
-        // if (index && removedRows[index]) {
-        //     // table.row.add($("<tr><td>1</td><td>2</td><td>3</td><td>4</td></tr>")).draw();
-        //     let row = this.table().row.add(removedRows[index].html);
-        //     delete removedRows[index]
-
-        // } else {
-        //     removedRows[this.index()] = { html: this.nodes().to$()[0] };
-        //     this.remove()
-        // }
-        // return this
-        // });
-        // // *******************************************************************
-        // // Remove selected row
-        // $('#remove_selected_row').click(function () {
-        //     table.row('.selected').hide().draw();
-        // });
-        // // // *******************************************************************
-        // // $('#player_stats').on('click', 'tbody tr', function() {
-        // //   table.row(this).hide().draw();
-        // // })
-
-        // $('#show_removed_rows').on('click', function() {
-        //     Object.keys(removedRows).forEach(function(index) {
-        //          table.row().hide(index).draw();
-        //     })
-        // });
-
-        // // Hide & unhide rows
-        // function hideRows(table) {
-        //     let hidden_rows_count = 0;
-        //     table.rows('.selected').every( function(index) {
-        //         let adj_index = index - hidden_rows_count;
-        //         table.row(adj_index).hide(adj_index).draw();
-        //         ++hidden_rows_count;
-        //     });
-        // };
-        // function showRows(table) {
-        //     Object.keys(removedRows).forEach(function(index) {
-        //         table.row(index).hide(index).draw();
-        // })
-        // };
-
-        // *******************************************************************
-        // custom ordering functions
-        // return -1 if the first item is smaller, 0 if they are equal, and 1 if the first is greater.
-        $.extend( $.fn.dataTable.ext.type.order, {
-            // custom ascending & descending sorts for "prj draft round" column
-            "custom_pdr_sort-asc": function (val1, val2) {
-
-                function getRange(val) {
-                    const parts = val.split(/[ -]+/);
-                    const [from, to] = parts.map(Number);
-                    return [from, to || from];
-                }
-
-                if (val1 === '') {
-                    return 1;
-                }
-
-                if (val2 === '') {
-                    return -1;
-                }
-
-                let [from1, to1] = getRange(val1);
-                let [from2, to2] = getRange(val2);
-                if (from1 !== from2) {
-                    return from1 - from2;
-                }
-                return to1 - to2;
-
-            },
-
-            // custom ascending sort for integer columns
-            "custom_integer_sort-asc": function (val1, val2) {
-
-                if (val1 === val2) {
-                    return 0;
-                }
-                const num1 = parseFloat(val1);
-                const num2 = parseFloat(val2);
-                if (isNaN(num1)) {
-                    // val1 is not a valid number, sort it to the bottom
-                    return 1;
-                }
-                if (isNaN(num2)) {
-                    // val2 is not a valid number, sort it to the bottom
-                    return -1;
-                }
-                return num1 - num2;
-            },
-
-            // custom descending sort for delta time columns (e.g., toi trend)
-            "custom_time_delta_sort-desc": function (val1, val2) {
-
-                if (val1 === val2) {
-                    return 0;
-                }
-                if (!val1) {
-                    return 1;
-                }
-                if (!val2) {
-                    return -1;
-                }
-                const prefix1 = val1.charAt(0);
-                const prefix2 = val2.charAt(0);
-
-                let timeParts = val1.substring(1).split(":"); // split the time string into minutes and seconds
-                let minutes = parseInt(timeParts[0]); // parse the minutes part as an integer
-                let seconds = parseInt(timeParts[1]); // parse the seconds part as an integer
-                const time1 = minutes * 60 + seconds; // calculate the total number of seconds
-
-                timeParts = val2.substring(1).split(":"); // split the time string into minutes and seconds
-                minutes = parseInt(timeParts[0]); // parse the minutes part as an integer
-                seconds = parseInt(timeParts[1]); // parse the seconds part as an integer
-                const time2 = minutes * 60 + seconds; // calculate the total number of seconds
-
-                if (prefix1 === '-' && prefix2 === '+') {
-                    return 1;
-                }
-                if (prefix1 === '+' && prefix2 === '-') {
-                    return -1;
-                }
-                if (prefix1 === '-' && prefix2 === '-') {
-                    if (time1 < time2) {
-                        return -1;
-                    } else if (time1 >time2) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-                if (prefix1 === '+' && prefix2 === '+') {
-                    if (time1 < time2) {
-                        return 1;
-                    } else if (time1 > time2) {
-                        return -1;
-                    } else {
-                        return 0;
-                    }
-                }
-            },
-
-            // custom ascending sort for "breakout threshold" column
-            "custom_breakout_sort-asc": function (val_1, val_2) {
-
-                if (val_1 == val_2) {
-                    return 0;
-                }
-                if (val_1 == '') {
-                    return 1;
-                }
-                if (val_2 == '') {
-                    return -1;
-                }
-
-                // want to intermix -ve & +ve values, because -1 game under and -1 game over
-                // imply the player is just as likely to readh his breakout (if he hasn't already)
-                if (Math.abs(parseInt(val_1)) < Math.abs(parseInt(val_2))) {
-                    return -1;
-                }
-                if (Math.abs(parseInt(val_1)) > Math.abs(parseInt(val_2))) {
-                    return 1;
-                }
-            }
-
-        });
-
-        // *******************************************************************
-        // Rank-in-group column using an event listener that listens for two events:
-        // order.dt and search.dt.
-        // These events are triggered when the user orders or searches the data in the table
-        // When either of these events is triggered, the code will execute a function that selects all
-        // cells in the first column of the table (column index 0) that are currently being displayed
-        // (i.e., after filtering and ordering have been applied).
-        // The every function is then called on these cells, which loops through each cell and updates
-        // the data of each cell with an incrementing value (i++).
-        // This means that after either a search or an order event, the first column of the table will
-        // be updated to display a numbered list.
-        table.on('order.dt search.dt', function () {
-            let i = 1;
-
-            table.cells(null, 0, { search: 'applied', order: 'applied' }).every(function (cell) {
-                this.data(i++);
-            });
-        }).columns.adjust().draw();
-
-        // // set "name" as fixed column
-        // table.on('draw.dt column-visibility.dt', function () {
-
-        //     // // Loop through each header cell and set the text to the desired value
-        //     // table.columns().every(function(index) {
-        //     //     $(table.column(index).header()).text(columns[index].title);
-        //     // });
-
-        //     setFixedColumn( table );
-
-        // });
-
-        // the following is used to prevent table display when changing between positions; primarily G to unfiltered
-        table.on('column-visibility.dt search.dt', function() {
-            $('#col-sm-12').hide();
-            setTimeout(function() {
-                $('#col-sm-12').show();
-            }, 1000);
-        });
-
-        // get the ColVis button element
-        const colvisButton = document.querySelector('.buttons-collection');
-
-        // add a click event listener to the ColVis button
-        colvisButton.addEventListener('click', function () {
-            // set the colvisClicked flag to true
-            colvisClicked = true;
-        });
-
-        table.on('column-visibility', function (e, settings, column, state) {
-            // check if the colvisClicked flag is true
-            if (colvisClicked) {
-                // column: index of the column whose visibility changed
-                column_name =table.column(column).name() + ':name';
-                // state: true if the column is now visible, false if it is now hidden
-                // add your custom code here to handle the column visibility change
-                if (state === false) { // not visible
-                    if (manually_unhidden_columns.includes(column_name) === true) {
-                        manually_unhidden_columns.pop(column_name);
-                    } else {
-                        if (manually_hidden_columns.includes(column_name) === false) {
-                            manually_hidden_columns.push(column_name);
-                        }
-                    }
-                } else { // visible
-                    if (manually_hidden_columns.includes(column_name) === true) {
-                        manually_hidden_columns.pop(column_name);
-                    } else {
-                        if (manually_unhidden_columns.includes(column_name) === false) {
-                            manually_unhidden_columns.push(column_name);
-                        }
-                    }
-                }
-            }
-        });
-
-        // Create a Mutation Observer fpr searchBuilder input elements, to set proper font size
-        const observer = new MutationObserver(function (mutations) {
-            mutations.forEach(function (mutation) {
-                if (mutation.addedNodes.length > 0) {
-                    // Check if any of the added nodes are input elements with both the dtsb-value and dtsb-input classes
-                    mutation.addedNodes.forEach(function (node) {
-                        if (node.nodeType === Node.ELEMENT_NODE && node.matches('input.dtsb-value.dtsb-input')) {
-                            // Set the font size of the element
-                            node.style.fontSize = '1em';
-                        }
-                    });
-                }
-            });
-        });
-
-        // Start observing the body element for child node additions
-        observer.observe(document.body, { childList: true, subtree: true });
-
-    });
-})
-
-// Add event listeners to the radio buttons to listen for changes
-$('input[name="weightedScoreOpts"]').on('change', function() {
-
-    let weightedPlayers = updatePlayerWeights();
-    updateTableWithWeightedZScores(weightedPlayers);
-
-    $('#player_stats').DataTable().draw();
-
-})
-
-// display stat type columns
 $('#gameType').on('change', function() {
     // save current gameType (i.e., 'Regular Season')
     $('#gameType').data('current', gameType.value);
+
+    // hide\display startDraftButton as appropriate
+    let startDraftButton = document.getElementById('startDraftButton');
+    if (gameType.value === 'Projected Season') {
+        $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
+    } else {
+        $('#startDraftButton').addClass('hidden').css('display', 'none');
+    }
 })
 
 // display stat type columns
 $('#statType').on('change', function() {
 
-    // remove table data
-    let playerStatsTable = $('#player_stats').DataTable();
-    playerStatsTable.clear();
+    // Show pulsing bar
+    document.getElementById('pulsing-bar').style.display = 'block';
 
-    // load stats for stat type
-    if ( this.value === 'Cumulative' ) {
-        playerStatsTable.rows.add(cumulative_stats_data);
-    } else if ( this.value === 'Per game' ) {
-        playerStatsTable.rows.add(per_game_stats_data);
-    } else if ( this.value === 'Per 60 minutes' ) {
-        playerStatsTable.rows.add(per_60_stats_data);
+    // Delay the rest of your code
+    setTimeout(function() {
+
+        let playerStatsTable = $('#player_stats').DataTable();
+
+        if ( statType.value === 'Cumulative' ) {
+            data = cumulative_stats_data;
+        } else if ( statType.value === 'Per game' ) {
+            data = per_game_stats_data;
+        } else if ( statType.value === 'Per 60 minutes' ) {
+            data = per_60_stats_data;
+        }
+
+        // Iterate over each player
+        playerStatsTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+
+            let column_idx;
+
+            for (let i = 0; i < heatmap_columns.length; i++) {
+                column_idx = heatmap_columns[i];
+                this.cell(rowIdx, column_idx).data(data[rowIdx][column_idx]);
+                colourizeCell(this.cell(rowIdx, column_idx).node(), column_idx, this.row(rowIdx).data());
+            }
+
+            for (let i = 0; i < combo_columns.length; i++) {
+                column_idx = combo_columns[i];
+                this.cell(rowIdx, column_idx).data(data[rowIdx][column_idx]);
+            }
+
+        });
+
+        managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+        updateManagerSummaryTable(managerSummaryZScores);
+
+        // data = calcManagerCategoryNeedsData();
+        myCategoryNeeds = getMyCategoryNeeds();
+        updateMyCategoryNeedsTable(myCategoryNeeds);
+
+        let caption = updateCaption();
+        let tableCaption = document.querySelector('#player_stats caption');
+        tableCaption.textContent = caption;
+
+        tableCaption = document.querySelector('#managerSummary caption');
+        tableCaption.textContent = caption + ' - Manager Z-Scores';
+        tableCaption.style.fontWeight = 'bold';
+        tableCaption.style.textDecoration = 'underline';
+
+        playerStatsTable.columns.adjust().draw();
+
+        // Hide pulsing bar
+        document.getElementById('pulsing-bar').style.display = 'none';
+
+    }, 2000);
+
+})
+
+$('#showAsVorpCheckbox').on('change', function() {
+
+    let playerStatsTable = $('#player_stats').DataTable();
+
+    if (document.getElementById('showAsVorpCheckbox').checked === true) {
+        let replacementPlayerZscores = calcPositionCategoryZScores(playerStatsTable.data().toArray());
+        calcPlayerVorpZsores(playerStatsTable, replacementPlayerZscores);
+    } else {
+        if ( statType.value === 'Cumulative' ) {
+            resetPlayerZsores(playerStatsTable, cumulative_stats_data)
+        } else if ( statType.value === 'Per game' ) {
+            resetPlayerZsores(playerStatsTable, per_game_stats_data)
+        } else if ( statType.value === 'Per 60 minutes' ) {
+            resetPlayerZsores(playerStatsTable, per_60_stats_data)
+        }
     }
 
     managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
     updateManagerSummaryTable(managerSummaryZScores);
 
     // data = calcManagerCategoryNeedsData();
-    managerCategoryNeeds = getManagerCategoryNeeds();
-    updateManagerCategoryNeedsTable(managerCategoryNeeds);
+    myCategoryNeeds = getMyCategoryNeeds();
+    updateMyCategoryNeedsTable(myCategoryNeeds);
 
     let caption = updateCaption();
+    if (document.getElementById('showAsVorpCheckbox').checked === true) {
+        caption += ' (VORP)'
+    }
+
     let tableCaption = document.querySelector('#player_stats caption');
     tableCaption.textContent = caption;
 
@@ -1202,10 +203,11 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', () => 
 
 document.getElementById('getStatsButton').addEventListener('click', async () => {
 
-    // show spinner & hide tables
-    hideTablesShowSpinner()
+    // show pulsing bar & hide tables
+    hideTablesShowPulsingBar()
 
     const seasonOrDateRadios = $('input[name="seasonOrDate"]:checked').val();
+    const statType = document.querySelector('#statType');
 
     getPlayerData(seasonOrDateRadios, function(playerData) {
 
@@ -1218,40 +220,900 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
         tableCaption.style.fontWeight = 'bold';
         tableCaption.style.textDecoration = 'underline';
 
-        tableCaption = document.querySelector('#managerCategoryNeedsContainerCaption');
-        tableCaption.textContent = 'Manager Category Needs';
-        tableCaption.style.fontWeight = 'bold';
-        tableCaption.style.textDecoration = 'underline';
-
         updateGlobalVariables(playerData);
 
-        // if ( statType.value === 'Cumulative' ) {
-        let data = cumulative_stats_data;
-        let columns = cumulative_column_titles;
+        // In JavaScript, when you assign an array to another variable using let data = cumulative_stats_data, both data and cumulative_stats_data point to the same array
+        // in memory. So, if you modify data, it will also modify cumulative_stats_data and vice versa.
+        // These methods only create a shallow copy of the array. If your array contains objects or other arrays, you may need to create a deep copy instead
+        let data = JSON.parse(JSON.stringify(cumulative_stats_data));
+        let columns = JSON.parse(JSON.stringify(cumulative_column_titles));
         if ( statType.value === 'Per game' ) {
-            data = per_game_stats_data;
-            columns = per_game_column_titles;
+            data = JSON.parse(JSON.stringify(per_game_stats_data));
+            columns = JSON.parse(JSON.stringify(per_game_column_titles));
         } else if ( statType.value === 'Per 60 minutes' ) {
-            data = per_60_stats_data;
-            columns = per_60_column_titles;
+            data = JSON.parse(JSON.stringify(per_60_stats_data));
+            columns = JSON.parse(JSON.stringify(per_60_column_titles));
         }
 
         updateColumnIndexes(columns);
 
-        updateHeatmapColumnLists();
+        // updateHeatmapColumnLists();
 
-        updatePlayerStatsTable(data);
+        // If #player_stats is already a DataTable, destroy it
+        if ($.fn.DataTable.isDataTable('#player_stats')) {
+
+            // $('#player_stats').DataTable().destroy();
+            updatePlayerStatsTable(data);
+
+        } else {
+
+            var table = $('#player_stats').DataTable( {
+
+                data: data,
+                columns: columns,
+
+                // initial table order
+                order: [[z_score_idx, "desc"]],
+
+                // disable zebra strips on alternating rows; it messes with heatmap colours
+                stripeClasses: [],
+
+                // 'col-sm-4' is "Show x page entries"
+                // 'col-sm-5' is "Export to Excel", "Column Visibility", "Hide Selected Rows", & "Toggle Heatmaps"
+                // 'col-sm-7' is "Showing x to y of z entries" at the top of the table
+                // 'col-sm-12' is "player_stats" able
+                // 'col-sm-7' is "Showing x to y of z entries" at the botton of the table
+                dom: "PQ" +
+                    "<'row'<'col-sm-4'l>>" +
+                    "<'row'<'col-sm-5'B>>" +
+                    "<'row'<'col-sm-6'ip>>" +
+                    "<'row'<'col-sm-12'tr>>" +
+                    "<'row'<'col-sm-7'ip>>",
+
+                autoWidth: false,
+
+                // search panes extension
+                searchPanes: {
+                    columns: [position_idx, injury_idx, manager_idx],
+                    orderable: false,
+                    viewCount: false,
+                    clear: false,
+                    dtOpts: {
+                        dom: 'ltp',
+                        scrollY: '100px',
+                        scrollCollapse: true,
+                        searching: true,
+                    },
+                    panes: [
+                        {
+                            header: 'additional filters',
+                            options: [
+                                {
+                                    label: 'Rookies',
+                                    value: function(rowData, rowIdx) {
+                                        return rowData[rookie_idx] === 'Yes';
+                                    },
+                                    className: 'rookie'
+                                },
+                                {
+                                    label: 'On watch list',
+                                    value: function(rowData, rowIdx) {
+                                        return rowData[this.column(watch_idx).index()] === 'Yes';
+                                    },
+                                    className: 'watch_list'
+                                },
+                                {
+                                    label: 'On roster',
+                                    value: function(rowData, rowIdx) {
+                                        return rowData[this.column(minors_idx).index()] === '';
+                                    },
+                                    className: 'rostered'
+                                },
+                                {
+                                    label: 'Minors',
+                                    value: function(rowData, rowIdx) {
+                                        return rowData[this.column(minors_idx).index()] === 'Yes';
+                                    },
+                                    className: 'minors'
+                                },
+                                {
+                                    label: 'Minors (Fantasy)',
+                                    value: function(rowData, rowIdx) {
+                                        return (rowData[this.column(position_idx).index()] !== 'G' && rowData[this.column(career_games_idx).index()] < 160) ||
+                                               (rowData[this.column(position_idx).index()] === 'G' && rowData[this.column(career_games_idx).index()] < 80);
+                                    },
+                                    className: 'mfCount'
+                                },
+                            ],
+                            dtOpts: {
+                                searching: false,
+                                order: [[0, 'asc']],
+                                select: 'single',
+                            }
+                        }
+                    ]
+                },
+
+                searchBuilder: {
+                    columns: search_builder_column_names,
+                    // preDefined: {
+                    //     criteria: [
+                    //         {
+                    //             condition: '!=',
+                    //             data: 'team',
+                    //             value: ['(N/A)']
+                    //         }
+                    //     ],
+                    //     logic: 'AND',
+                    // }
+                },
+
+                columnDefs: [
+                    // first column, rank in group, is not orderable or searchable
+                    {searchable: false, orderable: false, targets: rank_in_group_idx},
+                    // {type: 'num', targets: numeric_columns},
+                    {type: 'num', targets: [z_score_calc_idx]}, // z_score_calc_idx; otherwise doesn't sort numerically
+                    {orderSequence: ['desc', 'asc'], targets: descending_columns},
+                    // {targets: fantrax_score_idx,
+                    //  render: function(data, type, row, meta) {
+                    //         if (type === 'sort' && auto_assign_picks === true && row[position_idx] === "G") {
+                    //             return (data * 0.7).toFixed(2);
+                    //         } else {
+                    //             return data;
+                    //         }
+                    //     },
+                    // },
+                    // default is center-align all colunns, header & body
+                    {className: 'dt-center', targets: '_all'},
+                    // left-align some colunns
+                    {className: 'dt-body-left', targets: [name_idx, injury_idx, injury_note_idx, manager_idx]},
+
+                    // "position" search pane
+                    {searchPanes: {
+                        show: true,
+                        options: [
+                            {
+                                label: 'Sktr',
+                                value: rowData => ['LW', 'C', 'RW', 'D'].includes(rowData[position_idx])
+                            },
+                            {
+                                label: 'F',
+                                value: rowData => ['LW', 'C', 'RW'].includes(rowData[position_idx])
+                            },
+                            {
+                                label: 'D',
+                                value: rowData => rowData[position_idx] === 'D'
+                            },
+                            {
+                                label: 'G',
+                                value: rowData => rowData[position_idx] === 'G'
+                            },
+                        ]
+                    }, targets: position_idx},
+
+                    // "injury" search pane
+                    {searchPanes: {
+                        show: true,
+                        options: [
+                            {
+                                label: '<i>No data</i>',
+                                value: rowData => {
+                                    const injury_text = `${rowData[injury_idx]}`;
+                                    return injury_text === '' ||
+                                        !injury_text.startsWith('DAY-TO-DAY - ') &&
+                                        !injury_text.startsWith('IR - ') &&
+                                        !injury_text.startsWith('IR-LT - ') &&
+                                        !injury_text.startsWith('IR-NR - ') &&
+                                        !injury_text.startsWith('OUT - ');
+                                }
+                            },
+                            {
+                                label: 'DAY-TO-DAY',
+                                value: rowData => `${rowData[injury_idx]}`.startsWith('DAY-TO-DAY - ')
+                            },
+                            {
+                                label: 'IR',
+                                value: rowData => {
+                                    const injury_text = `${rowData[injury_idx]}`;
+                                    return injury_text.startsWith('IR - ') ||
+                                        injury_text.startsWith('IR-LT - ') ||
+                                        injury_text.startsWith('IR-NR - ');
+                                }
+                            },
+                            {
+                                label: 'OUT',
+                                value: rowData => `${rowData[injury_idx]}`.startsWith('OUT - ')
+                            },
+                        ],
+                        dtOpts: {
+                            select: 'single',
+                            columnDefs: [
+                            {
+                                targets: [0],
+                                render: (data, type, row, meta) => {
+                                    if (type === 'sort') {
+                                        const injuryOptOrder = {
+                                        '<i>No data</i>': 1,
+                                        'DAY-TO-DAY': 2,
+                                        'IR': 3,
+                                        'OUT': 4,
+                                        }[data];
+                                        return injuryOptOrder;
+                                    } else {
+                                        return data;
+                                    }
+                                },
+                            },
+                            ],
+                        },
+                    }, targets: [injury_idx]},
+
+                    // searchBuilder default conditions
+                    {targets: [name_idx], searchBuilder: { defaultCondition: 'contains' } },
+                    {targets: [games_idx, goalie_starts_idx, points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
+                            sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
+                            toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_seconds_idx,
+                            z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
+                            z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
+                            z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_hits_blk_idx, z_sog_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx, z_g_count_idx, z_g_ratio_idx], searchBuilder: { defaultCondition: '>=' } },
+                    {targets: [age_idx, career_games_idx], searchBuilder: { defaultCondition: '<=' } },
+                    {targets: [draft_position_idx, draft_round_idx, keeper_idx, last_game_idx, manager_idx, minors_idx, nhl_roster_status_idx, picked_by_idx, position_idx,
+                            predraft_keeper_idx, prj_draft_round_idx, rookie_idx, team_idx, watch_idx], searchBuilder: { defaultCondition: '=' } },
+                    {targets: [breakout_threshold_idx], searchBuilder: { defaultCondition: 'between' } },
+                    {targets: [game_today_idx], searchBuilder: { defaultCondition: '!null' } },
+
+                    // searchBuilder rename columns
+                    {targets: breakout_threshold_idx, searchBuilderTitle: 'breakout threshold' },
+                    {targets: points_idx, searchBuilderTitle: 'points' },
+                    {targets: goals_idx, searchBuilderTitle: 'goals' },
+                    {targets: assists_idx, searchBuilderTitle: 'assists' },
+                    {targets: ppp_idx, searchBuilderTitle: 'powerplay points' },
+                    {targets: sog_idx, searchBuilderTitle: 'shots on goal' },
+                    {targets: tk_idx, searchBuilderTitle: 'takeaways' },
+                    {targets: blk_idx, searchBuilderTitle: 'blocks' },
+                    {targets: wins_idx, searchBuilderTitle: 'wins' },
+                    {targets: saves_idx, searchBuilderTitle: 'saves' },
+                    {targets: saves_percent_idx, searchBuilderTitle: 'saves %' },
+                    {targets: career_games_idx, searchBuilderTitle: 'career games' },
+
+                    // searchBuilder type columns
+                    {targets: breakout_threshold_idx, searchBuilderType: 'num' },
+
+                    // custom sort for 'prj draft round' column
+                    // { targets: [prj_draft_round_idx], type: "custom_pdr_sort", orderSequence: ['asc']},
+
+                    // custom sort for 'fantrax adp' column
+                    // custom sort for 'line' and 'line prj' column
+                    // custom sort for 'pp unit' and 'pp unit prj' column
+                    // custom sort for 'athletic z-score rank' column
+                    // custom sort for 'athletic z-score rank' column
+                    // custom sort for 'dobber z-score rank' column
+                    // custom sort for 'dtz z-score rank' column
+                    // custom sort for 'fantrax z-score rank' column
+                    { targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx], type: "custom_integer_sort", orderSequence: ['asc']},
+
+                    // custom sort for ''toi pg (trend)' column
+                    // custom sort for 'toi even pg (trend)' column
+                    // custom sort for 'toi pp pg (trend)' column
+                    // custom sort for ''toi sh pg (trend)' column
+                    { targets: [toi_pg_trend_idx, toi_even_pg_trend_idx, toi_pp_pg_trend_idx, toi_sh_pg_trend_idx], type: "custom_time_delta_sort", orderSequence: ['desc']},
+
+                    // custom sort for 'breakout threshold' column
+                    { targets: [breakout_threshold_idx], type: "custom_breakout_sort", orderSequence: ['asc']},
+
+                    // skater scoring category heatmaps
+                    { targets: Array.from(sktr_category_heatmap_columns),
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            colourizeCell(td, col, rowData);
+
+                        }
+                    },
+
+                    // goalie scoring category heatmaps
+                    { targets: Array.from(goalie_category_heatmap_columns),
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            colourizeCell(td, col, rowData);
+                        }
+                    },
+
+                    // skater scoring category z-score heatmaps
+                    { targets: Array.from(sktr_category_z_score_heatmap_columns),
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            colourizeCell(td, col, rowData);
+                        }
+                    },
+
+                    // goalie scoring category z-score heatmaps
+                    { targets: Array.from(goalie_category_z_score_heatmap_columns),
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            colourizeCell(td, col, rowData);
+                        }
+                    },
+
+                    // z-score summary heatmaps
+                    { targets: Array.from(z_score_summary_heatmap_columns),
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            colourizeCell(td, col, rowData);
+                        }
+                    }
+                ],
+
+                fixedHeader: true,
+                fixedColumns: true,
+                orderCellsTop: true,
+                pagingType: 'full_numbers',
+
+                lengthMenu: [
+                    [20, 50, 100, 250, 500, -1],
+                    ['20 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
+                ],
+                pageLength: 50,
+                // use 'api' selection style; was using 'multi+shift'
+                select: 'api',
+                buttons: [
+                    {
+                        extend: 'spacer',
+                        style: 'bar',
+                        text: ''
+                    },
+                    // 'createState',
+                    // 'savedStates',
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Export to Excel',
+                        exportOptions: {columns: ':visible'}
+                    },
+                    {
+                        extend: 'collection',
+                        text: 'Column Visibility',
+                        buttons: [
+                            {
+                                text: 'General Info',
+                                popoverTitle: 'General Info Columns',
+                                extend: 'colvis',
+                                columns: general_info_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, general_info_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Skater Info',
+                                popoverTitle: 'Skater Columns',
+                                extend: 'colvis',
+                                columns: sktr_info_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, sktr_info_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Goalie Info',
+                                popoverTitle: 'Goalie Columns',
+                                extend: 'colvis',
+                                columns: goalie_info_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, goalie_info_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Skater Scoring Cats',
+                                popoverTitle: 'Skater Scoring Category Columns',
+                                extend: 'colvis',
+                                columns: sktr_scoring_categories_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, sktr_scoring_categories_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Goalie Scoring Cats',
+                                popoverTitle: 'Goalie Scoring Category Columns',
+                                extend: 'colvis',
+                                columns: goalie_scoring_categories_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, goalie_scoring_categories_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Skater Summary Z-Scores',
+                                popoverTitle: 'Skater Z-Score Columns',
+                                extend: 'colvis',
+                                columns: sktr_z_score_summary_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, sktr_z_score_summary_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Goalie Summary Z-Scores',
+                                popoverTitle: 'Goalie Z-Score Columns',
+                                extend: 'colvis',
+                                columns: goalie_z_score_summary_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, goalie_z_score_summary_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Skater Cat Z-Scores',
+                                popoverTitle: 'Skater Category Z-Score Columns',
+                                extend: 'colvis',
+                                columns: sktr_z_score_categories_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, sktr_z_score_categories_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Goalie Cat Z-Scores',
+                                popoverTitle: 'Goalie Category Z-Score Columns',
+                                extend: 'colvis',
+                                columns: goalie_z_score_categories_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, goalie_z_score_categories_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                text: 'Draft Info',
+                                popoverTitle: 'Draft Info Columns',
+                                extend: 'colvis',
+                                columns: draft_info_column_names,
+                                collectionLayout: 'three-column',
+                                postfixButtons: [
+                                    {
+                                        text: 'Restore Columns',
+                                        action: function (e, dt, node, config) {
+                                            restoreColVisColumns( table, draft_info_column_names )
+                                        }
+                                    }
+                                ]
+                            },
+                        ]
+                    },
+                    // {
+                    //     text: 'Hide Selected Rows',
+                    //     extend: 'selected',
+                    //     action: function (e, dt, node, config) {
+                    //         hideRows(table)
+                    //     }
+                    // },
+                    // {
+                    //     text: 'Restore Hidden Rows',
+                    //     action: function (e, dt, node, config) {
+                    //         showRows(table)
+                    //     }
+                    // },
+                    {
+                        text: 'Toggle Heatmaps',
+                        // extend: 'selected',
+                        action: function (e, dt, node, config) {
+                            toggleHeatmaps(table)
+                        }
+                    },
+                ],
+
+                initComplete: function () {
+
+                    let playerStatsTable = $('#player_stats').DataTable();
+
+                    // hide columns that are to be hidden on initial display
+                    playerStatsTable.columns(initially_hidden_column_names).visible(show=false, redrawCalculations=false);
+
+                    // save current & initial previous gameType (i.e., 'Regular Season')
+                    $('#gameType').data('previous', '');
+                    $('#gameType').data('current', gameType.value);
+                    // set current & previous "pos" searchPane selection to '' (i.e., no selection)
+                    $('#DataTables_Table_0').data('previous', '');
+                    $('#DataTables_Table_0').data('current', '');
+                    columnVisibility();
+
+                    // set "name" as fixed column
+                    setFixedColumn( playerStatsTable );
+
+                    createManagerSummaryTable(playerStatsTable);
+
+                    createMyCategoryNeedsTable();
+
+                    // Create the allPlayers array
+                    let allPlayers = getAllPlayers();
+
+                    // create Category Scarcity by Z-score Range table
+                    categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
+                    createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+
+                    // Filter out rows with no team manager
+                    let allAvailablePlayers = allPlayers.filter(function (row) {
+                        return row['manager'] === "";
+                    });
+                    // create Category Scarcity table
+                    categoryScarcity = getCategoryScarcity(allAvailablePlayers);
+                    createCategoryScarcityTable(categoryScarcity);
+
+                    // updatePlayerStatsTable(data);
+
+                    let api = this.api();
+                    api.rows().every(function() {
+                        let data = this.data();
+                        let name = data[name_idx].match(/>(.*?)</)[1];
+                        let index = this.index();
+                        if (!nameToIndex[name]) {
+                            nameToIndex[name] = [];
+                        }
+                        nameToIndex[name].push(index);
+                    });
+
+                    // show tables
+                    // hideSpinnerShowTables()
+                },
+
+            });
+
+            // Display the checkboxes, calc z-score options, stat type & VORP checkbox
+            document.getElementById('toggleCheckboxContainer').style.display = 'block';
+            document.getElementById('calcZScoresContainer').style.display = 'block';
+            document.getElementById('statTypeContainer').style.display = 'block';
+
+            // // search panes
+            // new $.fn.dataTable.SearchPanes(table, {});
+            // table.searchPanes.container().prependTo(table.table().container());
+            // table.searchPanes.resizePanes();
+
+            // *******************************************************************
+            // select rows
+            $('#player_stats tbody').on('click', 'tr', function () {
+                // if ($(this).hasClass('selected')) {
+                //     $(this).removeClass('selected');
+                // } else {
+                //     table.$('tr.selected').removeClass('selected');
+                //     $(this).addClass('selected');
+                // }
+                $(this).toggleClass('selected');
+            });
+            // *******************************************************************
+            // remove() actually removes the rows. If you want to be able to restore
+            // removed rows, maintain a list of removed rows
+            // let removedRows = {};
+            // $.fn.dataTable.Api.register('row().hide()', function(index) {
+            // if (index && removedRows[index]) {
+            //     // table.row.add($("<tr><td>1</td><td>2</td><td>3</td><td>4</td></tr>")).draw();
+            //     let row = this.table().row.add(removedRows[index].html);
+            //     delete removedRows[index]
+
+            // } else {
+            //     removedRows[this.index()] = { html: this.nodes().to$()[0] };
+            //     this.remove()
+            // }
+            // return this
+            // });
+            // // *******************************************************************
+            // // Remove selected row
+            // $('#remove_selected_row').click(function () {
+            //     table.row('.selected').hide().draw();
+            // });
+            // // // *******************************************************************
+            // // $('#player_stats').on('click', 'tbody tr', function() {
+            // //   table.row(this).hide().draw();
+            // // })
+
+            // $('#show_removed_rows').on('click', function() {
+            //     Object.keys(removedRows).forEach(function(index) {
+            //          table.row().hide(index).draw();
+            //     })
+            // });
+
+            // // Hide & unhide rows
+            // function hideRows(table) {
+            //     let hidden_rows_count = 0;
+            //     table.rows('.selected').every( function(index) {
+            //         let adj_index = index - hidden_rows_count;
+            //         table.row(adj_index).hide(adj_index).draw();
+            //         ++hidden_rows_count;
+            //     });
+            // };
+            // function showRows(table) {
+            //     Object.keys(removedRows).forEach(function(index) {
+            //         table.row(index).hide(index).draw();
+            // })
+            // };
+
+            // *******************************************************************
+            // custom ordering functions
+            // return -1 if the first item is smaller, 0 if they are equal, and 1 if the first is greater.
+            $.extend( $.fn.dataTable.ext.type.order, {
+                // custom ascending & descending sorts for "prj draft round" column
+                "custom_pdr_sort-asc": function (val1, val2) {
+
+                    function getRange(val) {
+                        const parts = val.split(/[ -]+/);
+                        const [from, to] = parts.map(Number);
+                        return [from, to || from];
+                    }
+
+                    if (val1 === '') {
+                        return 1;
+                    }
+
+                    if (val2 === '') {
+                        return -1;
+                    }
+
+                    let [from1, to1] = getRange(val1);
+                    let [from2, to2] = getRange(val2);
+                    if (from1 !== from2) {
+                        return from1 - from2;
+                    }
+                    return to1 - to2;
+
+                },
+
+                // custom ascending sort for integer columns
+                "custom_integer_sort-asc": function (val1, val2) {
+
+                    if (val1 === val2) {
+                        return 0;
+                    }
+                    const num1 = parseFloat(val1);
+                    const num2 = parseFloat(val2);
+                    if (isNaN(num1)) {
+                        // val1 is not a valid number, sort it to the bottom
+                        return 1;
+                    }
+                    if (isNaN(num2)) {
+                        // val2 is not a valid number, sort it to the bottom
+                        return -1;
+                    }
+                    return num1 - num2;
+                },
+
+                // custom descending sort for delta time columns (e.g., toi trend)
+                "custom_time_delta_sort-desc": function (val1, val2) {
+
+                    if (val1 === val2) {
+                        return 0;
+                    }
+                    if (!val1) {
+                        return 1;
+                    }
+                    if (!val2) {
+                        return -1;
+                    }
+                    const prefix1 = val1.charAt(0);
+                    const prefix2 = val2.charAt(0);
+
+                    let timeParts = val1.substring(1).split(":"); // split the time string into minutes and seconds
+                    let minutes = parseInt(timeParts[0]); // parse the minutes part as an integer
+                    let seconds = parseInt(timeParts[1]); // parse the seconds part as an integer
+                    const time1 = minutes * 60 + seconds; // calculate the total number of seconds
+
+                    timeParts = val2.substring(1).split(":"); // split the time string into minutes and seconds
+                    minutes = parseInt(timeParts[0]); // parse the minutes part as an integer
+                    seconds = parseInt(timeParts[1]); // parse the seconds part as an integer
+                    const time2 = minutes * 60 + seconds; // calculate the total number of seconds
+
+                    if (prefix1 === '-' && prefix2 === '+') {
+                        return 1;
+                    }
+                    if (prefix1 === '+' && prefix2 === '-') {
+                        return -1;
+                    }
+                    if (prefix1 === '-' && prefix2 === '-') {
+                        if (time1 < time2) {
+                            return -1;
+                        } else if (time1 >time2) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                    if (prefix1 === '+' && prefix2 === '+') {
+                        if (time1 < time2) {
+                            return 1;
+                        } else if (time1 > time2) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                },
+
+                // custom ascending sort for "breakout threshold" column
+                "custom_breakout_sort-asc": function (val_1, val_2) {
+
+                    if (val_1 == val_2) {
+                        return 0;
+                    }
+                    if (val_1 == '') {
+                        return 1;
+                    }
+                    if (val_2 == '') {
+                        return -1;
+                    }
+
+                    // want to intermix -ve & +ve values, because -1 game under and -1 game over
+                    // imply the player is just as likely to readh his breakout (if he hasn't already)
+                    if (Math.abs(parseInt(val_1)) < Math.abs(parseInt(val_2))) {
+                        return -1;
+                    }
+                    if (Math.abs(parseInt(val_1)) > Math.abs(parseInt(val_2))) {
+                        return 1;
+                    }
+                }
+
+            });
+
+            // *******************************************************************
+            // Rank-in-group column using an event listener that listens for two events:
+            // order.dt and search.dt.
+            // These events are triggered when the user orders or searches the data in the table
+            // When either of these events is triggered, the code will execute a function that selects all
+            // cells in the first column of the table (column index 0) that are currently being displayed
+            // (i.e., after filtering and ordering have been applied).
+            // The every function is then called on these cells, which loops through each cell and updates
+            // the data of each cell with an incrementing value (i++).
+            // This means that after either a search or an order event, the first column of the table will
+            // be updated to display a numbered list.
+            table.on('order.dt search.dt', function () {
+                let i = 1;
+
+                table.cells(null, 0, { search: 'applied', order: 'applied' }).every(function (cell) {
+                    this.data(i++);
+                });
+            }).columns.adjust().draw();
+
+            // // set "name" as fixed column
+            // table.on('draw.dt column-visibility.dt', function () {
+
+            //     // // Loop through each header cell and set the text to the desired value
+            //     // table.columns().every(function(index) {
+            //     //     $(table.column(index).header()).text(columns[index].title);
+            //     // });
+
+            //     setFixedColumn( table );
+
+            // });
+
+            // the following is used to prevent table display when changing between positions; primarily G to unfiltered
+            table.on('column-visibility.dt search.dt', function() {
+                $('#col-sm-12').hide();
+                setTimeout(function() {
+                    $('#col-sm-12').show();
+                }, 1000);
+            });
+
+            // get the ColVis button element
+            const colvisButton = document.querySelector('.buttons-collection');
+
+            // add a click event listener to the ColVis button
+            colvisButton.addEventListener('click', function () {
+                // set the colvisClicked flag to true
+                colvisClicked = true;
+            });
+
+            table.on('column-visibility', function (e, settings, column, state) {
+                // check if the colvisClicked flag is true
+                if (colvisClicked) {
+                    // column: index of the column whose visibility changed
+                    column_name =table.column(column).name() + ':name';
+                    // state: true if the column is now visible, false if it is now hidden
+                    // add your custom code here to handle the column visibility change
+                    if (state === false) { // not visible
+                        if (manually_unhidden_columns.includes(column_name) === true) {
+                            manually_unhidden_columns.pop(column_name);
+                        } else {
+                            if (manually_hidden_columns.includes(column_name) === false) {
+                                manually_hidden_columns.push(column_name);
+                            }
+                        }
+                    } else { // visible
+                        if (manually_hidden_columns.includes(column_name) === true) {
+                            manually_hidden_columns.pop(column_name);
+                        } else {
+                            if (manually_unhidden_columns.includes(column_name) === false) {
+                                manually_unhidden_columns.push(column_name);
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Create a Mutation Observer fpr searchBuilder input elements, to set proper font size
+            const observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        // Check if any of the added nodes are input elements with both the dtsb-value and dtsb-input classes
+                        mutation.addedNodes.forEach(function (node) {
+                            if (node.nodeType === Node.ELEMENT_NODE && node.matches('input.dtsb-value.dtsb-input')) {
+                                // Set the font size of the element
+                                node.style.fontSize = '1em';
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Start observing the body element for child node additions
+            observer.observe(document.body, { childList: true, subtree: true });
+
+        }
+
+        let calculatedPlayerSummaryZScores = calculatePlayerSummaryZScores();
+        updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores);
 
         const current_game_type =  $('#gameType').data('current');
         const previous_game_type = $('#gameType').data('previous');
         const regularOrPlayoffs = ['Regular Season', 'Playoffs'];
         if ((current_game_type === 'Projected Season' && regularOrPlayoffs.includes(previous_game_type))
             || (previous_game_type === 'Projected Season' && regularOrPlayoffs.includes(current_game_type))) {
-            columnVisibility( 'game type change' );
+            columnVisibility();
         }
 
         // show tables
-        hideSpinnerShowTables()
+        hidePulsingBarShowTables()
+
+        // *******************************************************************
+        $('#player_stats').DataTable().searchPanes.rebuildPane();
+        positionSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[1]).DataTable();
+        additionalFiltersSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[7]).DataTable();
+        // "DataTables_Table_0" is "pos" searchPane
+        $('#DataTables_Table_0').DataTable().on('user-select', function(e, dt, type, cell, originalEvent){
+            // save "pos" searchPane selection as "current"
+            if ( $('#DataTables_Table_0').data('previous') === cell.data() ) {
+                $('#DataTables_Table_0').data('current', '');
+            } else {
+                $('#DataTables_Table_0').data('current', cell.data());
+            }
+            columnVisibility();
+        });
+        // *******************************************************************
 
     } );
 
@@ -1259,7 +1121,8 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
 
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
-    $("#loadingSpinner").show();
+    // Show pulsing bar
+    document.getElementById('pulsing-bar').style.display = 'block';
 
     let playerStatsTable = $('#player_stats').DataTable();
     playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
@@ -1276,11 +1139,11 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         updateManagerSummaryTable(managerSummaryZScores);
 
         // data = calcManagerCategoryNeedsData();
-        managerCategoryNeeds = getManagerCategoryNeeds()
-        updateManagerCategoryNeedsTable(managerCategoryNeeds);
+        myCategoryNeeds = getMyCategoryNeeds()
+        updateMyCategoryNeedsTable(myCategoryNeeds);
 
-        // trigger click event on weightplayerZScoresButton
-        document.querySelector('#weightplayerZScoresButton').dispatchEvent(new Event('click'));
+        // trigger click event on calcSummaryZScoresButton
+        document.querySelector('#calcSummaryZScoresButton').dispatchEvent(new Event('click'));
 
         let caption = updateCaption();
         let tableCaption = document.querySelector('#managerSummary caption');
@@ -1304,13 +1167,13 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         playerStatsTable.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
 
         // columns to show
-        columns_to_be_visible = [fantrax_score_idx, z_score_weighted_idx, z_offense_weighted_idx, z_peripheral_weighted_idx, z_g_count_weighted_idx, z_g_ratio_weighted_idx];
+        columns_to_be_visible = [fantrax_score_idx, z_score_calc_idx, z_offense_calc_idx, z_peripheral_calc_idx, z_g_count_calc_idx, z_g_ratio_calc_idx];
         playerStatsTable.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
 
-        $("#loadingSpinner").hide();
+        // Hide pulsing bar
+        document.getElementById('pulsing-bar').style.display = 'none';
         // $('#managerSummary').show();
         // $('#managerCategoryNeedsContainerCaption').show();
-        // $('#managerCategoryNeedsContainer').show();
         // $('#yCategoryNeedsContainer').show();
         // $('#categoryScarcityContainer').show();
         // but hide categoryScarcity table, as I think it's not useful
@@ -1320,8 +1183,6 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
         // declaration, even if it is added dynamically with JavaScript.
-        // $('#weightedScoreOptions').removeClass('hidden').css('display', 'inline-block');
-        // $('#weightplayerZScoresContainer').removeClass('hidden').css('display', 'inline-block');
         $('#autoAssignDraftPicksContainer').removeClass('hidden').css('display', 'inline-block');
         $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
 
@@ -1341,10 +1202,10 @@ document.getElementById('undoDraftPick').addEventListener('click', () => {
 
 })
 
-document.getElementById('weightplayerZScoresButton').addEventListener('click', () => {
+document.getElementById('calcSummaryZScoresButton').addEventListener('click', () => {
 
-    let weightedPlayers = updatePlayerWeights();
-    updateTableWithWeightedZScores(weightedPlayers);
+    let calculatedPlayerSummaryZScores = calculatePlayerSummaryZScores();
+    updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores);
 
 })
 
@@ -1543,7 +1404,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     }
 
     if (draft_manager === 'Banshee') {
-        playerStatsTable.order([z_score_weighted_idx, 'desc'], [z_score_idx, 'desc']);
+        playerStatsTable.order([z_score_calc_idx, 'desc'], [z_score_idx, 'desc']);
 
         // Manually select player
         // mySearchBuilderCriteria = {
@@ -1669,8 +1530,8 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
     updateManagerSummaryTable(managerSummaryZScores);
 
     // data = calcManagerCategoryNeedsData();
-    managerCategoryNeeds = getManagerCategoryNeeds()
-    updateManagerCategoryNeedsTable(managerCategoryNeeds);
+    myCategoryNeeds = getMyCategoryNeeds()
+    updateMyCategoryNeedsTable(myCategoryNeeds);
 
     // remove the first element from remaining_draft_picks and return that element removed
     let completedPick = remaining_draft_picks.shift();
@@ -1679,8 +1540,8 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
         draft_manager = remaining_draft_picks[0].manager;
     }
 
-    let weightedPlayers = updatePlayerWeights();
-    updateTableWithWeightedZScores(weightedPlayers);
+    let calculatedPlayerSummaryZScores = calculatePlayerSummaryZScores();
+    updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores);
 
     if (remaining_draft_picks.length > 0) {
         managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
@@ -1832,66 +1693,13 @@ function calcCategoryScarcityByZScoreRange(players) {
 
 }
 
-// function calcManagerCategoryNeedsData() {
-
-//     let managerSummaryTable = $('#managerSummary').DataTable();
-
-//     // Get data from table
-//     let data = managerSummaryTable.data().toArray();
-
-//     const keysToRemove = ["picks", "fCount", "dCount", "gCount", "mfCount", "zCountG", "zOffense", "zPeripheral", "zRatioG", "zScoreG", "zScoreSktr", "zScore"];
-//     let newDataArray = data.map(obj => {
-//         let newObj = {};
-//         for(let key in obj) {
-//           if(!keysToRemove.includes(key)) { // Only copy keys not in the list of keys to remove
-//             newObj[key] = obj[key];
-//           }
-//         }
-//         return newObj;
-//       });
-
-//     let allPlayers = getAllPlayers();
-//     // Filter out rows with team manager
-//     let allTeamPlayers = allPlayers.filter(function (row) {
-//         return row['manager'] !== "";
-//     });
-//     let teamCategoryValuesAndZScores = getTeamCategoryValuesAndZScores(allTeamPlayers);
-
-//       // Loop through original data and calculate sums for each team manager
-//     for (let i = 0; i < newDataArray.length; i++) {
-
-//         let managerTeamCategoryValuesAndZScores = teamCategoryValuesAndZScores[newDataArray[i]['manager']];
-
-//         // get category weights represnting the manager's category needs
-//         let managerCategoryNeeds = getManagerCategoryNeeds(managerTeamCategoryValuesAndZScores, maxCategoryValues);
-
-//         // Team manager exists in new data, update row
-//         newDataArray[i].points = parseFloat(managerCategoryNeeds['points']).toFixed(2);
-//         newDataArray[i].goals = parseFloat(managerCategoryNeeds['goals']).toFixed(2);
-//         newDataArray[i].assists = parseFloat(managerCategoryNeeds['assists']).toFixed(2);
-//         newDataArray[i].powerplayPoints = parseFloat(managerCategoryNeeds['powerplayPoints']).toFixed(2);
-//         newDataArray[i].shotsOnGoal = parseFloat(managerCategoryNeeds['shotsOnGoal']).toFixed(2);
-//         newDataArray[i].blockedShots = parseFloat(managerCategoryNeeds['blockedShots']).toFixed(2);
-//         newDataArray[i].hits = parseFloat(managerCategoryNeeds['hits']).toFixed(2);
-//         newDataArray[i].takeaways = parseFloat(managerCategoryNeeds['takeaways']).toFixed(2);
-//         newDataArray[i].penaltyMinutes = parseFloat(managerCategoryNeeds['penaltyMinutes']).toFixed(2);
-//         newDataArray[i].wins = parseFloat(managerCategoryNeeds['wins']).toFixed(2);
-//         newDataArray[i].saves = parseFloat(managerCategoryNeeds['saves']).toFixed(2);
-//         newDataArray[i].gaa = parseFloat(managerCategoryNeeds['gaa']).toFixed(2);
-//         newDataArray[i].savePercent = parseFloat(managerCategoryNeeds['savePercent']).toFixed(2);
-//     }
-
-//     return newDataArray;
-
-// }
-
 function calcManagerSummaryZScores(playerStatsTable) {
 
     // Get data from player stats table
     let originalPlayerStatsTableData = playerStatsTable.data().toArray();
 
     // Filter out rows with no team manager
-    let filteredData = originalPlayerStatsTableData.filter(function (row) {
+    let rosteredPlayers = originalPlayerStatsTableData.filter(function (row) {
         return row[manager_idx] !== "";
         // return row[manager_idx] !== "" && row[keeper_idx] === 'Yes';
     });
@@ -1900,8 +1708,8 @@ function calcManagerSummaryZScores(playerStatsTable) {
     let data = [];
 
     // Loop through original data and calculate sums for each team manager
-    for (let i = 0; i < filteredData.length; i++) {
-        let row = filteredData[i];
+    for (let i = 0; i < rosteredPlayers.length; i++) {
+        let row = rosteredPlayers[i];
 
         let manager = row[manager_idx];
 
@@ -1954,8 +1762,19 @@ function calcManagerSummaryZScores(playerStatsTable) {
         }
     }
 
+    for(let i = 0; i < data.length; i++) {
+        if(data[i]['picks'] < 0) {
+            data[i]['picks'] = 0;
+        }
+    }
+
     // Group data by manager_idx and position_idx
-    let groupedData = filteredData.reduce(function (r, a) {
+    let groupedData = rosteredPlayers.reduce(function (r, a) {
+        // Exclude rows with 'IR' or 'Min' in fantrax_roster_status_idx
+        if (a[fantrax_roster_status_idx] === 'IR' || a[fantrax_roster_status_idx] === 'Min') {
+            return r;
+        }
+
         r[a[manager_idx]] = r[a[manager_idx]] || {};
         let position = ['LW', 'C', 'RW'].includes(a[position_idx]) ? 'F' : a[position_idx];
         r[a[manager_idx]][position] = r[a[manager_idx]][position] || [];
@@ -1964,7 +1783,7 @@ function calcManagerSummaryZScores(playerStatsTable) {
     }, {});
 
     // Sort and filter data within each group
-    filteredData = [];
+    rosteredPlayers = [];
     for (let manager in groupedData) {
         for (let position in groupedData[manager]) {
             // Sort data based on z_score_idx in descending order
@@ -1974,18 +1793,29 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
             // Filter top rows based on position
             if (position === 'F') {
-                filteredData.push(...groupedData[manager][position].slice(0, 9));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 9));
             } else if (position === 'D') {
-                filteredData.push(...groupedData[manager][position].slice(0, 6));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 6));
             } else if (position === 'G') {
-                filteredData.push(...groupedData[manager][position].slice(0, 2));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 2));
             }
         }
+
+        // Add the top row from either 'F' or 'D' that is not already in the top 9 for 'F' or top 6 for 'D'
+        let additionalRow = ['F', 'D'].map(pos => groupedData[manager][pos]).flat().sort((a, b) => b[z_score_idx] - a[z_score_idx]).find(item => !rosteredPlayers.includes(item));
+        if (additionalRow) {
+            rosteredPlayers.push(additionalRow);
+        }
+
     }
 
     // Loop through original data and calculate sums for each team manager
-    for (let i = 0; i < filteredData.length; i++) {
-        let row = filteredData[i];
+    for (let i = 0; i < rosteredPlayers.length; i++) {
+        let row = rosteredPlayers[i];
+
+        let player_id = row[id_idx].match(/>(\d+)</)[1];;
+        let player_position = row[position_idx];
+        // let z_scores_player_idx = cumulative_z_scores.player_id.indexOf(player_id);
 
         let manager = row[manager_idx];
 
@@ -2122,10 +1952,220 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
 }
 
-function columnVisibility(trigger) {
+function calcPositionCategoryZScores(player_stats) {
+    // Define the positions and their respective z-scores
+    const positionCategories = {
+        'Forward': {'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Defence': {'z_points': z_points_idx, 'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Goalie': {'z_wins': z_wins_idx, 'z_saves': z_saves_idx, 'z_saves_percent': z_saves_percent_idx, 'z_gaa': z_gaa_idx}
+    };
 
-    // 'trigger' values: 'position change', 'game type initialization' & 'game type change'
-    // 'stat type initialization' & 'stat type change' are no longer required
+    // Initialize the result array
+    let replacementPlayerZscores = {};
+
+    // Iterate over each position
+    for (let position in positionCategories) {
+        replacementPlayerZscores[position] = {};
+
+        // Filter the players based on the position and whether they are drafted
+        let poolTeamPlayers = player_stats.filter(player => {
+            if (position === "Forward") {
+                return ["LW", "C", "RW"].includes(player[position_idx]) && player[manager_idx];
+            } else if (position === "Defence") {
+                return player[position_idx] === "D" && player[manager_idx];
+            } else if (position === "Goalie") {
+                return player[position_idx] === "G" && player[manager_idx];
+            }
+        });
+
+        // Filter the players based on the position
+        let allPlayers = player_stats.filter(player => {
+            if (position === "Forward") {
+                return ["LW", "C", "RW"].includes(player[position_idx]);
+            } else if (position === "Defence") {
+                return player[position_idx] === "D";
+            } else if (position === "Goalie") {
+                return player[position_idx] === "G";
+            }
+        });
+
+        // Iterate over each category for the current position
+        for (let category in positionCategories[position]) {
+            let tableIndex = positionCategories[position][category];
+            // Filter out rows where column with index = tableIndex has a non-blank value
+            let filteredPlayers = allPlayers.filter(player => player[tableIndex] !== '');
+            // Sort the players based on the category
+            // The subtraction operation (b[tableIndex] - a[tableIndex]) in the sort function ensures that JavaScript treats the values as numbers, not strings
+            filteredPlayers.sort((a, b) => b[tableIndex] - a[tableIndex]);
+            // Find the "count + 1" value in category
+            replacementPlayerZscores[position][category] = filteredPlayers[poolTeamPlayers.length] ? parseFloat(filteredPlayers[poolTeamPlayers.length][tableIndex]) : null;
+        }
+    }
+
+    return replacementPlayerZscores;
+}
+
+function calcPlayerVorpZsores(playerStatsTable, replacementPlayerZscores) {
+    // Define the positions and their respective z-scores
+    const positionCategories = {
+        'Forward': {'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Defence': {'z_points': z_points_idx, 'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Goalie': {'z_wins': z_wins_idx, 'z_saves': z_saves_idx, 'z_saves_percent': z_saves_percent_idx, 'z_gaa': z_gaa_idx}
+    };
+
+    const forwardOffenseCategories = ['z_goals', 'z_assists', 'z_ppp', 'z_sog'];
+    const defenceOffenseCategories = ['z_points', 'z_goals', 'z_assists', 'z_ppp', 'z_sog'];
+    const peripheralCategories = ['z_tk', 'z_hits', 'z_blk', 'z_pim'];
+
+    // Iterate over each player
+    playerStatsTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+        var player = this.data();
+        // Determine the player's position
+        let position;
+        if (["LW", "C", "RW"].includes(player[position_idx])) {
+            position = "Forward";
+        } else if (player[position_idx] === "D") {
+            position = "Defence";
+        } else if (player[position_idx] === "G") {
+            position = "Goalie";
+        }
+
+        player[z_score_idx] = 0;
+        player[z_offense_idx] = 0;
+        player[z_peripheral_idx] = 0;
+        player[z_g_count_idx] = 0;
+        player[z_g_ratio_idx] = 0;
+        // If the player's position is one of the positions in replacementPlayerZscores
+        if (position && replacementPlayerZscores[position]) {
+            // Iterate over each z-score for the current position
+            categories = positionCategories[position];
+            for (let category in categories) {
+                // takeaways are not estimated for rookies, and player[categories[category]] will be ''
+                let vorp_score = 0;
+                if (player[categories[category]]) {
+                    // Subtract the corresponding category z-score from the player's z-score
+                    vorp_score = parseFloat(player[categories[category]]) - replacementPlayerZscores[position][category];
+                    // Assign the new value to a property with the same name as in "replacementPlayerZscores" but suffixed with "_vorp"
+                    this.cell(rowIdx, categories[category]).data(vorp_score.toFixed(2));
+                } else {
+                    this.cell(rowIdx, categories[category]).data(vorp_score);
+                }
+
+                // calculate z-score, z-offense, & z-peripheral
+                if (!['z_gaa', 'z_saves_percent'].includes(category === "") && vorp_score < 0) {
+                    vorp_score = 0;
+                }
+
+                player[z_score_idx] += vorp_score;
+                if (position === 'Goalie') {
+                    if (['z_gaa', 'z_saves_percent'].includes(category)) {
+                        player[z_g_ratio_idx] += vorp_score;
+                    } else {
+                        player[z_g_count_idx] += vorp_score;
+                    }
+                } else if (((position === 'Forward' && forwardOffenseCategories.includes(category)) ||
+                            (position === 'Defence' && defenceOffenseCategories.includes(category)))) {
+                    player[z_offense_idx] += vorp_score;
+                } else if ((position === 'Forward' || position === 'Defence') && peripheralCategories.includes(category)) {
+                    player[z_peripheral_idx] += vorp_score;
+                }
+            }
+
+            this.cell(rowIdx, z_score_idx).data(player[z_score_idx].toFixed(1));
+            this.cell(rowIdx, z_offense_idx).data(player[z_offense_idx].toFixed(1));
+            this.cell(rowIdx, z_peripheral_idx).data(player[z_peripheral_idx].toFixed(1));
+            this.cell(rowIdx, z_g_count_idx).data(player[z_g_count_idx].toFixed(1));
+            this.cell(rowIdx, z_g_ratio_idx).data(player[z_g_ratio_idx].toFixed(1));
+
+        }
+
+    });
+
+    return playerStatsTable;
+}
+
+function colourizeCell(cell, idx, rowData) {
+    if (heatmaps == true && !(rowData[games_idx] == "")) {
+        const position = rowData[position_idx];
+        const category = categoryLookup[idx][statType.value];
+        if (goalie_category_heatmap_columns.has(idx)) {
+            if (position === 'G') {
+                const min = min_cat[`${category}`];
+                const max = max_cat[`${category}`];
+                const center = mean_cat[`${category}`];
+                if (idx === gaa_idx) {
+                    $(cell).colourize({ min, max, center, theme: 'cool-warm-reverse' });
+                } else {
+                    $(cell).colourize({ min, max, center });
+                }
+            }
+        }
+        if (goalie_category_z_score_heatmap_columns.has(idx)) {
+            const category = categoryLookup[idx][statType.value];
+            if ( position === 'G' ) {
+                const min = min_cat[`${category}`];
+                const max = max_cat[`${category}`];
+                const center = 0;
+                $(cell).colourize({ min, max, center });
+            }
+        }
+        if (sktr_category_heatmap_columns.has(idx)) {
+            const category = categoryLookup[idx][statType.value];
+            if (position !== 'G') {
+                if (idx === points_idx) {
+                    if (position === 'D') {
+                        const max = max_cat[`d ${category}`];
+                        const center = mean_cat[`d ${category}`];
+                        $(cell).colourize({ max, center });
+                    }
+                } else {
+                    const max = max_cat[`sktr ${category}`];
+                    const center = mean_cat[`sktr ${category}`];
+                    $(cell).colourize({ max, center });
+                }
+            }
+        }
+        if (sktr_category_z_score_heatmap_columns.has(idx)) {
+            const category = categoryLookup[idx][statType.value];
+            if (position !== 'G') {
+                if (idx === z_points_idx) {
+                    if (position === 'D') {
+                        const min = min_cat[`d ${category}`];
+                        const max = max_cat[`d ${category}`];
+                        const center = 0;
+                        $(cell).colourize({ min, max, center });
+                    }
+                } else {
+                    const min = min_cat[`sktr ${category}`];
+                    const max = max_cat[`sktr ${category}`];
+                    const center = 0;
+                    $(cell).colourize({ min, max, center });
+                }
+            }
+        }
+        if (z_score_summary_heatmap_columns.has(idx)) {
+            const category = categoryLookup[idx][statType.value];
+            if ( idx === z_score_idx ) {
+                const min = min_cat[`${category}`];
+                const max = max_cat[`${category}`];
+                const center = mean_cat[`${category}`];
+                $(cell).colourize({ min, max, center });
+            } else if ( position !== 'G' && sktr_z_score_summary_heatmap_columns.has(idx) ) {
+                const min = min_cat[`sktr ${category}`];
+                const max = max_cat[`sktr ${category}`];
+                const center = mean_cat[`sktr ${category}`];
+                $(cell).colourize({ min, max, center });
+            } else if ( position === 'G'  && goalie_z_score_summary_heatmap_columns.has(idx) ) {
+                const min = min_cat[`g ${category}`];
+                const max = max_cat[`g ${category}`];
+                const center = mean_cat[`g ${category}`];
+                $(cell).colourize({ min, max, center });
+            }
+}
+    }
+}
+
+function columnVisibility() {
 
     function getColumnNames(table, array) {
         let colIndices = table.columns()[0];
@@ -2160,24 +2200,46 @@ function columnVisibility(trigger) {
 
     // Note: There can be only one selection, because I used dtOpts on the "position" seachPane,
     //       to set selection to 'single'
+    sktr_manually_hidden_columns = sktr_columns.filter(column => manually_hidden_columns.includes(column));
+    goalie_manually_hidden_columns = goalie_columns.filter(column => manually_hidden_columns.includes(column));
+    sktr_manually_unhidden_columns = sktr_columns.filter(column => manually_unhidden_columns.includes(column));
+    goalie_manually_unhidden_columns = goalie_columns.filter(column => manually_unhidden_columns.includes(column));
     if ( current_positon === 'G' ) {
         columns_to_hide = sktr_columns.filter(column => !goalie_columns.includes(column));
-        columns_to_show = goalie_columns;
+        columns_to_show = goalie_columns.filter(column => !goalie_manually_hidden_columns.includes(column));
 
     } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
         columns_to_hide = goalie_columns.filter(column => !sktr_columns.includes(column));
-        columns_to_show = sktr_columns;
+        columns_to_show = sktr_columns.filter(column => !sktr_manually_hidden_columns.includes(column));
 
     } else {
-        columns_to_show = sktr_and_goalie_columns;
+        columns_to_show = sktr_and_goalie_columns.filter(column => !manually_hidden_columns.includes(column));
     }
 
-    columns_to_hide = columns_to_hide.filter((column) => !initially_hidden_column_names.includes(column) && !manually_hidden_columns.includes(column) && !columns_to_show.includes(column));
-    columns_to_show = columns_to_show.filter((column) => !initially_hidden_column_names.includes(column) && !manually_hidden_columns.includes(column) && !columns_to_hide.includes(column));
+    if ( current_positon === 'G' ) {
+        columns_to_hide = [... columns_to_hide.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_show.includes(column)), ... sktr_manually_unhidden_columns, ... goalie_manually_hidden_columns];
+        columns_to_show = [... columns_to_show.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_hide.includes(column)), ... goalie_manually_unhidden_columns];
+    } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
+        columns_to_hide = [... columns_to_hide.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_show.includes(column)), ... goalie_manually_unhidden_columns, ... sktr_manually_hidden_columns];
+        columns_to_show = [... columns_to_show.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_hide.includes(column)), ... sktr_manually_unhidden_columns];
+    } else {
+        columns_to_hide = [... columns_to_hide.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_show.includes(column)), ... manually_hidden_columns];
+        columns_to_show = [... columns_to_show.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_hide.includes(column)), ... manually_unhidden_columns];
+    }
 
-    const prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]);
-    const prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]);
-    const prj_season_goalie_columns = getColumnNames(table, [tier_idx]);
+    // if draft round column has values, the draft is completed, and no need to sho projected columns
+    let data = table.column(draft_round_idx).data().toArray();
+    let draft_completed = data.some(function(value) {
+        return value.trim() !== '';
+    });
+    let prj_season_columns = [];
+    let prj_season_sktr_columns = [];
+    let prj_season_goalie_columns = [];
+    if (!draft_completed) {
+        prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]);
+        prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]);
+        prj_season_goalie_columns = getColumnNames(table, [tier_idx]);
+    }
 
     if (current_game_type === 'Projected Season') {
         if ( current_positon === 'G' ) {
@@ -2517,119 +2579,62 @@ function createManagerSummaryTable(playerStatsTable) {
 
 }
 
-function createManagerNeedsTable() {
+function createMyCategoryNeedsTable() {
+    const categoryLabels = {
+        points: 'd-pts',
+        powerplayPoints: 'ppp',
+        penaltyMinutes: 'pim',
+        savePercent: 'save%',
+        shotsOnGoal: 'sog',
+        blockedShots: 'blk'
+    };
 
-    // data = calcManagerCategoryNeedsData();
-    managerCategoryNeeds = getManagerCategoryNeeds();
-
-    const properties = ['points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'wins', 'saves', 'gaa', 'savePercent'];
-
-    // create a new table for each manager, and within each table, create rows for each subcategory with the
-    // corresponding values sorted in descending order
-    // // first, sort the data array by the manager property in ascending order
-    // managerCategoryNeeds.sort(function(a, b) {
-    //     if (a.manager < b.manager) {
-    //         return -1;
-    //     } else if (a.manager > b.manager) {
-    //         return 1;
-    //     } else {
-    //         return 0;
-    //     }
-    // });
-
-    managerCategoryNeeds.forEach(function(managerData) {
-
-        // Create a new table for each manager
-        let managerTable;
-        if (managerData.manager === 'Banshee') {
-            // Create a new table for me
-            managerTable = $('<table>').css('margin', '10px').appendTo('#myCategoryNeedsContainer');
-        } else {
-            managerTable = $('<table>').css('margin', '10px').appendTo('#managerCategoryNeedsContainer');
-        }
-
-        // set the class of the table
+    const managerData = getMyCategoryNeeds().find(data => data.manager === 'Banshee');
+    if (managerData) {
+        const managerTable = $('<table>').css('margin', '10px').appendTo('#myCategoryNeedsContainer');
         managerTable.addClass('display cell-border hover compact');
 
-        // create an array of the categories and their values
-        let categories = [];
-        for (let key in managerData) {
-            if (key !== 'manager') {
-                label = key;
-                if (key === 'points') {
-                    label = 'd-pts';
-                } else if (key === 'powerplayPoints') {
-                    label = 'ppp';
-                } else if (key === 'penaltyMinutes') {
-                    label = 'pim';
-                } else if (key === 'savePercent') {
-                    label = 'save%';
-                } else if (key === 'shotsOnGoal') {
-                    label = 'sog';
-                } else if (key === 'blockedShots') {
-                    label = 'blk';
-                }
-                categories.push({category: label, value: managerData[key]});
-            }
-        }
+        const categories = Object.entries(managerData)
+            .filter(([key]) => key !== 'manager')
+            .map(([key, value]) => ({category: categoryLabels[key] || key, value}));
 
-        // initialize the datatable
-        let dataTable = managerTable.DataTable({
+        const dataTable = managerTable.DataTable({
             data: categories,
             dom: 't',
             columns: [
                 { data: 'category', title: 'category' },
-                { data: 'value', title: 'weight' },
+                { data: 'value', title: 'rank' },
             ],
-            order: [[1, "desc"]],
+            order: [[1, "asc"]],
             pageLength: 13,
             columnDefs: [
-                // default is center-align all colunns, header & body
                 {className: 'dt-center', targets: '_all'},
-                // left-align some colunns
                 {className: 'dt-body-left', targets: [0]},
                 {orderSequence: ['desc', 'asc'], targets: '_all'},
             ],
-            // heatmaps
-            drawCallback: function(settings) {
+            drawCallback(settings) {
                 const api = this.api();
-                let data = api.rows({ page: 'current' }).data().toArray();
+                const values = api.rows({ page: 'current' }).data().toArray().map(row => parseFloat(row.value));
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const mean = values.reduce((a, b) => a + b) / values.length;
 
-                let values = data.map(function(row) {
-                    return parseFloat(row['value']);
-                });
-                let min = Math.min.apply(null, values);
-                let max = Math.max.apply(null, values);
-                let sum = values.reduce(function(a, b) { return a + b; }, 0);
-                let mean = sum / values.length;
-
-                // update colourize with new values
                 api.rows().nodes().to$().find('td').each(function(i) {
-                    if (i % 2 === 1) { // only update value cells
+                    if (i % 2 === 1) {
                         $(this).colourize({
-                            min: min,
-                            max: max,
+                            min,
+                            max,
                             center: mean,
-                            theme: "cool-warm-reverse",
+                            theme: "cool-warm",
                         });
                     }
                 });
             },
-            initComplete: function () {
-                if (managerData.manager === 'Banshee') {
-                    managerTable.append('<caption style="caption-side: top; text-align: center; margin-bottom: 10px;"><b><u>My Category Needs</b></u></caption>');
-                } else {
-                    managerTable.find('thead').prepend('<tr><th colspan="2" style="white-space: nowrap; text-align: center;">' + managerData.manager + '</th></tr>');
-                }
-            },
-
+            initComplete() {
+                managerTable.append('<caption style="caption-side: top; text-align: center; margin-bottom: 10px;"><b><u>My Category Needs</b></u></caption>');
+            }
         });
-
-        // store a reference to the DataTable object
-        managerTable.data('CategoryNeedsTableFor', managerData.manager);
-
-    });
-
+    }
 }
 
 function clearDraftColumns() {
@@ -2785,43 +2790,21 @@ function getDraftPicks(callback) {
 
 }
 
-// function getManagerCategoryNeeds(managerTeamCategoryValuesAndZScores, maxCategoryValues) {
+function getMyCategoryNeeds() {
+    const categories = ['points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways', 'penaltyMinutes', 'wins', 'saves', 'gaa', 'savePercent'];
+    const mySummaryZScores = managerSummaryZScores.find(item => item.manager === 'Banshee');
 
-//     let managerCategoryNeeds = {};
-//     for (let category in managerTeamCategoryValuesAndZScores['zScores']) {
-//         if (!['goalsAgaints', 'shotsAgainst', 'toiSec'].includes(category)) {
-//             if (managerTeamCategoryValuesAndZScores['zScores'][category] > maxCategoryValues['zScores'][category]) {
-//                 managerCategoryNeeds[category] = 0;
-//             } else {
-//                 managerCategoryNeeds[category] = (1 - (managerTeamCategoryValuesAndZScores['zScores'][category] / maxCategoryValues['zScores'][category])) + 1;
-//             }
-//         }
-//     }
+    const categoryNeeds = categories.reduce((acc, category) => {
+        // Get all z-scores for the current category
+        const allZScores = managerSummaryZScores.map(manager => manager[category]);
+        // Sort the z-scores in descending order
+        allZScores.sort((a, b) => b - a);
+        // Find the rank of mySummaryZScores[category] in allZScores
+        acc[category] = 13 - allZScores.indexOf(mySummaryZScores[category]);
+        return acc;
+    }, {});
 
-//     return managerCategoryNeeds
-
-// }
-
-function getManagerCategoryNeeds() {
-
-    let categories = ['points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways', 'penaltyMinutes', 'wins', 'saves', 'gaa', 'savePercent']
-
-    let managerCategoryNeeds = [];
-    for (let i=0; i < managerSummaryZScores.length; i++) {
-        let manager = managerSummaryZScores[i]['manager'];
-        let categoryNeeds = {};
-        for (let j=0; j < categories.length; j++) {
-            let category = categories[j];
-            categoryNeeds[category] = parseFloat(((1 - (parseFloat(managerSummaryZScores[i][category]) / maxCategoryValues['zScores'][category])) + 1).toFixed(2));
-        }
-        let managerData = {};
-        managerData['manager'] = manager;
-        Object.assign(managerData, categoryNeeds);
-        managerCategoryNeeds.push(managerData);
-    }
-
-    return managerCategoryNeeds
-
+    return [{ manager: 'Banshee', ...categoryNeeds }];
 }
 
 // function getMaxCategoryValuesAndZScores() {
@@ -2928,11 +2911,12 @@ function getPlayerData(seasonOrDateRadios, callback) {
     });
 }
 
-function hideSpinnerShowTables() {
+function hidePulsingBarShowTables() {
 
-    $("#loadingSpinner").hide();
+    // Show pulsing bar
+    document.getElementById('pulsing-bar').style.display = 'none';
 
-    if (gameType.value === 'Regular Season') {
+    if (gameType.value === 'Projected Season') {
         // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
         // declaration, even if it is added dynamically with JavaScript.
         $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
@@ -2943,21 +2927,19 @@ function hideSpinnerShowTables() {
 
 }
 
-function hideTablesShowSpinner() {
+function hideTablesShowPulsingBar() {
 
     $('#player_stats-div').hide();
-    // $('#managerSummary').hide();
-    // $('#managerCategoryNeedsContainerCaption').hide();
-    // $('#managerCategoryNeedsContainer').hide();
-    // $('#yCategoryNeedsContainer').hide();
-    // $('#categoryScarcityContainer').hide();
-    $('#startDraftButton').hide();
-    // $('#weightedScoreOptions').hide();
+    if (gameType.value === 'Projected Season') {
+        $('#startDraftButton').addClass('hidden').css('display', 'none');
+    }
     $('#autoAssignDraftPicksContainer').hide();
     $('#undoDraftPick').hide();
     $('#draftMessage').hide();
     $('#draftBoard').hide();
-    $("#loadingSpinner").show();
+    // Show pulsing bar
+    document.getElementById('pulsing-bar').style.display = 'block';
+
 }
 
 function initDraftContextMenu() {
@@ -3029,6 +3011,49 @@ function includePlayerCategoryZScore(player, category) {
 
 }
 
+function resetPlayerZsores(playerStatsTable, originalPlayerStats) {
+    // Define the positions and their respective z-scores
+    const positionCategories = {
+        'Forward': {'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Defence': {'z_points': z_points_idx, 'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+        'Goalie': {'z_wins': z_wins_idx, 'z_saves': z_saves_idx, 'z_saves_percent': z_saves_percent_idx, 'z_gaa': z_gaa_idx}
+    };
+
+    // Iterate over each player
+    playerStatsTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+        var player = this.data();
+        // Determine the player's position
+        let position;
+        if (["LW", "C", "RW"].includes(player[position_idx])) {
+            position = "Forward";
+        } else if (player[position_idx] === "D") {
+            position = "Defence";
+        } else if (player[position_idx] === "G") {
+            position = "Goalie";
+        }
+
+        if (position) {
+            // Iterate over each category z-score
+            categories = positionCategories[position];
+            for (let category in categories) {
+                this.cell(rowIdx, categories[category]).data(originalPlayerStats[rowIdx][categories[category]]);
+            }
+
+            this.cell(rowIdx, z_score_idx).data(originalPlayerStats[rowIdx][z_score_idx]);
+            if (position === 'Goalie') {
+                this.cell(rowIdx, z_g_count_idx).data(originalPlayerStats[rowIdx][z_g_count_idx]);
+                this.cell(rowIdx, z_g_ratio_idx).data(originalPlayerStats[rowIdx][z_g_ratio_idx]);
+            } else { // (position === 'Forward' || position === 'Defence')
+                this.cell(rowIdx, z_offense_idx).data(originalPlayerStats[rowIdx][z_offense_idx]);
+                this.cell(rowIdx, z_peripheral_idx).data(originalPlayerStats[rowIdx][z_peripheral_idx]);
+            }
+        }
+
+    });
+
+    return playerStatsTable;
+}
+
 function restoreColVisColumns( table, columns ){
     // hide columns
     columns_to_hide = columns.filter(elem => initially_hidden_column_names.includes(elem) && manually_unhidden_columns.includes(elem));
@@ -3054,23 +3079,36 @@ function setFixedColumn( table ) {
 
 }
 
-function toggleHeatmaps(table) {
+function toggleHeatmaps(playerStatsTable) {
 
     heatmaps = !heatmaps;
 
-    // remove table data
-    table.clear();
+    // Show pulsing bar
+    document.getElementById('pulsing-bar').style.display = 'block';
 
-    // load stats for stat type
-    if ( statType.value === 'Cumulative' ) {
-        table.rows.add(cumulative_stats_data);
-    } else if ( statType.value === 'Per game' ) {
-        table.rows.add(per_game_stats_data);
-    } else if ( statType.value === 'Per 60 minutes' ) {
-        table.rows.add(per_60_stats_data);
-    }
+    // Delay the rest of your code
+    setTimeout(function() {
 
-    table.columns.adjust().draw();
+        // Iterate over each player
+        playerStatsTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+            let column_idx;
+            for (let i = 0; i < heatmap_columns.length; i++) {
+                column_idx = heatmap_columns[i];
+                let cellNode = this.cell(rowIdx, column_idx).node();
+                if (heatmaps) {
+                    colourizeCell(cellNode, column_idx, this.row(rowIdx).data());
+                } else {
+                    $(cellNode).css('background-color', ''); // Remove background color
+                }
+            }
+        });
+
+        playerStatsTable.columns.adjust().draw();
+
+        // Hide pulsing bar
+        document.getElementById('pulsing-bar').style.display = 'none';
+
+    }, 2000);
 
 }
 
@@ -3150,10 +3188,10 @@ function updateColumnIndexes(columns) {
     // column indexes
     adp_idx = columns.findIndex(column => column.title === 'fantrax adp');
     age_idx = columns.findIndex(function(column) { return column.title == 'age' });
-    assists_idx = columns.findIndex(column => ['a', 'a pg', 'a p60', 'a prj'].includes(column.title));
+    assists_idx = columns.findIndex(column => ['a', 'a pg', 'a p60'].includes(column.title));
     athletic_zscore_rank_idx = columns.findIndex(column => column.title === 'athletic z-score rank');
     bandaid_boy_idx = columns.findIndex(column => column.title === 'bandaid boy');
-    blk_idx = columns.findIndex(column => ['blk', 'blk pg', 'blk p60', 'blk prj'].includes(column.title));
+    blk_idx = columns.findIndex(column => ['blk', 'blk pg', 'blk p60'].includes(column.title));
     breakout_threshold_idx = columns.findIndex(column => column.title === 'bt');
     career_games_idx = columns.findIndex(column => column.title === 'career games');
     corsi_for_percent_idx = columns.findIndex(column => column.title === 'cf%');
@@ -3166,13 +3204,13 @@ function updateColumnIndexes(columns) {
     fantrax_roster_status_idx = columns.findIndex(column => column.title === 'fantrax roster status');
     fantrax_score_idx = columns.findIndex(column => column.title === 'fantrax score');
     fantrax_zscore_rank_idx = columns.findIndex(column => column.title === 'fantrax z-score rank');
-    gaa_idx = columns.findIndex(column => ['gaa', 'gaa pg', 'gaa p60', 'gaa prj'].includes(column.title));
+    gaa_idx = columns.findIndex(column => ['gaa', 'gaa pg', 'gaa p60'].includes(column.title));
     game_today_idx = columns.findIndex(column => column.title === 'game today');
     games_idx = columns.findIndex(column => column.title === 'games');
     goalie_starts_idx = columns.findIndex(column => column.title === 'goalie starts');
     goals_against_idx = columns.findIndex(column => column.title === 'goals against');
-    goals_idx = columns.findIndex(column => ['g', 'g pg', 'g p60', 'g prj'].includes(column.title));
-    hits_idx = columns.findIndex(column => ['hits', 'hits pg', 'hits p60', 'hits prj'].includes(column.title));
+    goals_idx = columns.findIndex(column => ['g', 'g pg', 'g p60'].includes(column.title));
+    hits_idx = columns.findIndex(column => ['hits', 'hits pg', 'hits p60'].includes(column.title));
     id_idx = columns.findIndex(column => column.title === 'id');
     injury_idx = columns.findIndex(column => column.title === 'injury');
     injury_note_idx = columns.findIndex(column => column.title === 'injury note');
@@ -3183,16 +3221,17 @@ function updateColumnIndexes(columns) {
     minors_idx = columns.findIndex(column => column.title === 'minors');;
     name_idx = columns.findIndex(column => column.title === 'name');;
     nhl_roster_status_idx = columns.findIndex(column => column.title === 'nhl roster status');
+    penalties_idx = columns.findIndex(column => ['penalties', 'penalties pg', 'penalties p60'].includes(column.title));
     picked_by_idx = columns.findIndex(column => column.title === 'picked by');
-    pim_idx = columns.findIndex(column => ['pim', 'pim pg', 'pim p60', 'pim prj'].includes(column.title));
-    points_idx = columns.findIndex(column => ['pts', 'pts pg', 'pts p60', 'pts prj'].includes(column.title));
+    pim_idx = columns.findIndex(column => ['pim', 'pim pg', 'pim p60'].includes(column.title));
+    points_idx = columns.findIndex(column => ['pts', 'pts pg', 'pts p60'].includes(column.title));
     position_idx = columns.findIndex(column => column.title === 'pos');
     pp_goals_p120_idx = columns.findIndex(column => column.title === 'pp g/120');
     pp_percent_idx = columns.findIndex(column => column.title === '%pp');
     pp_points_p120_idx = columns.findIndex(column => column.title === 'pp pts/120');
     pp_unit_idx = columns.findIndex(column => column.title === 'pp unit');
     pp_unit_prj_idx = columns.findIndex(column => column.title === 'pp unit prj');
-    ppp_idx = columns.findIndex(column => ['ppp', 'ppp pg', 'ppp p60', 'ppp prj'].includes(column.title));
+    ppp_idx = columns.findIndex(column => ['ppp', 'ppp pg', 'ppp p60'].includes(column.title));
     predraft_keeper_idx = columns.findIndex(column => column.title === 'pre-draft keeper');
     prj_draft_round_idx = columns.findIndex(column => column.title === 'prj draft round');
     qualtity_starts_idx = columns.findIndex(column => column.title === 'qs');
@@ -3200,17 +3239,17 @@ function updateColumnIndexes(columns) {
     rank_in_group_idx = columns.findIndex(column => column.title === 'rank in group');
     really_bad_starts_idx = columns.findIndex(column => column.title === 'rbs');
     rookie_idx = columns.findIndex(column => column.title === 'rookie');
-    saves_idx = columns.findIndex(column => ['sv', 'sv pg', 'sv p60', 'sv prj'].includes(column.title));
-    saves_percent_idx = columns.findIndex(column => ['sv%', 'sv% pg', 'sv% p60', 'sv% prj'].includes(column.title));
+    saves_idx = columns.findIndex(column => ['sv', 'sv pg', 'sv p60'].includes(column.title));
+    saves_percent_idx = columns.findIndex(column => ['sv%', 'sv% pg', 'sv% p60'].includes(column.title));
     shooting_percent_idx = columns.findIndex(column => column.title === 'sh%');
     shots_against_idx = columns.findIndex(column => column.title === 'shots against');
     sleeper_idx = columns.findIndex(column => column.title === 'sleeper');
-    sog_idx = columns.findIndex(column => ['sog', 'sog pg', 'sog p60', 'sog prj'].includes(column.title));
-    sog_pp_idx = columns.findIndex(column => column.title === 'pp sog');
+    sog_idx = columns.findIndex(column => ['sog', 'sog pg', 'sog p60'].includes(column.title));
+    sog_pp_idx = columns.findIndex(column => ['pp sog', 'pp sog pg', 'pp sog p60'].includes(column.title));
     team_idx = columns.findIndex(column => column.title === 'team');
     three_yp_idx = columns.findIndex(column => column.title === '3yp');
     tier_idx = columns.findIndex(column => column.title === 'tier');
-    tk_idx = columns.findIndex(column => ['tk', 'tk pg', 'tk p60', 'tk prj'].includes(column.title));
+    tk_idx = columns.findIndex(column => ['tk', 'tk pg', 'tk p60'].includes(column.title));
     toi_even_pg_idx = columns.findIndex(column => column.title === 'toi even pg');
     toi_even_pg_trend_idx = columns.findIndex(column => column.title === 'toi even pg (trend)');
     toi_pg_trend_idx = columns.findIndex(column => column.title === 'toi pg (trend)');
@@ -3223,37 +3262,93 @@ function updateColumnIndexes(columns) {
     toi_sh_pg_trend_idx = columns.findIndex(column => column.title === 'toi sh pg (trend)');
     upside_idx = columns.findIndex(column => column.title === 'upside');
     watch_idx = columns.findIndex(column => column.title === 'watch');
-    wins_idx = columns.findIndex(column => ['w', 'w pg', 'w p60', 'w prj'].includes(column.title));
-    z_assists_idx = columns.findIndex(column => ['z-a', 'z-a pg', 'z-a p60', 'z-a prj'].includes(column.title));
-    z_blk_idx = columns.findIndex(column => ['z-blk', 'z-blk pg', 'z-blk p60', 'z-blk prj'].includes(column.title));
-    z_combo_idx = columns.findIndex(column => ['z-combo', 'z-combo pg', 'z-combo p60', 'z-combo prj'].includes(column.title));
-    z_g_count_idx = columns.findIndex(column => ['z-count', 'z-count pg', 'z-count p60', 'z-count prj'].includes(column.title));
-    z_g_count_weighted_idx = columns.findIndex(column => ['z-count weighted', 'z-count pg weighted', 'z-count p60 weighted'].includes(column.title));
-    z_g_ratio_idx = columns.findIndex(column => ['z-ratio', 'z-ratio pg', 'z-ratio p60', 'z-ratio prj'].includes(column.title));
-    z_g_ratio_weighted_idx = columns.findIndex(column => ['z-ratio weighted', 'z-ratio pg weighted', 'z-ratio p60 weighted'].includes(column.title));
-    z_gaa_idx = columns.findIndex(column => ['z-gaa', 'z-gaa pg', 'z-gaa p60', 'z-gaa prj'].includes(column.title));
-    z_goals_hits_pim_idx = columns.findIndex(column => ['z-goals +hits +penalties', 'z-goals +hits +penalties pg', 'z-goals +hits +penalties p60', 'z-goals +hits +penalties prj'].includes(column.title));
-    z_goals_idx = columns.findIndex(column => ['z-g', 'z-g pg', 'z-g p60', 'z-g prj'].includes(column.title));
-    z_hits_blk_idx = columns.findIndex(column => ['z-hits +blks', 'z-hits +blks pg', 'z-hits +blks p60', 'z-hits +blks prj'].includes(column.title));
-    z_hits_idx = columns.findIndex(column => ['z-hits', 'z-hits pg', 'z-hits p60', 'z-hits prj'].includes(column.title));
-    z_hits_pim_idx = columns.findIndex(column => ['z-hits +penalties', 'z-hits +penalties pg', 'z-hits +penalties p60', 'z-hits +penalties prj'].includes(column.title));
-    z_offense_idx = columns.findIndex(column => ['z-offense', 'z-offense pg', 'z-offense p60', 'z-offense prj'].includes(column.title));
-    z_offense_weighted_idx = columns.findIndex(column => ['z-offense weighted', 'z-offense pg weighted', 'z-offense p60 weighted'].includes(column.title));
-    z_penalties_idx = columns.findIndex(column => ['z-penalties', 'z-penalties pg', 'z-penalties p60', 'z-penalties prj'].includes(column.title));
-    z_peripheral_idx = columns.findIndex(column => ['z-peripheral', 'z-peripheral pg', 'z-peripheral p60', 'z-peripheral prj'].includes(column.title));
-    z_peripheral_weighted_idx = columns.findIndex(column => ['z-peripheral weighted', 'z-peripheral pg weighted', 'z-peripheral p60 weighted'].includes(column.title));
-    z_pim_idx = columns.findIndex(column => ['z-pim', 'z-pim pg', 'z-pim p60', 'z-pim prj'].includes(column.title));
-    z_points_idx = columns.findIndex(column => ['z-pts', 'z-pts pg', 'z-pts p60', 'z-pts prj'].includes(column.title));
-    z_ppp_idx = columns.findIndex(column => ['z-ppp', 'z-ppp pg', 'z-ppp p60', 'z-ppp prj'].includes(column.title));
-    z_saves_idx = columns.findIndex(column => ['z-sv', 'z-sv pg', 'z-sv p60', 'z-sv prj'].includes(column.title));
-    z_saves_percent_idx = columns.findIndex(column => ['z-sv%', 'z-sv% pg', 'z-sv% p60', 'z-sv% prj'].includes(column.title));
-    z_score_idx = columns.findIndex(column => ['z-score', 'z-score pg', 'z-score p60', 'z-score prj'].includes(column.title));
-    z_score_weighted_idx = columns.findIndex(column => ['z-score weighted', 'z-score pg weighted', 'z-score p60 weighted'].includes(column.title));
-    z_sog_hits_blk_idx = columns.findIndex(column => ['z-sog +hits +blk', 'z-sog +hits +blk pg', 'z-sog +hits +blk p60', 'z-sog +hits +blk prj'].includes(column.title));
-    z_sog_idx = columns.findIndex(column => ['z-sog', 'z-sog pg', 'z-sog p60', 'z-sog prj'].includes(column.title));
-    z_tk_idx = columns.findIndex(column => ['z-tk', 'z-tk pg', 'z-tk p60', 'z-tk prj'].includes(column.title));
-    z_wins_idx = columns.findIndex(column => ['z-w', 'z-w pg', 'z-w p60', 'z-w prj'].includes(column.title));
+    wins_idx = columns.findIndex(column => ['w', 'w pg', 'w p60'].includes(column.title));
+    z_assists_idx = columns.findIndex(column => ['z-a', 'z-a pg', 'z-a p60'].includes(column.title));
+    z_blk_idx = columns.findIndex(column => ['z-blk', 'z-blk pg', 'z-blk p60'].includes(column.title));
+    z_combo_idx = columns.findIndex(column => ['z-combo', 'z-combo pg', 'z-combo p60'].includes(column.title));
+    z_g_count_idx = columns.findIndex(column => ['z-count', 'z-count pg', 'z-count p60'].includes(column.title));
+    z_g_count_combo_idx = columns.findIndex(column => ['z-count pg combo'].includes(column.title));
+    z_g_count_calc_idx = columns.findIndex(column => ['z-count calc', 'z-count pg calc', 'z-count p60 calc'].includes(column.title));
+    z_g_ratio_idx = columns.findIndex(column => ['z-ratio', 'z-ratio pg', 'z-ratio p60'].includes(column.title));
+    z_g_ratio_combo_idx = columns.findIndex(column => ['z-ratio pg combo'].includes(column.title));
+    z_g_ratio_calc_idx = columns.findIndex(column => ['z-ratio calc', 'z-ratio pg calc', 'z-ratio p60 calc'].includes(column.title));
+    z_gaa_idx = columns.findIndex(column => ['z-gaa', 'z-gaa pg', 'z-gaa p60'].includes(column.title));
+    z_goals_hits_pim_idx = columns.findIndex(column => ['z-goals +hits +penalties', 'z-goals +hits +penalties pg', 'z-goals +hits +penalties p60'].includes(column.title));
+    z_goals_idx = columns.findIndex(column => ['z-g', 'z-g pg', 'z-g p60'].includes(column.title));
+    z_hits_blk_idx = columns.findIndex(column => ['z-hits +blks', 'z-hits +blks pg', 'z-hits +blks p60'].includes(column.title));
+    z_hits_idx = columns.findIndex(column => ['z-hits', 'z-hits pg', 'z-hits p60'].includes(column.title));
+    z_hits_pim_idx = columns.findIndex(column => ['z-hits +penalties', 'z-hits +penalties pg', 'z-hits +penalties p60'].includes(column.title));
+    z_offense_idx = columns.findIndex(column => ['offense', 'offense pg', 'offense p60'].includes(column.title));
+    z_offense_combo_idx = columns.findIndex(column => ['z-offense combo'].includes(column.title));
+    z_offense_calc_idx = columns.findIndex(column => ['z-offense calc', 'z-offense pg calc', 'z-offense p60 calc'].includes(column.title));
+    z_penalties_idx = columns.findIndex(column => ['z-penalties', 'z-penalties pg', 'z-penalties p60'].includes(column.title));
+    z_peripheral_idx = columns.findIndex(column => ['peripheral', 'peripheral pg', 'peripheral p60'].includes(column.title));
+    z_peripheral_combo_idx = columns.findIndex(column => ['z-peripheral combo'].includes(column.title));
+    z_peripheral_calc_idx = columns.findIndex(column => ['z-peripheral calc', 'z-peripheral pg calc', 'z-peripheral p60 calc'].includes(column.title));
+    z_pim_idx = columns.findIndex(column => ['z-pim', 'z-pim pg', 'z-pim p60'].includes(column.title));
+    z_points_idx = columns.findIndex(column => ['z-pts', 'z-pts pg', 'z-pts p60'].includes(column.title));
+    z_ppp_idx = columns.findIndex(column => ['z-ppp', 'z-ppp pg', 'z-ppp p60'].includes(column.title));
+    z_saves_idx = columns.findIndex(column => ['z-sv', 'z-sv pg', 'z-sv p60'].includes(column.title));
+    z_saves_percent_idx = columns.findIndex(column => ['z-sv%', 'z-sv% pg', 'z-sv% p60'].includes(column.title));
+    z_score_idx = columns.findIndex(column => ['score', 'score pg', 'score p60'].includes(column.title));
+    z_score_calc_idx = columns.findIndex(column => ['z-score calc', 'z-score pg calc', 'z-score p60 calc'].includes(column.title));
+    z_sog_hits_blk_idx = columns.findIndex(column => ['z-sog +hits +blk', 'z-sog +hits +blk pg', 'z-sog +hits +blk p60'].includes(column.title));
+    z_sog_idx = columns.findIndex(column => ['z-sog', 'z-sog pg', 'z-sog p60'].includes(column.title));
+    z_tk_idx = columns.findIndex(column => ['z-tk', 'z-tk pg', 'z-tk p60'].includes(column.title));
+    z_wins_idx = columns.findIndex(column => ['z-w', 'z-w pg', 'z-w p60'].includes(column.title));
 
+    sktr_category_heatmap_columns = new Set([points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, penalties_idx]);
+    goalie_category_heatmap_columns = new Set([wins_idx, saves_idx, gaa_idx, saves_percent_idx]);
+    sktr_category_z_score_heatmap_columns = new Set([z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx, z_penalties_idx]);
+    goalie_category_z_score_heatmap_columns = new Set([z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx]);
+    z_score_summary_heatmap_columns = new Set([z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx, z_g_count_idx, z_g_ratio_idx]);
+    sktr_z_score_summary_heatmap_columns = new Set([z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx]);
+    goalie_z_score_summary_heatmap_columns = new Set([z_score_idx, z_g_count_idx, z_g_ratio_idx]);
+
+    heatmap_columns = [...Array.from(z_score_summary_heatmap_columns), ...Array.from(sktr_category_heatmap_columns), ...Array.from(goalie_category_heatmap_columns), ...Array.from(sktr_category_z_score_heatmap_columns), ...Array.from(goalie_category_z_score_heatmap_columns)]
+    combo_columns = [z_combo_idx, z_offense_combo_idx, z_peripheral_combo_idx, z_g_count_combo_idx, z_g_ratio_combo_idx];
+
+    categoryLookup = {
+        [assists_idx]: {Cumulative: 'assists', 'Per game': 'a_pg', 'Per 60 minutes': 'a_p60'},
+        [blk_idx]: {Cumulative: 'blocked', 'Per game': 'blk_pg', 'Per 60 minutes': 'blk_p60'},
+        [gaa_idx]: {Cumulative: 'gaa', 'Per game': 'gaa_pg', 'Per 60 minutes': 'gaa_p60'},
+        [goals_idx]: {Cumulative: 'goals', 'Per game': 'g_pg', 'Per 60 minutes': 'g_p60'},
+        [hits_idx]: {Cumulative: 'hits', 'Per game': 'hits_pg', 'Per 60 minutes': 'hits_p60'},
+        [penalties_idx]: {Cumulative: 'penalties', 'Per game': 'penalties_pg', 'Per 60 minutes': 'penalties_p60'},
+        [pim_idx]: {Cumulative: 'pim', 'Per game': 'pim_pg', 'Per 60 minutes': 'pim_p60'},
+        [points_idx]: {Cumulative: 'points', 'Per game': 'pts_pg', 'Per 60 minutes': 'pts_p60'},
+        [ppp_idx]: {Cumulative: 'points_pp', 'Per game': 'ppp_pg', 'Per 60 minutes': 'ppp_p60'},
+        [saves_idx]: {Cumulative: 'saves', 'Per game': 'saves_pg', 'Per 60 minutes': 'saves_p60'},
+        [saves_percent_idx]: {Cumulative: 'save%', 'Per game': 'save%_pg', 'Per 60 minutes': 'save%_p60'},
+        [sog_idx]: {Cumulative: 'shots', 'Per game': 'sog_pg', 'Per 60 minutes': 'sog_p60'},
+        [sog_pp_idx]: {Cumulative: 'shots_powerplay', 'Per game': 'sog_pp_pg', 'Per 60 minutes': 'sog_pp_p60'},
+        [tk_idx]: {Cumulative: 'takeaways', 'Per game': 'tk_pg', 'Per 60 minutes': 'tk_p60'},
+        [wins_idx]: {Cumulative: 'wins', 'Per game': 'wins_pg', 'Per 60 minutes': 'wins_p60'},
+        [z_assists_idx]: {Cumulative: 'z_assists', 'Per game': 'z_a_pg', 'Per 60 minutes': 'z_a_p60'},
+        [z_blk_idx]: {Cumulative: 'z_blocked', 'Per game': 'z_blk_pg', 'Per 60 minutes': 'z_blk_p60'},
+        [z_g_count_idx]: {Cumulative: 'z_g_count', 'Per game': 'z_g_count_pg', 'Per 60 minutes': 'z_g_count_p60'},
+        [z_g_ratio_idx]: {Cumulative: 'z_g_ratio', 'Per game': 'z_g_ratio_pg', 'Per 60 minutes': 'z_g_ratio_p60'},
+        [z_gaa_idx]: {Cumulative: 'z_gaa', 'Per game': 'z_gaa_pg', 'Per 60 minutes': 'z_gaa_p60'},
+        [z_goals_hits_pim_idx]: {Cumulative: 'z_goals_hits_pim', 'Per game': 'z_goals_hits_pim_pg', 'Per 60 minutes': 'z_goals_hits_pim_p60'},
+        [z_goals_idx]: {Cumulative: 'z_goals', 'Per game': 'z_g_pg', 'Per 60 minutes': 'z_g_p60'},
+        [z_hits_blk_idx]: {Cumulative: 'z_hits_blk', 'Per game': 'z_hits_blk_pg', 'Per 60 minutes': 'z_hits_blk_p60'},
+        [z_hits_idx]: {Cumulative: 'z_hits', 'Per game': 'z_hits_pg', 'Per 60 minutes': 'z_hits_p60'},
+        [z_hits_pim_idx]: {Cumulative: 'z_hits_pim', 'Per game': 'z_hits_pim_pg', 'Per 60 minutes': 'z_hits_pim_p60'},
+        [z_offense_idx]: {Cumulative: 'z_offense', 'Per game': 'z_offense_pg', 'Per 60 minutes': 'z_offense_p60'},
+        [z_penalties_idx]: {Cumulative: 'z_penalties', 'Per game': 'z_penalties_pg', 'Per 60 minutes': 'z_penalties_p60'},
+        [z_peripheral_idx]: {Cumulative: 'z_peripheral', 'Per game': 'z_peripheral_pg', 'Per 60 minutes': 'z_peripheral_p60'},
+        [z_pim_idx]: {Cumulative: 'z_pim', 'Per game': 'z_pim_pg', 'Per 60 minutes': 'z_pim_p60'},
+        [z_points_idx]: {Cumulative: 'z_points', 'Per game': 'z_pts_pg', 'Per 60 minutes': 'z_pts_p60'},
+        [z_ppp_idx]: {Cumulative: 'z_points_pp', 'Per game': 'z_ppp_pg', 'Per 60 minutes': 'z_ppp_p60'},
+        [z_saves_idx]: {Cumulative: 'z_saves', 'Per game': 'z_saves_pg', 'Per 60 minutes': 'z_saves_p60'},
+        [z_saves_percent_idx]: {Cumulative: 'z_save%', 'Per game': 'z_save%_pg', 'Per 60 minutes': 'z_save%_p60'},
+        [z_score_idx]: {Cumulative: 'z_score', 'Per game': 'z_score_pg', 'Per 60 minutes': 'z_score_p60'},
+        [z_score_idx]: {Cumulative: 'z_score', 'Per game': 'z_score_pg', 'Per 60 minutes': 'z_score_p60'},
+        [z_sog_hits_blk_idx]: {Cumulative: 'z_sog_hits_blk', 'Per game': 'z_sog_hits_blk_pg', 'Per 60 minutes': 'z_sog_hits_blk_p60'},
+        [z_sog_idx]: {Cumulative: 'z_shots', 'Per game': 'z_sog_pg', 'Per 60 minutes': 'z_sog_p60'},
+        [z_tk_idx]: {Cumulative: 'z_takeaways', 'Per game': 'z_tk_pg', 'Per 60 minutes': 'z_tk_p60'},
+        [z_wins_idx]: {Cumulative: 'z_wins', 'Per game': 'z_wins_pg', 'Per 60 minutes': 'z_wins_p60'},
+    };
 }
 
 function updateGlobalVariables(playerData) {
@@ -3285,23 +3380,16 @@ function updateGlobalVariables(playerData) {
     per_60_stat_column_names = playerData['per_60_stat_column_names'];
 
     initially_hidden_column_names = playerData['initially_hidden_column_names'];
+    search_builder_column_names = playerData['search_builder_column_names'];
 
     max_cat = playerData['max_cat_dict'];
     min_cat = playerData['min_cat_dict'];
     mean_cat = playerData['mean_cat_dict'];
     std_cat = playerData['std_cat_dict'];
 
-}
-
-function updateHeatmapColumnLists() {
-
-    sktr_category_heatmap_columns = [points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx];
-    goalie_category_heatmap_columns = [wins_idx, saves_idx, gaa_idx, saves_percent_idx];
-    sktr_category_z_score_heatmap_columns = [z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx, z_penalties_idx];
-    goalie_category_z_score_heatmap_columns = [z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx];
-    z_score_summary_heatmap_columns = [z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx, z_g_count_idx, z_g_ratio_idx];
-    sktr_z_score_summary_heatmap_columns = [z_score_idx, z_offense_idx, z_peripheral_idx, z_sog_hits_blk_idx, z_hits_blk_idx, z_goals_hits_pim_idx, z_hits_pim_idx];
-    goalie_z_score_summary_heatmap_columns = [z_score_idx, z_g_count_idx, z_g_ratio_idx];
+    cumulative_z_scores = playerData['cumulative_z_scores_dict'];
+    per_game_z_scores = playerData['per_game_z_scores_dict'];
+    per_60_z_scores = playerData['per_60_z_scores_dict'];
 
 }
 
@@ -3319,59 +3407,30 @@ function updateManagerSummaryTable(data) {
 
 }
 
-function updateManagerCategoryNeedsTable(managerCategoryNeeds) {
+function updateMyCategoryNeedsTable(myCategoryNeeds) {
+    const categoryLabels = {
+        points: 'd-pts',
+        powerplayPoints: 'ppp',
+        penaltyMinutes: 'pim',
+        savePercent: 'save%',
+        shotsOnGoal: 'sog',
+        blockedShots: 'blk'
+    };
 
-    // get the  container element that contains all the manager tables
-    let container = $('#managerCategoryNeedsContainer');
-
-    managerCategoryNeeds.forEach(function(managerData) {
-
-        if (managerData.manager === 'Banshee') {
-            // Update my table
-            container = $('#myCategoryNeedsContainer');
-        }
-
-        // find the table for a specific manager
-        let managerCategoryNeedsTable = container.find('table').filter(function() {
-            return $(this).data('CategoryNeedsTableFor') === managerData.manager;
-        }).first();
-
-        // retrieve the reference to the DataTable object
-        let table = managerCategoryNeedsTable.DataTable();
-
-        // Clear the existing data in the table
+    const managerData = myCategoryNeeds.find(data => data.manager === 'Banshee');
+    if (managerData) {
+        const container = $('#myCategoryNeedsContainer');
+        const managerCategoryNeedsTable = container.find(`table[data-CategoryNeedsTableFor=${managerData.manager}]`).first();
+        const table = managerCategoryNeedsTable.DataTable();
         table.clear();
 
-        // Add the new data to the table
-        // create an array of the categories and their values
-        let categories = [];
-        for (let key in managerData) {
-            if (key !== 'manager') {
-                label = key;
-                if (key === 'points') {
-                    label = 'd-pts';
-                } else if (key === 'powerplayPoints') {
-                    label = 'ppp';
-                } else if (key === 'penaltyMinutes') {
-                    label = 'pim';
-                } else if (key === 'savePercent') {
-                    label = 'save%';
-                } else if (key === 'shotsOnGoal') {
-                    label = 'sog';
-                } else if (key === 'blockedShots') {
-                    label = 'blk';
-                }
-                categories.push({category: label, value: managerData[key]});
-            }
-        }
+        const categories = Object.entries(managerData)
+            .filter(([key]) => key !== 'manager')
+            .map(([key, value]) => ({category: categoryLabels[key] || key, value}));
 
         table.rows.add(categories);
-
-        // table.columns.adjust().draw();
         table.draw();
-
-    });
-
+    }
 }
 
 function undoDraftPick() {
@@ -3407,8 +3466,8 @@ function undoDraftPick() {
                 updateManagerSummaryTable(managerSummaryZScores);
 
                 // data = calcManagerCategoryNeedsData();
-                managerCategoryNeeds = getManagerCategoryNeeds()
-                updateManagerCategoryNeedsTable(managerCategoryNeeds);
+                myCategoryNeeds = getMyCategoryNeeds()
+                updateMyCategoryNeedsTable(myCategoryNeeds);
 
                 draft_manager = remaining_draft_picks[0].manager;
                 let managerSummaryDataTable = $('#managerSummary').DataTable();
@@ -3429,6 +3488,7 @@ function undoDraftPick() {
 function updatePlayerStatsTable(data) {
 
     let playerStatsTable = $('#player_stats').DataTable();
+
     // Clear the existing data in the table
     playerStatsTable.clear();
 
@@ -3439,110 +3499,29 @@ function updatePlayerStatsTable(data) {
     updateManagerSummaryTable(managerSummaryZScores);
 
     // data = calcManagerCategoryNeedsData();
-    managerCategoryNeeds = getManagerCategoryNeeds()
-    updateManagerCategoryNeedsTable(managerCategoryNeeds);
+    myCategoryNeeds = getMyCategoryNeeds()
+    updateMyCategoryNeedsTable(myCategoryNeeds);
 
-    let weightedPlayers = updatePlayerWeights();
-    updateTableWithWeightedZScores(weightedPlayers);
+    let calculatedPlayerSummaryZScores = calculatePlayerSummaryZScores();
+    updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores);
 
     // Redraw the table
     playerStatsTable.columns.adjust().draw();
 
 }
 
-// function updatePlayerValueAndZScores() {
-
-//     let allPlayers = getAllPlayers();
-
-//     // Filter out rows with no team manager
-//     let allAvailablePlayers = allPlayers.filter(function (row) {
-//         return row['manager'] === "";
-//     });
-
-//     // Filter out rows with team manager
-//     let allTeamPlayers = allPlayers.filter(function (row) {
-//         return row['manager'] !== "";
-//     });
-
-//     // // Calculate the teamZScores and categoryScarcity objects
-//     // let teamCategoryValuesAndZScores = getTeamCategoryValuesAndZScores(allTeamPlayers);
-//     // let categoryScarcity = getCategoryScarcity(allAvailablePlayers);
-//     // updateCategoryScarcityTable(categoryScarcity);
-
-//     // weight the players according to draft manager needs and category scarcity
-//     let weightedPlayers = updatePlayerWeights(allPlayers, allAvailablePlayers);
-
-//     return weightedPlayers;
-
-// }
-
-function updatePlayerWeights() {
-
-    // let managerTeamCategoryValuesAndZScores;
-    // if (remaining_draft_picks && remaining_draft_picks.length !== 0) {
-    //     // Create an array of the scoring category values for manager with current daft selection
-    //     managerTeamCategoryValuesAndZScores = teamCategoryValuesAndZScores[draft_manager];
-    // } else {
-        // managerTeamCategoryValuesAndZScores = [];
-    // }
-
-    // I'm not using weights for anyone but me
-    // managerTeamCategoryValuesAndZScores = teamCategoryValuesAndZScores['Banshee'];
-
-    // get category weights for the current draft selection manager's category needs
-    // let managerCategoryNeeds = getManagerCategoryNeeds(managerTeamCategoryValuesAndZScores, maxCategoryValues);
+function calculatePlayerSummaryZScores() {
 
     let allPlayers = getAllPlayers();
 
-    // Filter out rows with no team manager
-    let availablePlayers = allPlayers.filter(function (row) {
-        return row['manager'] === "";
-    });
-
-    let managerCategoryNeeds = getManagerCategoryNeeds();
-    let myCategoryNeeds; // variable to store Banshee's stats
-    for (let i = 0; i < managerCategoryNeeds.length; i++) {
-        if (managerCategoryNeeds[i].manager === "Banshee") {
-            myCategoryNeeds = managerCategoryNeeds[i];
-            break; // exit the loop once a match is found
-        }
-    }
-
-    let selectedWeightedScoreOpt = $('input[name="weightedScoreOpts"]:checked').val();
-
-    // let categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(availablePlayers);
-    // updateCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
-
-    // let categoryTotals = categoryScarcityByZScoreRange.find(obj => obj.hasOwnProperty('Totals')).Totals;
-    // let categories = Object.keys(categoryTotals);
-    // let categoryScarcities = categories.reduce((acc, key) => {
-    //     acc[key] = 0;
-    //     return acc;
-    // }, {});
-    // categoryScarcityByZScoreRange.forEach(obj => {
-    //     let zScoreRange = Object.keys(obj)[0];
-    //     if (parseFloat(zScoreRange.split(' - ')[0]) >= 1.5) {
-    //         categories.forEach(k => {
-    //             if (obj[zScoreRange][k] !== "") {
-    //                 categoryScarcities[k] += obj[zScoreRange][k];
-    //             }
-    //         });
-    //     }
-    // });
-
-    // categories.forEach(key => {
-    //     categoryScarcities[key] = 1 - categoryScarcities[key]/categoryTotals[key];
-    // });
-
-    let categoryScarcities = getCategoryScarcity(availablePlayers)
-        // Calculate the weighted z-score for each player
+    // calculate z-score for each player
     allPlayers.forEach(player => {
 
-        let weightedZScore = 0;
-        let weightedZOffense = 0;
-        let weightedZPeripheral = 0;
-        let weightedGZCount = 0;
-        let weightedGZRatio = 0;
+        let zScore = 0;
+        let zOffense = 0;
+        let zPeripheral = 0;
+        let zGCount = 0;
+        let zGRatio = 0;
 
         for (let category in player.categoryZScores) {
             if (includePlayerCategoryZScore(player, category) === true) {
@@ -3552,76 +3531,66 @@ function updatePlayerWeights() {
                     alert('category is ' + category);
                 }
 
-                let isChecked = document.getElementById(category).checked;
-                // if (['need', 'both'].includes(selectedWeightedScoreOpt) || (auto_assign_picks === true && draft_manager !== 'Banshee')) {
-                if (['need', 'both'].includes(selectedWeightedScoreOpt)) {
-                        weightFactors.push(isChecked ? myCategoryNeeds[category] : 0);
+                let categoryZScore = 0;
+                let categoryIsIncluded = document.getElementById(category).checked;
+                if (categoryIsIncluded) {
+                    categoryZScore = player.categoryZScores[category];
                 }
-                // if (['scarcity', 'both'].includes(selectedWeightedScoreOpt) && (auto_assign_picks === false || draft_manager === 'Banshee')) {
-                if (['scarcity', 'both'].includes(selectedWeightedScoreOpt)) {
-                    weightFactors.push(isChecked ? categoryScarcities[category] : 0);
-                }
-                // catWeight = player.categoryZScores[category] * ( 1 + weightFactors.reduce((a, b) => a + b));
-                catWeight = player.categoryZScores[category] * weightFactors.reduce((a, b) => a + b);
-                // catWeight = 1 + weightFactors.reduce((a, b) => a + b);
-                weightedZScore += catWeight;
+                zScore += categoryZScore;
                 if ( (player.position === 'D' && dOffenseCategories.includes(category)) || (['LW', 'C', 'RW'].includes(player.position) && fOffenseCategories.includes(category)) ) {
-                    weightedZOffense += catWeight;
+                    zOffense += categoryZScore;
                 }
                 if (['LW', 'C', 'RW', 'D'].includes(player.position) && sktrPeripheralCategories.includes(category) ) {
-                    weightedZPeripheral += catWeight;
+                    zPeripheral += categoryZScore;
                 }
                 if (player.position === 'G') {
                     if (gCountCategories.includes(category)) {
-                        weightedGZCount += catWeight;
+                        zGCount += categoryZScore;
                     } else { // gRatioCategories.includes(category)
-                        weightedGZRatio += catWeight;
+                        zGRatio += categoryZScore;
                     }
                 }
             }
         }
 
-        player.weightedZScore = weightedZScore;
+        player.ZScoreCalc = zScore;
         if (['LW', 'C', 'RW', 'D'].includes(player.position)) {
-            player.weightedZOffense = weightedZOffense;
-            player.weightedZPeripheral = weightedZPeripheral;
-            player.weightedGZCount = 0;
-            player.weightedGZRatio = 0;
+            player.ZOffenseCalc = zOffense;
+            player.ZPeripheralCalc = zPeripheral;
+            player.zGCountCalc = 0;
+            player.zGRatioCalc = 0;
         }
         if (player.position === 'G') {
-            player.weightedZOffense = 0;
-            player.weightedZPeripheral = 0;
-            player.weightedGZCount = weightedGZCount;
-            player.weightedGZRatio = weightedGZRatio;
+            player.ZOffenseCalc = 0;
+            player.ZPeripheralCalc = 0;
+            player.zGCountCalc = zGCount;
+            player.zGRatioCalc = zGRatio;
         }
 
     });
-
-    // Sort the available players by their weighted z-score
-    availablePlayers.sort((a, b) => b.weightedZScore - a.weightedZScore);
 
     return allPlayers;
 
 }
 
-function updateTableWithWeightedZScores(weightedAvailablePlayers) {
+function updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores) {
 
     let table = $('#player_stats').DataTable();
 
     table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
         let rowData = this.data();
         let id = rowData[id_idx].match(/>(\d+)</)[1]; // assuming the "id" column is the first column
-        let newDataItem = weightedAvailablePlayers.find(function(item) {
+        let newDataItem = calculatedPlayerSummaryZScores.find(function(item) {
             return item.id === id;
         });
 
         if (newDataItem) {
             // update rowData with data from newDataItem
-            rowData[z_score_weighted_idx] = newDataItem.weightedZScore.toFixed(1);
-            rowData[z_offense_weighted_idx] = newDataItem.weightedZOffense.toFixed(1);
-            rowData[z_peripheral_weighted_idx] = newDataItem.weightedZPeripheral.toFixed(1);
-            rowData[z_g_count_weighted_idx] = newDataItem.weightedGZCount.toFixed(1);
-            rowData[z_g_ratio_weighted_idx] = newDataItem.weightedGZRatio.toFixed(1);
+            rowData[z_score_calc_idx] = newDataItem.ZScoreCalc.toFixed(1);
+            rowData[z_offense_calc_idx] = newDataItem.ZOffenseCalc.toFixed(1);
+            rowData[z_peripheral_calc_idx] = newDataItem.ZPeripheralCalc.toFixed(1);
+            rowData[z_g_count_calc_idx] = newDataItem.zGCountCalc.toFixed(1);
+            rowData[z_g_ratio_calc_idx] = newDataItem.zGRatioCalc.toFixed(1);
             this.data(rowData);
         }
     } );
