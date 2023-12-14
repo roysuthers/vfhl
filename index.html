@@ -115,7 +115,7 @@
                 color: red;  /* Change 'red' to your desired color for even rows */
             }
 
-                #managerSummary, #categoryScarcity , #categoryScarcityByZScoreRange, #draftBoard {
+            #managerSummary, #categoryScarcity , #categoryScarcityByZScoreRange, #draftBoard {
                 margin-left: 0;
                 margin: 10px;
                 white-space: nowrap;
@@ -162,6 +162,10 @@
 
             #statType {
                 font-size: 1em;
+            }
+
+            #calcZScoresContainer {
+                font-size: 1.2em;
             }
 
             .indented {
@@ -217,20 +221,23 @@
                 </div>
             </div>
             <div class="form-group">
+                <label for="statType">Statistic Type</label>
+                <select id="statType" style="margin-right: 20px;">
+                    <option value="Cumulative" selected>Cumulative</option>
+                    <option value="Per game">Per game</option>
+                    <option value="Per 60 minutes">Per 60 minutes</option>
+                    <option value="EWMA">EWMA</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <button id="getStatsButton" style="font-size: 1.5em;">Get Stats</button>
             </div>
         </div>
 
-        <div id="statTypeContainer" style="display: none;">
-            <label for="statType">Statistic Type</label>
-            <select id="statType" style="margin-right: 20px;">
-                <option value="Cumulative" selected>Cumulative</option>
-                <option value="Per game">Per game</option>
-                <option value="Per 60 minutes">Per 60 minutes</option>
-            </select>
+        <!-- <div id="showAsVorpContainer" style="display: none;">
             <label for="showAsVorpCheckbox">Show z-scores as VORP</label>
             <input type="checkbox" id="showAsVorpCheckbox">
-        </div>
+        </div> -->
 
         <div id="calcZScoresContainer" style="display: none; margin-top: 10px;">
             <div>Calculate Z-Scores Using:
@@ -260,7 +267,7 @@
                 <label for="gaa">gaa</label>
                 <input type="checkbox" id="savePercent" name="savePercent" checked>
                 <label for="savePercent">sv%</label>
-                <button id="calcSummaryZScoresButton">Calculate</button>
+                <button id="calcSummaryZScoresButton" style="font-size: 1.5em;">Calculate</button>
             </div>
         </div>
 
@@ -489,8 +496,9 @@
                 } else {
                     // Allow all options
                     statType.innerHTML = '<option value="Cumulative" selected>Cumulative</option>' +
-                                            '<option value="Per game">Per game</option>' +
-                                            '<option value="Per 60 minutes">Per 60 minutes</option>';
+                                         '<option value="Per game">Per game</option>' +
+                                         '<option value="Per 60 minutes">Per 60 minutes</option>' +
+                                         '<option value="EWMA">EWMA</option>';
                     statType.removeAttribute("readonly");
                 }
             }
@@ -557,11 +565,12 @@
                     ranges: {
                         // 'Today': [moment(), moment()],
                         'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                        'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                        'Last 14 Days': [moment().subtract(13, 'days'), moment()],
-                        // 'Last 21 Days': [moment().subtract(20, 'days'), moment()],
-                        'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                        'Last 60 Days': [moment().subtract(59, 'days'), moment()],
+                        'Last 7 Days': [moment().subtract(7, 'days'), moment().subtract(1, 'days')],
+                        'Last 14 Days': [moment().subtract(14, 'days'), moment().subtract(1, 'days')],
+                        'Last 21 Days': [moment().subtract(21, 'days'), moment().subtract(1, 'days')],
+                        'Last 28 Days': [moment().subtract(28, 'days'), moment().subtract(1, 'days')],
+                        'Last 30 Days': [moment().subtract(30, 'days'), moment().subtract(1, 'days')],
+                        'Last 60 Days': [moment().subtract(60, 'days'), moment().subtract(1, 'days')],
                         'This Month': [moment().startOf('month'), moment().endOf('month')],
                         'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
                     }

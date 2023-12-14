@@ -1,3 +1,4 @@
+import numpy as np
 from datetime import date, datetime, timedelta
 from time import strftime, strptime
 from typing import Dict, Tuple
@@ -6,10 +7,13 @@ from typing import Dict, Tuple
 def calculate_age(birth_date: str) -> int:
     """Calculate the age in years given a birth date in YYYY-MM-DD format."""
 
-    born = datetime.strptime(birth_date, "%Y-%m-%d").date()
-    today = date.today()
+    if birth_date != '':
+        born = datetime.strptime(birth_date, "%Y-%m-%d").date()
+        today = date.today()
 
-    age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+        age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+    else:
+        age = np.nan
 
     return age
 

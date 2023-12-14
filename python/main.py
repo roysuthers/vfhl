@@ -26,30 +26,16 @@ def player_data():
     pool_id = request.args.get('poolID')
     projection_source = request.args.get('projectionSource')
 
-    file_name = generate_file_name(season_or_date_radios, from_season, to_season, from_date, to_date, game_type, projection_source)
-    file_path = JSON_FOLDER / f"{file_name}.json"
+    player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source)
+    if player_data is None:
+        return jsonify({})
 
-    if file_path.is_file():
+    ##########################################################################################################
+    # Upon returning to jquery datatables, if getPlayerData(seasonOrDateRadios, function(playerData) {...} does call back,
+    # it's likely because some stats_data columns have np.nan values, which don't jasonify.
+    ##########################################################################################################
 
-        with open(file_path, 'r') as f:
-            # Load the data from file
-            player_data = json.load(f)
-
-        return player_data
-
-    else:
-
-        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source)
-
-        # ##########################################################################################################
-        # Upon returning to jquery datatables, if getPlayerData(seasonOrDateRadios, function(playerData) {...} does call back,
-        # it's likely because some cumulative_stats_data columns have np.nan values, which don't jasonify.
-        # ##########################################################################################################
-
-        # with open(file_path, 'w') as f:
-        #     json.dump(player_data, f)
-
-        return jsonify(player_data).get_json()
+    return jsonify(player_data).get_json()
 
 def generate_file_name(season_or_date_radios: str, from_season: str, to_season: str, from_date: str, to_date: str, game_type: str, projection_source: str) -> str:
     """Generate a file name based on the arguments."""
