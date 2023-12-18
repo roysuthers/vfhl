@@ -72,7 +72,7 @@ g_summary_z_scores = ['z_score', 'z_g_count', 'z_g_ratio']
 ###############################################
 
 # period for exponential moving averages
-ewm_span = 5
+ewm_span = 10
 
 min_cat = defaultdict(None)
 max_cat = defaultdict(None)
@@ -146,15 +146,15 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
 
     df_agg_stats = df.sort_values(['player_id','seasonID', 'date']).groupby(['player_id'], as_index=False).agg(
         assists = ('assists', stat_type_agg_method),
-        assists_gw = ('assists_gw', stat_type_agg_method),
-        assists_ot = ('assists_ot', stat_type_agg_method),
-        assists_pp = ('assists_pp', stat_type_agg_method),
-        assists_sh = ('assists_sh', stat_type_agg_method),
+        assists_gw = ('assists_gw', 'sum'),
+        assists_ot = ('assists_ot', 'sum'),
+        assists_pp = ('assists_pp', 'sum'),
+        assists_sh = ('assists_sh', 'sum'),
         blocked = ('blocked', stat_type_agg_method),
         corsi_against = ('corsi_against', 'sum'),
         corsi_for = ('corsi_for', 'sum'),
-        date_first = ('date', 'first'),
-        date_last = ('date', 'last'),
+        first_game = ('date', 'first'),
+        last_game = ('date', 'last'),
         evg_on_ice = ('evg_on_ice', 'sum'),
         evg_point = ('evg_point', 'sum'),
         fenwick_against = ('fenwick_against', 'sum'),
@@ -164,11 +164,11 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         games_started = ('games_started', 'sum'),
         goals = ('goals', stat_type_agg_method),
         goals_against = ('goals_against', stat_type_agg_method),
-        goals_gw = ('goals_gw', stat_type_agg_method),
-        goals_ot = ('goals_ot', stat_type_agg_method),
-        goals_pp = ('goals_pp', stat_type_agg_method),
-        goals_ps = ('goals_ps', stat_type_agg_method),
-        goals_sh = ('goals_sh', stat_type_agg_method),
+        goals_gw = ('goals_gw', 'sum'),
+        goals_ot = ('goals_ot', 'sum'),
+        goals_pp = ('goals_pp', 'sum'),
+        goals_ps = ('goals_ps', 'sum'),
+        goals_sh = ('goals_sh', 'sum'),
         hattricks = ('hattricks', stat_type_agg_method),
         hits = ('hits', stat_type_agg_method),
         major_penalties = ('major_penalties', stat_type_agg_method),
@@ -184,6 +184,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         player_id = ('player_id', 'last'),
         points = ('points', stat_type_agg_method),
         points_pp = ('points_pp', stat_type_agg_method),
+        points_pp_sum = ('points_pp', 'sum'),
         pos = ('pos', 'last'),
         ppg_on_ice = ('ppg_on_ice', 'sum'),
         ppg_point = ('ppg_point', 'sum'),
@@ -194,6 +195,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         shots = ('shots', stat_type_agg_method),
         shots_against = ('shots_against', stat_type_agg_method),
         shots_powerplay = ('shots_powerplay', stat_type_agg_method),
+        shots_powerplay_sum = ('shots_powerplay', 'sum'),
         shutouts = ('shutouts', stat_type_agg_method),
         takeaways = ('takeaways', stat_type_agg_method),
         team_abbr = ('team_abbr', 'last'),
@@ -282,11 +284,11 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
     pp_goals_p120 = (df_agg_stats['goals_pp'] * 120) / df_agg_stats['toi_pp_sec']
 
     # calc powerplay shots-on-goal per 2 penalty minutes
-    pp_sog_p120 = np.where(df_agg_stats['toi_pp_sec'] != 0, (df_agg_stats['shots_powerplay'] * 120) / df_agg_stats['toi_pp_sec'], np.nan)
+    pp_sog_p120 = np.where(df_agg_stats['toi_pp_sec'] != 0, (df_agg_stats['shots_powerplay_sum'] * 120) / df_agg_stats['toi_pp_sec'], np.nan)
     pp_sog_p120 = pd.Series(pp_sog_p120, index=df_agg_stats.index)
 
     # calc powerplay points per 2 penalty minutes
-    pp_pts_p120 = np.where(toi_pp_pg == '00:00', np.nan, (df_agg_stats['points_pp'] * 120) / df_agg_stats['toi_pp_sec'])
+    pp_pts_p120 = np.where(toi_pp_pg == '00:00', np.nan, (df_agg_stats['points_pp_sum'] * 120) / df_agg_stats['toi_pp_sec'])
     pp_pts_p120 = pd.Series(pp_pts_p120, index=df_agg_stats.index)
 
     # calc missed shots - crossbar + goalpost
@@ -2185,8 +2187,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
             {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'gp', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
-            {'title': 'first game', 'table column': 'first game', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
-            {'title': 'last game', 'table column': 'last game', 'format': eval(f_str), 'data_group': 'general', 'default order': 'desc', 'search_builder': True, 'hide': True},
+            {'title': 'first game', 'table column': 'first_game', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
+            {'title': 'last game', 'table column': 'last_game', 'format': eval(f_str), 'data_group': 'general', 'default order': 'desc', 'search_builder': True, 'hide': True},
             {'title': 'game today', 'table column': 'next_opp', 'data_group': 'general', 'hide': True, 'search_builder': True},
         ],
     }
@@ -2238,8 +2240,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     skater_columns = {
         'columns': [
-            {'title': 'line', 'table column': 'line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True, 'hide': True},
-            {'title': 'pp unit', 'table column': 'pp_line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True, 'hide': True},
+            {'title': 'line', 'table column': 'line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
+            {'title': 'pp unit', 'table column': 'pp_line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
             {'title': 'pp unit prj', 'runtime column': 'pp_unit_prj', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             {'title': 'sleeper', 'runtime column': 'sleeper', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},
             {'title': 'upside', 'runtime column': 'upside', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},

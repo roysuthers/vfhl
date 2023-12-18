@@ -12,6 +12,15 @@ CORS(app)
 # Constant
 JSON_FOLDER = Path('./json')
 
+def create_app():
+    app = Flask(__name__)
+
+    @app.route('/')
+    def hello():
+        return 'Hello, World!'
+
+    return app
+
 @app.route('/player-data')
 def player_data():
     """Return the player data as a JSON object based on the request arguments."""
@@ -74,4 +83,5 @@ def draft_order():
     return jsonify(draft_picks)
 
 if __name__ == '__main__':
+
     app.run()

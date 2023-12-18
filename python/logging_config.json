@@ -1,0 +1,52 @@
+{
+    "version": 1,
+    "formatters": {
+        "f": {"format": "%(asctime)s  %(levelname)-8s  %(name)s  %(module)s.%(funcName)s(%(lineno)s)  %(message)s",
+              "datefmt": "%Y-%m-%d %H:%M:%S"}
+        },
+    "handlers": {
+        "fileHandler": {"class": "logging.handlers.RotatingFileHandler",
+              "formatter": "f",
+              "filename": "C:\\Users\\Roy\\AppData\\Local\\My Logs\\NHL Pool\\NHL Pool.log",
+              "mode": "a",
+              "backupCount": 5
+            },
+        "rootHandler": {"class": "logging.StreamHandler",
+            "formatter": "f"
+            }
+          },
+    "loggers":{
+        "__main__":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+            },
+        "task_scheduler":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "task_scheduler_2":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "clsHockeyPool":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "injuries":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "clsNHL_API":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "clsFantrax":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        },
+        "player_lines":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
+        }
+    }
+}
