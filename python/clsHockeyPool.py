@@ -2291,7 +2291,7 @@ class HockeyPool:
                     if player_json is None:
                         msg = f'There are no NHL players with name "{name}".'
                         if batch:
-                            logger.debug(msg)
+                            logger.info(msg)
                         else:
                             sg.popup_ok(msg)
                         continue

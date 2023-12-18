@@ -156,8 +156,24 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
             if batch is True:
                 logger.debug(f'Getting "{daily_faceoff_com}"')
 
-            # query the website
-            browser.get(daily_faceoff_com)
+            attempts = 0
+            while attempts < 3:
+                try:
+                    # query the website
+                    browser.get(daily_faceoff_com)
+                    # If the page loads successfully, the loop will break
+                    break
+                except TimeoutException:
+                    attempts += 1
+                    if batch is True:
+                        if attempts >= 3:
+                            logger.info(f"Timeout occurred for {daily_faceoff_com} on the 3rd attempt. Returning without getting player lines.")
+                            return pd.DataFrame.from_dict([])
+                        else:
+                            logger.info(f"Timeout occurred for {daily_faceoff_com}. Retrying...")
+
+                    # Respectful scraping: sleep to avoid hitting the server with too many requests
+                    time.sleep(10)
 
             if batch is True:
                 logger.debug(f'Returned from "{daily_faceoff_com}"')
