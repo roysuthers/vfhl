@@ -439,15 +439,18 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
 
                         // searchBuilder default conditions
                         {targets: [name_idx], searchBuilder: { defaultCondition: 'contains' } },
-                        {targets: [games_idx, goalie_starts_idx, points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
+                        {targets: [
+                                games_idx, goalie_starts_idx,
+                                points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
                                 sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
                                 toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_minutes_idx,
                                 z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
                                 z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
-                                z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx], searchBuilder: { defaultCondition: '>=' } },
+                                z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx
+                            ], searchBuilder: { defaultCondition: '>=' } },
+                            {targets: [last_game_idx], searchBuilder: { defaultCondition: '>' } },
                         {targets: [age_idx, career_games_idx], searchBuilder: { defaultCondition: '<=' } },
-                        {targets: [draft_position_idx, draft_round_idx, keeper_idx, last_game_idx, manager_idx, minors_idx, nhl_roster_status_idx, picked_by_idx, position_idx,
-                                predraft_keeper_idx, prj_draft_round_idx, rookie_idx, team_idx, watch_idx], searchBuilder: { defaultCondition: '=' } },
+                        {targets: [draft_position_idx, draft_round_idx, keeper_idx, manager_idx, minors_idx, nhl_roster_status_idx, picked_by_idx, position_idx, predraft_keeper_idx, prj_draft_round_idx, rookie_idx, team_idx, watch_idx], searchBuilder: { defaultCondition: '=' } },
                         {targets: [breakout_threshold_idx], searchBuilder: { defaultCondition: 'between' } },
                         {targets: [game_today_idx], searchBuilder: { defaultCondition: '!null' } },
 
