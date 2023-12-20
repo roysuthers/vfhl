@@ -310,25 +310,14 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         ]
                     },
 
-                    searchBuilder: {
-                        columns: search_builder_column_names,
-                        // preDefined: {
-                        //     criteria: [
-                        //         {
-                        //             condition: '!=',
-                        //             data: 'team',
-                        //             value: ['(N/A)']
-                        //         }
-                        //     ],
-                        //     logic: 'AND',
-                        // }
-                    },
-
                     columnDefs: [
                         // first column, rank in group, is not orderable or searchable
                         {searchable: false, orderable: false, targets: rank_in_group_idx},
                         // {type: 'num', targets: numeric_columns},
-                        {type: 'num', targets: [z_score_calc_idx]}, // z_score_calc_idx; otherwise doesn't sort numerically
+                        // z_score_calc_idx; otherwise doesn't sort numerically
+                        {type: 'num', targets: [z_score_calc_idx, line_idx, pp_unit_idx]},
+                        // custom data type for id_idx, to be used in searchBuilder
+                        {type: 'playerId', targets: id_idx},
                         {orderSequence: ['desc', 'asc'], targets: descending_columns},
                         // {targets: fantrax_score_idx,
                         //  render: function(data, type, row, meta) {
@@ -438,21 +427,38 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         }, targets: [injury_idx]},
 
                         // searchBuilder default conditions
-                        {targets: [name_idx], searchBuilder: { defaultCondition: 'contains' } },
-                        {targets: [
-                                games_idx, goalie_starts_idx,
-                                points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
-                                sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
-                                toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_minutes_idx,
-                                z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
-                                z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
-                                z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx
-                            ], searchBuilder: { defaultCondition: '>=' } },
+                        {searchBuilder: { defaultCondition: 'contains' }, targets: [name_idx]},
+                        {searchBuilder: { defaultCondition: '>=' }, targets: [
+                            games_idx, goalie_starts_idx,
+                            points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
+                            sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
+                            toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_minutes_idx,
+                            z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
+                            z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
+                            z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx
+                        ]},
                             {targets: [last_game_idx], searchBuilder: { defaultCondition: '>' } },
-                        {targets: [age_idx, career_games_idx], searchBuilder: { defaultCondition: '<=' } },
-                        {targets: [draft_position_idx, draft_round_idx, keeper_idx, manager_idx, minors_idx, nhl_roster_status_idx, picked_by_idx, position_idx, predraft_keeper_idx, prj_draft_round_idx, rookie_idx, team_idx, watch_idx], searchBuilder: { defaultCondition: '=' } },
-                        {targets: [breakout_threshold_idx], searchBuilder: { defaultCondition: 'between' } },
-                        {targets: [game_today_idx], searchBuilder: { defaultCondition: '!null' } },
+                        {searchBuilder: { defaultCondition: '<=' }, targets: [age_idx, career_games_idx]},
+                        {searchBuilder: { defaultCondition: '=' }, targets: [
+                            draft_position_idx,
+                            draft_round_idx,
+                            keeper_idx,
+                            line_idx,
+                            manager_idx,
+                            minors_idx,
+                            nhl_roster_status_idx,
+                            picked_by_idx,
+                            position_idx,
+                            pp_unit_idx,
+                            predraft_keeper_idx,
+                            prj_draft_round_idx,
+                            rookie_idx,
+                            team_idx,
+                            watch_idx
+                        ]},
+                        {searchBuilder: { defaultCondition: 'between' }, targets: [breakout_threshold_idx]},
+                        {searchBuilder: { defaultCondition: '!null' }, targets: [game_today_idx]},
+                        {searchBuilder: { defaultCondition: 'selectedPlayers' }, targets: [id_idx]},
 
                         // searchBuilder rename columns
                         {targets: breakout_threshold_idx, searchBuilderTitle: 'breakout threshold' },
@@ -470,6 +476,10 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
 
                         // searchBuilder type columns
                         {targets: breakout_threshold_idx, searchBuilderType: 'num' },
+
+                        // custom data type for id_idx, to be used in searchBuilder
+                        // {targets: id_idx, type: 'custom_type' }
+                        {targets: id_idx, searchBuilderType: 'playerId'},
 
                         // custom sort for 'prj draft round' column
                         // { targets: [prj_draft_round_idx], type: "custom_pdr_sort", orderSequence: ['asc']},
@@ -751,6 +761,92 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         },
                     ],
 
+                    searchBuilder: {
+                        columns: search_builder_column_names,
+                        // preDefined: {
+                        //     criteria: [
+                        //         {
+                        //             condition: '!=',
+                        //             data: 'team',
+                        //             value: ['(N/A)']
+                        //         }
+                        //     ],
+                        //     logic: 'AND',
+                        // }
+                        conditions: {
+                            playerId: {
+                                'selectedPlayers': {
+                                    conditionName: 'Selected Players',
+                                    init: function(that, fn, preDefined = null) {
+                                        let el = jQuery('<input>')
+                                        .attr('type','hidden')
+                                        // .attr('id', that.s.type)
+                                        // .append(that.dom.valueTitle)
+                                        .on('input', function() {
+                                            fn(that, this);
+                                        });
+
+                                        setTimeout(function() {
+                                            $(el).val(' ').trigger("input");
+                                        }, 0);
+
+                                        return el;
+                                    },
+                                    inputValue: function (el, that) {
+                                    // console.log('inputValue')
+                                    return $(el[0]).val();
+                                    },
+                                    isInputValid: function (el, that) {
+                                    // console.log('isInputValid')
+                                    return $(el[0]).val();
+                                    },
+                                   search: function(value, comparison) {
+                                        var selectedPlayerIds = JSON.parse(localStorage.getItem('selectedPlayerIds'));
+                                        playerId = 0;
+                                        if (value) {
+                                            playerId = parseInt(value);
+                                        }
+                                        return selectedPlayerIds.includes(playerId);
+                                    },
+                                },
+                                'unselectedPlayers': {
+                                    conditionName: 'Unselected Players',
+                                    init: function(that, fn, preDefined = null) {
+                                        let el = jQuery('<input>')
+                                        .attr('type','hidden')
+                                        // .attr('id', that.s.type)
+                                        // .append(that.dom.valueTitle)
+                                        .on('input', function() {
+                                            fn(that, this);
+                                        });
+
+                                        setTimeout(function() {
+                                            $(el).val(' ').trigger("input");
+                                        }, 0);
+
+                                        return el;
+                                    },
+                                    inputValue: function (el, that) {
+                                    // console.log('inputValue')
+                                    return $(el[0]).val();
+                                    },
+                                    isInputValid: function (el, that) {
+                                    // console.log('isInputValid')
+                                    return $(el[0]).val();
+                                    },
+                                    search: function(value, comparison) {
+                                        var selectedPlayerIds = JSON.parse(localStorage.getItem('selectedPlayerIds'));
+                                        playerId = 0;
+                                        if (value) {
+                                            playerId = parseInt(value);
+                                        }
+                                        return !selectedPlayerIds.includes(playerId);
+                                    },
+                                },
+                            }
+                        }
+                    },
+
                     initComplete: function () {
 
                         let playerStatsTable = $('#player_stats').DataTable();
@@ -803,6 +899,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             }
                             nameToIndex[name].push(index);
                         });
+
                     },
 
                     drawCallback: function() {
@@ -3336,6 +3433,7 @@ function updateColumnIndexes(columns) {
     rookie_idx = columns.findIndex(column => column.title === 'rookie');
     saves_idx = columns.findIndex(column => column.title === 'sv');
     saves_percent_idx = columns.findIndex(column => column.title === 'sv%');
+    sel_idx = columns.findIndex(column => column.title === 'sel');
     shooting_percent_idx = columns.findIndex(column => column.title === 'sh%');
     shots_against_idx = columns.findIndex(column => column.title === 'shots against');
     sleeper_idx = columns.findIndex(column => column.title === 'sleeper');
