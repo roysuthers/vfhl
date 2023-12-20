@@ -757,6 +757,12 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                                 if (selectedPlayersRow.length > 0) {
                                     additionalFiltersSearchPaneDataTable.row(selectedPlayersRow).select();
                                 }
+                                // Reset search builder selections
+                                let playerStatsTable = $('#player_stats').DataTable();
+                                let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+                                if (JSON.stringify(currentSearchBuilderDetails).includes('selectedPlayers') || JSON.stringify(currentSearchBuilderDetails).includes('unselectedPlayers')) {
+                                    playerStatsTable.searchBuilder.rebuild(currentSearchBuilderDetails);
+                                }
                             }
                         },
                     ],
@@ -1019,6 +1025,13 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                     // If the "Selected Players" option is selected
                     if (selectedPlayersRow.length > 0) {
                         additionalFiltersSearchPaneDataTable.row(selectedPlayersRow).select();
+                    }
+
+                    // Reset search builder selections
+                    let playerStatsTable = $('#player_stats').DataTable();
+                    let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+                    if (JSON.stringify(currentSearchBuilderDetails).includes('selectedPlayers') || JSON.stringify(currentSearchBuilderDetails).includes('unselectedPlayers')) {
+                        playerStatsTable.searchBuilder.rebuild(currentSearchBuilderDetails);
                     }
 
                 });
