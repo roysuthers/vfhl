@@ -2290,11 +2290,13 @@ class HockeyPool:
                     player_json = NHL_API().get_player_by_name(name=name, team_id=team_id)
                     if player_json is None:
                         msg = f'There are no NHL players with name "{name}".'
-                        if batch:
-                            logger.info(msg)
-                        else:
-                            sg.popup_ok(msg)
-                        continue
+                    else:
+                        msg = f'NHL player "{name}" (id={player_json["playerId"]}) not found in Player table.'
+                    if batch:
+                        logger.info(msg)
+                    else:
+                        sg.popup_ok(msg)
+                    continue
                 # else:
                 #     nhlPlayer = nhlPlayers[0]
 

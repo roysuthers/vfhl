@@ -73,7 +73,8 @@ def get_player_id_from_name(name: str, team_id: int=0, pos: str='') -> Dict:
     # Take a look at NHL_API().get_player_by_name() function, which essentially does the same as this function
     try:
 
-        kwargs = {'full_name': name}
+        # default if player id cannot be found
+        kwargs = {'full_name': name, 'current_team_id': team_id}
 
         # some Fantrax & Dobber player names are different
         player_name = name
@@ -117,18 +118,18 @@ def get_player_id_from_name(name: str, team_id: int=0, pos: str='') -> Dict:
             #             kwargs = {'full_name': player_name, 'current_team_id': team_id}
 
             # in most cases, there will be only one player returned when fetching using the player's name
-            sql = 'SELECT full_name FROM Player WHERE custom_compare(full_name, ?)'
+            sql = 'SELECT id FROM Player WHERE custom_compare(full_name, ?)'
             cursor.execute(sql, (player_name,))
-            rows = cursor.fetchmany()
+            rows = cursor.fetchall()
             if len(rows) == 1:
-                kwargs = {'full_name': rows[0]['full_name']}
+                kwargs = {'id': rows[0]['id']}
             else:
                 # use player name and team id to find player
-                sql = f'SELECT full_name FROM Player WHERE custom_compare(full_name, ?) and current_team_id=={team_id}'
+                sql = f'SELECT id FROM Player WHERE custom_compare(full_name, ?) and current_team_id=={team_id}'
                 cursor.execute(sql, (player_name,))
-                rows = cursor.fetchmany()
+                rows = cursor.fetchall()
                 if len(rows) == 1:
-                    kwargs = {'full_name': rows[0]['full_name'], 'current_team_id': team_id}
+                    kwargs = {'id': rows[0]['id']}
 
     except Exception:
         # logging.exception('Exception')
