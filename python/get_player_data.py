@@ -318,7 +318,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         abs_result = result.abs()
         minutes = (abs_result.div(60)).astype(int)
         seconds = (abs_result.mod(60)).astype(int)
-        return np.sign(result).map({1: '', -1: '-'}).fillna('').astype(str) + minutes.map('{:1d}'.format) + ':' + seconds.map('{:02d}'.format)
+        return np.sign(result).map({1: '+', -1: '-'}).fillna('').astype(str) + minutes.map('{:1d}'.format) + ':' + seconds.map('{:02d}'.format)
 
     toi_pg_sec_trend = format_time_trend(df_agg_stats, 'toi_sec_ewm', 'toi_sec_ewm_base')
 
