@@ -433,12 +433,13 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             points_idx, goals_idx, pp_goals_p120_idx, assists_idx, ppp_idx,
                             sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, pp_points_p120_idx,
                             toi_pp_percent_idx, toi_pp_percent_3gm_avg_idx, toi_minutes_idx,
+                            ev_ipp_idx, pp_ipp_idx, corsi_for_percent_idx,
                             z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
                             z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
                             z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx
                         ]},
                             {targets: [last_game_idx], searchBuilder: { defaultCondition: '>' } },
-                        {searchBuilder: { defaultCondition: '<=' }, targets: [age_idx, career_games_idx]},
+                        {searchBuilder: { defaultCondition: '<=' }, targets: [age_idx, career_games_idx, pdo_idx, shooting_percent_idx]},
                         {searchBuilder: { defaultCondition: '=' }, targets: [
                             draft_position_idx,
                             draft_round_idx,
@@ -475,7 +476,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         {targets: career_games_idx, searchBuilderTitle: 'career games' },
 
                         // searchBuilder type columns
-                        {targets: breakout_threshold_idx, searchBuilderType: 'num' },
+                        {targets: breakout_threshold_idx, shooting_percent_idx, searchBuilderType: 'num' },
 
                         // custom data type for id_idx, to be used in searchBuilder
                         // {targets: id_idx, type: 'custom_type' }
@@ -3404,6 +3405,7 @@ function updateColumnIndexes(columns) {
     draft_position_idx = columns.findIndex(column => column.title === 'draft position');
     draft_round_idx = columns.findIndex(column => column.title === 'draft round');
     dtz_zscore_rank_idx = columns.findIndex(column => column.title === 'dtz z-score rank');
+    ev_ipp_idx = columns.findIndex(column => column.title === 'ev ipp');
     fantrax_roster_status_idx = columns.findIndex(column => column.title === 'fantrax roster status');
     fantrax_score_idx = columns.findIndex(column => column.title === 'fantrax score');
     fantrax_zscore_rank_idx = columns.findIndex(column => column.title === 'fantrax z-score rank');
@@ -3424,11 +3426,13 @@ function updateColumnIndexes(columns) {
     minors_idx = columns.findIndex(column => column.title === 'minors');;
     name_idx = columns.findIndex(column => column.title === 'name');;
     nhl_roster_status_idx = columns.findIndex(column => column.title === 'nhl roster status');
+    pdo_idx = columns.findIndex(column => column.title === 'pdo');
     penalties_idx = columns.findIndex(column => column.title === 'penalties');
     picked_by_idx = columns.findIndex(column => column.title === 'picked by');
     pim_idx = columns.findIndex(column => column.title === 'pim');
     points_idx = columns.findIndex(column => column.title === 'pts');
     position_idx = columns.findIndex(column => column.title === 'pos');
+    pp_ipp_idx = columns.findIndex(column => column.title === 'pp ipp');
     pp_goals_p120_idx = columns.findIndex(column => column.title === 'pp g/120');
     pp_percent_idx = columns.findIndex(column => column.title === '%pp');
     pp_points_p120_idx = columns.findIndex(column => column.title === 'pp pts/120');
