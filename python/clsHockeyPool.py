@@ -1890,13 +1890,16 @@ class HockeyPool:
                             '-',
                             'Start Flask Server',
                             '-',
+                            'Start "Daily VFHL Activities"',
+                            # 'Start "Hourly VFHL Activities"',
+                            '-',
                             'Projected Stats...',
                                 [
                                     'Athletic Import',
-                                    'Bangers Import',
-                                    'Daily Faceoff Import',
+                                    # 'Bangers Import',
+                                    # 'Daily Faceoff Import',
                                     'Dobber Import',
-                                    'DtZ Import',
+                                    # 'DtZ Import',
                                     'Fantrax Import',
                                 ],
                         ]
@@ -3085,6 +3088,38 @@ class HockeyPool:
                         # commands = 'cd C:\\Users\\Roy\\Documents\\GitHub\\vfhl\\python && C:\\Users\\Roy\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\waitress-serve.exe  --port 5000 --call main:create_app'
                         # # Execute the commands
                         # subprocess.Popen('cmd.exe /K ' + commands)
+
+                    elif event == 'Start "Daily VFHL Activities"':
+                        task_path = "\\Hockey Pool"
+                        task_name = "Daily VFHL Activities"
+                        # # check if task already running
+                        # cmd = f'powershell.exe "Get-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\" | Select-Object -Property State"'
+                        # process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                        # result = process.communicate()[0].decode()
+                        # # Parse the result string to get the state of the task
+                        # state = result.split('\n')[2].strip()
+                        # if state == 'Running':
+                        #     cmd = f'powershell.exe "Stop-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
+                        #     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                        #     result = process.communicate()[0].decode()
+                        # else: # state == '-----'
+                        #     ...
+                        # # get task info
+                        # cmd = f'powershell.exe "Get-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\" | Get-ScheduledTaskInfo"'
+                        # process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                        # result = process.communicate()[0]
+                        #  # Parse the result string to get the values of interest
+                        # lines = result.splitlines()
+                        # last_run_time = next(line.split(': ')[1] for line in lines if 'LastRunTime' in line)
+                        # last_task_result = next(line.split(': ')[1] for line in lines if 'LastTaskResult' in line)
+                        # next_run_time = next(line.split(': ')[1] for line in lines if 'NextRunTime' in line)
+                        # # Display the values in a PySimpleGUI dialog
+                        # sg.popup('Task Info', f'Last Run Time: {last_run_time}\nLast Task Result: {last_task_result}\nNext Run Time: {next_run_time}')
+                        # run task
+                        cmd = f'powershell.exe "Start-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
+                        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                        result = process.communicate()[0]
+                        ...
 
                     elif event == 'Get Pool Standings':
                         self.get_pool_standings()
