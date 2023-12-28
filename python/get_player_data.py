@@ -2161,8 +2161,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
         'columns': [
             {'title': 'sel', 'table column': 'checkbox'},
             {'title': 'list rank', 'runtime column': 'rank', 'data_group': 'general', 'format': eval(f_0_decimals)},
-            {'title': 'score rank', 'runtime column': 'rank overall', 'data_group': 'general', 'format': eval(f_0_decimals), 'hide': True, 'search_builder': True},
-            {'title': 'sort rank', 'runtime column': 'sort rank', 'data_group': 'general', 'format': eval(f_0_decimals), 'hide': True},
+            {'title': 'score rank', 'runtime column': 'rank overall', 'data_group': 'general', 'format': eval(f_0_decimals), 'search_builder': True},
+            {'title': 'sort rank', 'runtime column': 'sort rank', 'data_group': 'general', 'format': eval(f_0_decimals)},
             {'title': 'id', 'table column': 'player_id', 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'name', 'table column': 'name', 'justify': 'left', 'search_builder': True},
             {'title': 'team id', 'table column': 'team_id', 'data_group': 'general', 'hide': True},
