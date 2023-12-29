@@ -10,7 +10,6 @@ import PySimpleGUI as sg
 
 from constants import  DATABASE
 
-generated_html_path = './python/output/html'
 # Allow unlimited dataframe columns
 pd.set_option('display.max_columns', None)
 pd.set_option('display.expand_frame_repr', False)

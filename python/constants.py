@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 import os
 
 program_data_path = os.environ['ProgramData'] # get the path of %ProgramData%
+generated_html_path = os.path.join(program_data_path, 'VFHL', 'html')
 DATABASE = os.path.join(program_data_path, 'VFHL', 'NHL Pool.db') # join the path with the database location
 
 NHL_API_BASE_URL: str = 'https://api-web.nhle.com'

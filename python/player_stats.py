@@ -30,7 +30,7 @@ from utils import (calculate_age, get_db_connection,
                    get_iso_week_start_end_dates, seconds_to_string_time, setCSS_TableStyles,
                    setCSS_TableStyles2, split_seasonID_into_component_years,
                    string_to_time)
-from utils import generated_html_path
+from constants import generated_html_path
 
 # period for rolling averages
 rolling_avg_period = 3
@@ -713,14 +713,7 @@ def manager_game_pace(season: Season, pool: 'HockeyPool'):
         games_played_per_position_table=create_gp_per_positiion_table(pool=pool, season=season),
     )
 
-    file_name = caption.replace('<b>', '')\
-                       .replace('</b>', '')\
-                       .replace('<u>', '')\
-                       .replace('</u>', '')\
-                       .replace('<br/>', '')\
-                       .strip()
-    html_path = Path(os.getcwd()) / generated_html_path
-    game_pace_html_file = f'{html_path}/{file_name}.html'
+    game_pace_html_file = f'{generated_html_path}/Manager Game Pace for the {season.name},.html'
 
     try:
         with open(game_pace_html_file, 'w', encoding="utf-8-sig") as f:
