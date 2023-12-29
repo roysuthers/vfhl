@@ -1,5 +1,6 @@
 import io
 import logging.config
+import multiprocessing
 import os
 import random
 import re
@@ -9,6 +10,7 @@ import ssl
 import subprocess
 import sys
 import textwrap
+import threading
 import traceback
 from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
@@ -2063,8 +2065,8 @@ class HockeyPool:
                 cmd = f'powershell.exe "Stop-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
                 process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
                 result = process.communicate()[0].decode()
-        else: # state == '-----'
-            ...
+            else:
+                return
 
         # Display the values in a PySimpleGUI dialog
         user_response  = sg.popup_ok_cancel('Task Info', f'Last Run Time: {last_run_time}\nLast Task Result: {last_task_result}\nNext Run Time: {next_run_time}\nDo you want to continue?')
@@ -2073,7 +2075,7 @@ class HockeyPool:
             cmd = f'powershell.exe "Start-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
             result = process.communicate()[0]
-            ...
+            ... # for debugging with a breakpoint
 
         return
 
@@ -3133,12 +3135,29 @@ class HockeyPool:
                         # subprocess.Popen('cmd.exe /K ' + commands)
 
                     elif event == 'Start Daily VFHL Scheduled Task':
-                        self.start_daily_vfhl_scheduled_task()
+                        # self.start_daily_vfhl_scheduled_task()
+                        def notify_when_done(window):
+                            # Create a process for the long running task
+                            process = multiprocessing.Process(target=self.start_daily_vfhl_scheduled_task)
+                            # Start the process
+                            process.start()
+                            # Wait for the process to finish
+                            process.join()
+                            # Use the window.write_event_value method to generate an event
+                            window.write_event_value('Daily_VFHL_Scheduled_Task_DONE', None)
+
+                        # Create a thread that will run the notify_when_done function
+                        thread = threading.Thread(target=notify_when_done, args=(window,))
+                        # Start the thread. This will return immediately and the notify_when_done function will run in the background.
+                        thread.start()
+
+                    elif event == 'Daily_VFHL_Scheduled_Task_DONE':
+                        sg.popup('Task Info', '"Start Daily VFHL Scheduled Task" has completed')
 
                     elif event == 'Get Pool Standings':
-                        self.get_pool_standings()
-                        update_pool_teams_tab = True
-                        refresh_pool_team_config = True
+                                        self.get_pool_standings()
+                                        update_pool_teams_tab = True
+                                        refresh_pool_team_config = True
 
                 except Exception as e:
                     # sg.popup_error_with_traceback('Hockey Pool', 'Exception: ',  f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
