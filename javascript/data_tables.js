@@ -508,7 +508,18 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         { targets: Array.from(sktr_category_heatmap_columns),
                             createdCell: function (td, cellData, rowData, row, col) {
                                 colourizeCell(td, col, rowData);
+                                // Show z-score value in tooltip
+                                let idx = Array.from(sktr_category_heatmap_columns).indexOf(col);
+                                let col_idx = Array.from(sktr_category_z_score_heatmap_columns)[idx];
+                                $(td).attr('title', rowData[col_idx]);
+                            }
+                        },
 
+                        // skater sog_pp_idx heatmap
+                        // TDL: This doesn't work
+                        { targets: Array.from([sog_pp_idx]),
+                            createdCell: function (td, cellData, rowData, row, col) {
+                                colourizeCell(td, col, rowData);
                             }
                         },
 
@@ -516,6 +527,10 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         { targets: Array.from(goalie_category_heatmap_columns),
                             createdCell: function (td, cellData, rowData, row, col) {
                                 colourizeCell(td, col, rowData);
+                                // Show z-score value in tooltip
+                                let idx = Array.from(goalie_category_heatmap_columns).indexOf(col);
+                                let col_idx = Array.from(goalie_category_z_score_heatmap_columns)[idx];
+                                $(td).attr('title', rowData[col_idx]);
                             }
                         },
 
@@ -523,6 +538,10 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         { targets: Array.from(sktr_category_z_score_heatmap_columns),
                             createdCell: function (td, cellData, rowData, row, col) {
                                 colourizeCell(td, col, rowData);
+                                // Show category value in tooltip
+                                let idx = Array.from(sktr_category_z_score_heatmap_columns).indexOf(col);
+                                let col_idx = Array.from(sktr_category_heatmap_columns)[idx];
+                                $(td).attr('title', rowData[col_idx]);
                             }
                         },
 
@@ -530,6 +549,10 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         { targets: Array.from(goalie_category_z_score_heatmap_columns),
                             createdCell: function (td, cellData, rowData, row, col) {
                                 colourizeCell(td, col, rowData);
+                                // Show category value in tooltip
+                                let idx = Array.from(goalie_category_z_score_heatmap_columns).indexOf(col);
+                                let col_idx = Array.from(goalie_category_heatmap_columns)[idx];
+                                $(td).attr('title', rowData[col_idx]);
                             }
                         },
 
@@ -3507,7 +3530,7 @@ function updateColumnIndexes(columns) {
     z_tk_idx = columns.findIndex(column => column.title === 'z-tk');
     z_wins_idx = columns.findIndex(column => column.title === 'z-w');
 
-    sktr_category_heatmap_columns = new Set([points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, penalties_idx]);
+    sktr_category_heatmap_columns = new Set([points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, tk_idx, hits_idx, blk_idx, pim_idx, penalties_idx]);
     goalie_category_heatmap_columns = new Set([wins_idx, saves_idx, gaa_idx, saves_percent_idx]);
     sktr_category_z_score_heatmap_columns = new Set([z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx, z_penalties_idx]);
     goalie_category_z_score_heatmap_columns = new Set([z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx]);
