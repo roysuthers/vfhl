@@ -1,6 +1,5 @@
 import io
 import logging.config
-import multiprocessing
 import os
 import random
 import re
@@ -16,7 +15,6 @@ from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from inspect import isfunction
-from multiprocessing import Process
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Tuple, Union
@@ -36,6 +34,7 @@ import injuries
 import player_lines
 import player_stats as ps
 from clsFantrax import Fantrax
+from clsMoneyPuck import MoneyPuck
 from clsNHL_API import NHL_API
 from clsPlayer import Player
 from clsPoolTeam import PoolTeam
@@ -694,7 +693,11 @@ class HockeyPool:
                                            .replace('<tbody>', '\n<tbody>')\
                                            .replace('<td ', '\n<td ')
 
-        if len(data_frames) == 1:
+        if len(data_frames) == 0:
+            text = message
+            html = f'{message}\n<br /><pre>{footer}</pre>'
+
+        elif len(data_frames) == 1:
             table=tabulate(data_frames[0], headers=headers, tablefmt="grid", numalign="center", showindex=True)
 
             text = f"{message}\n{table}"
@@ -898,6 +901,56 @@ class HockeyPool:
             return df_temp
 
         return data
+
+    def getMoneyPuckData(self, season: Season, batch: bool=False):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text('Download MoneyPuck data...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window('Download MoneyPuck data', layout, finalize=True, modal=True)
+
+            msg = 'Downloading Skater data from MoneyPuck...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=10)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            moneyPuck = MoneyPuck(season=season)
+            moneyPuck.downloadData(season=season, dialog=dialog, batch=batch)
+            del moneyPuck
+
+        except Exception as e:
+            if batch:
+                logger.error(repr(e))
+                raise
+            else:
+                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+
+        finally:
+            msg = 'MoneyPuck download completed...'
+            if batch:
+                logger.info(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
 
     def get_pool_standings(self, batch: bool=False):
 
@@ -1868,6 +1921,8 @@ class HockeyPool:
                                 'Get Teams',
                                 ],
                             '-',
+                            'Get MoneyPuck Data',
+                            '-',
                             'Update Player Injuries',
                             'Update Player Lines',
                             '-',
@@ -2056,7 +2111,7 @@ class HockeyPool:
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         result = process.communicate()[0].decode()
         # Parse the result string to get the state of the task
-        state = result.split('\n')[2].strip()
+        state = result.split('\n')[3].strip()
         if state == 'Running':
             # ask if task should be killed
             user_response  = sg.popup_ok_cancel('Task Info', f'Task is still running.\nLast Run Time: {last_run_time}\nLast Task Result: {last_task_result}\nNext Run Time: {next_run_time}\n Do you want to kill it?')
@@ -2073,8 +2128,7 @@ class HockeyPool:
         if user_response == 'OK':
             # run task
             cmd = f'powershell.exe "Start-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            result = process.communicate()[0]
+            process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, check=True)
             ... # for debugging with a breakpoint
 
         return
@@ -3063,6 +3117,9 @@ class HockeyPool:
                         refresh_pool_team_config = True
                         refresh_pool_team_roster_config = True
 
+                    elif event == 'Get MoneyPuck Data':
+                        self.getMoneyPuckData(season=season)
+
                     elif event == 'Update Player Injuries':
                         self.updatePlayerInjuries(suppress_prompt=True)
                         update_pool_teams_tab = True
@@ -3127,32 +3184,8 @@ class HockeyPool:
                         # Execute the commands
                         subprocess.Popen('cmd.exe /K ' + commands)
 
-                        # # Set the PYTHONPATH environment variable
-                        # os.environ['PYTHONPATH'] = 'C:\\Users\\Roy\\Documents\\GitHub\\vfhl\\python;' + os.environ.get('PYTHONPATH', '')
-                        # # commands = 'cd C:\\Users\\Roy\\Documents\\GitHub\\vfhl\\python && C:\\Users\\Roy\\AppData\\Local\\Programs\\Python\\Python310\\python.exe main.py'
-                        # commands = 'cd C:\\Users\\Roy\\Documents\\GitHub\\vfhl\\python && C:\\Users\\Roy\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\waitress-serve.exe  --port 5000 --call main:create_app'
-                        # # Execute the commands
-                        # subprocess.Popen('cmd.exe /K ' + commands)
-
                     elif event == 'Start Daily VFHL Scheduled Task':
-                        # self.start_daily_vfhl_scheduled_task()
-                        def notify_when_done(window):
-                            # Create a process for the long running task
-                            process = multiprocessing.Process(target=self.start_daily_vfhl_scheduled_task)
-                            # Start the process
-                            process.start()
-                            # Wait for the process to finish
-                            process.join()
-                            # Use the window.write_event_value method to generate an event
-                            window.write_event_value('Daily_VFHL_Scheduled_Task_DONE', None)
-
-                        # Create a thread that will run the notify_when_done function
-                        thread = threading.Thread(target=notify_when_done, args=(window,))
-                        # Start the thread. This will return immediately and the notify_when_done function will run in the background.
-                        thread.start()
-
-                    elif event == 'Daily_VFHL_Scheduled_Task_DONE':
-                        sg.popup('Task Info', '"Start Daily VFHL Scheduled Task" has completed')
+                        self.start_daily_vfhl_scheduled_task()
 
                     elif event == 'Get Pool Standings':
                                         self.get_pool_standings()

@@ -227,6 +227,8 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         wins = ('wins', stat_type_agg_method),
         wins_ot = ('wins_ot', stat_type_agg_method),
         wins_so = ('wins_so', stat_type_agg_method),
+        xGoals = ('xGoals', stat_type_agg_method),
+        xGoalsAgainst = ('xGoalsAgainst', stat_type_agg_method),
     )
 
     # if stats have not been yet been retrieved from nhl rest api, for the current week, df_agg_stats will be emtpy
@@ -401,11 +403,15 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
     # quality starts as percent of starts
     quality_starts_as_percent = df_agg_stats['quality_starts'].div(df_agg_stats['games_started']).round(3) * 100
 
+    # goalie's goals saved above expected (GSAx)
+    goals_saved_above_expected = df_agg_stats['xGoalsAgainst'].sub(df_agg_stats['goals_against'])
+
     df_agg_stats = df_agg_stats.assign(
         corsi_for_percent = corsi_for_percent,
         evg_ipp = evg_ipp,
         fenwick_for_percent = fenwick_for_percent,
         gaa = gaa,
+        goals_saved_above_expected = goals_saved_above_expected,
         missed_shots_metal = missed_shots_metal,
         percent_of_team_games = percent_of_team_games,
         pp_goals_p120 = pp_goals_p120,
@@ -909,7 +915,12 @@ def calc_scoring_category_means(df: pd.DataFrame):
         all_categories = goalie_categories
         for cat in all_categories:
             if columns_series.isin([cat]).any():
-                mean_cat[cat] = df_g[cat].mean()
+                if cat == 'gaa':
+                    mean_cat[cat] = df_g['goals_against'].sum() / df_g['toi_sec'].sum() * 3600
+                elif cat == 'save%':
+                    mean_cat[cat] = df_g['saves'].sum() / df_g['shots_against'].sum()
+                else:
+                    mean_cat[cat] = df_g[cat].mean()
             else:
                 mean_cat[cat] = None
 
@@ -1251,7 +1262,7 @@ def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     d_cat_scores = df.loc[mask_d & minimum_one_game_mask, d_cats] / std_d_cats[d_cats]
     f_cat_scores = df.loc[mask_f & minimum_one_game_mask, sktr_cats] / std_sktr_cats[sktr_cats]
-    g_cat_scores = pd.concat([df.loc[mask_g & minimum_one_game_mask, g_count_cats] / std_g_cats[g_count_cats], -1 * ((df.loc[mask_g & minimum_one_game_mask, g_ratio_gaa] - 3.00) / std_g_cats[g_ratio_gaa]), (df.loc[mask_g & minimum_one_game_mask, g_ratio_save_pc] - 0.900) / std_g_cats[g_ratio_save_pc]], axis=1)
+    g_cat_scores = pd.concat([df.loc[mask_g & minimum_one_game_mask, g_count_cats] / std_g_cats[g_count_cats], -1 * ((df.loc[mask_g & minimum_one_game_mask, g_ratio_gaa] - mean_cat['gaa']) / std_g_cats[g_ratio_gaa]), (df.loc[mask_g & minimum_one_game_mask, g_ratio_save_pc] - mean_cat['save%']) / std_g_cats[g_ratio_save_pc]], axis=1)
 
     for score_type in score_types:
 
@@ -1397,21 +1408,27 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
 
         if season_or_date_radios == 'date':
             sql = textwrap.dedent(f'''\
-                select *
+                select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
                 from PlayerGameStats pgs
+                     left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
+                     left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
                 where pgs.date between '{from_date}' and '{to_date}' and pgs.game_type == '{game_type}'
             ''')
         else: #  season_or_date_radios == 'season'
             if from_season_id != to_season_id:
                 sql = textwrap.dedent(f'''\
-                    select *
+                    select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
                     from PlayerGameStats pgs
+                         left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
+                         left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
                     where pgs.seasonID between {from_season_id} and {to_season_id} and pgs.game_type == '{game_type}'
                 ''')
             else:
                 sql = textwrap.dedent(f'''\
-                    select *
+                    select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
                     from PlayerGameStats pgs
+                         left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
+                         left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
                     where pgs.seasonID == {from_season_id} and pgs.game_type == '{game_type}'
                 ''')
 
@@ -2050,7 +2067,7 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
         # Create an empty DataFrame with the column names
         df_api = pd.DataFrame(columns=['player_id', 'on_ice_sv_pct', 'on_ice_sh_pct', 'pdo'])
 
-    # Merge df_player_stats_reset and df
+    # Merge df_player_stats and df_api
     df_player_stats = pd.merge(df_player_stats, df_api, how='left', on='player_id')
 
     # merge with current player info
@@ -2315,6 +2332,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
         'columns': [
             {'title': 'pts', 'table column': 'points', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'g', 'table column': 'goals', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
+            {'title': 'xG', 'table column': 'xGoals', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'a', 'table column': 'assists', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'ppp', 'table column': 'points_pp', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'sog', 'table column': 'shots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
@@ -2357,6 +2375,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie', 'search_builder': True},
             {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
+            {'title': 'xGA', 'table column': 'xGoalsAgainst', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
+            {'title': 'GAAx', 'table column': 'goals_saved_above_expected', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }

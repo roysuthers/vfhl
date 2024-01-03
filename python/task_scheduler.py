@@ -1,10 +1,12 @@
 import logging.config
 import os
+import smtplib
 import sys
 import traceback
 from datetime import date, timedelta
 
 import ujson as json
+from pandas.io.formats.style import Styler
 
 from clsHockeyPool import HockeyPool
 from clsNHL_API import NHL_API
@@ -132,10 +134,25 @@ def main():
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
+                logger.info('Calling hp.getMoneyPuckData() for watch_list.')
+                try:
+                    hp.getMoneyPuckData(season=season, batch=True)
+                except:
+                    logger.info('Exception in call to hp.getMoneyPuckData() returned.')
+                logger.info('Call to hp.getMoneyPuckData() returned.')
+
+        logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
+        caption = f'Task Scheduler: "Daily VFHL Scheduled Task" notification'
+        recipients = ['rsuthers@cogeco.ca']
+        email_sent = hp.formatAndSendEmail(data_frames=[], html_tables=[], message='"Daily VFHL Scheduled Task" notification', recipients=recipients, subject=caption, show_sent_msg=False, batch=True, dialog=None)
+        if email_sent is True:
+            logger.debug('Email sent...')
+        else:
+            logger.debug('Email not sent...')
+
         logger.info('"Task scheduler" completed')
 
     except Exception as e:
-        # trace_back = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
         logger.error(repr(e))
         return
 

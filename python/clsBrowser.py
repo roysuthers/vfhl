@@ -10,9 +10,14 @@ import PySimpleGUI as sg
 
 class Browser:
 
-    def __enter__(self):
+    def __init__(self, browser_download_dir=''):
 
+        self.browser_download_dir = browser_download_dir
         self.browser = self.setBrowserOptions()
+
+        return
+
+    def __enter__(self):
 
         return self.browser
 
@@ -32,6 +37,13 @@ class Browser:
             options = Options()
             options.headless = True
             options.profile = str(PROFILE_PATH)
+
+            if self.browser_download_dir != '':
+                options.set_preference("browser.download.folderList", 2)
+                options.set_preference("browser.download.manager.showWhenStarting", False)
+                options.set_preference("browser.download.dir", self.browser_download_dir)
+                options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream")
+
             driver_path  = Path(os.getcwd()) / DRIVER_NAME
             self.browser = Firefox(executable_path=str(driver_path) , options=options)
 

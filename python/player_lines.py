@@ -268,6 +268,9 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                         names = [lines[i:i+3] for i in range(start_index, end_index, 3)]
                         for i, line in enumerate(names):
                             for player in line:
+                                # for when a forward line isn't a full complement
+                                if player == 'Defensive Pairings':
+                                    break
                                 if player not in player_data:
                                     player_data[player] = {'Line': f'{i+1}'}
                     elif section == 'Defensive Pairings':
@@ -275,6 +278,9 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                         names = [lines[i:i+2] for i in range(start_index+1, end_index, 2)]
                         for i, pair in enumerate(names):
                             for player in pair:
+                                # for when a defensive pair isn't a full complement
+                                if player == '1st Powerplay Unit':
+                                    break
                                 if player not in player_data:
                                     player_data[player] = {'Line': f'{i+1}'}
                     elif section == '1st Powerplay Unit':

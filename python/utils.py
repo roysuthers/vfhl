@@ -1,5 +1,7 @@
 import numpy as np
+import os
 import sqlite3
+import zipfile
 from datetime import date, datetime, timedelta
 from numpy import int32, int64
 from time import strftime, strptime
@@ -291,3 +293,25 @@ def string_to_time(string: str) -> int:
         seconds = 0
 
     return seconds
+
+def unzip_file(zip_filepath: str, dest_dir: str=''):
+
+    if dest_dir == '':
+        dest_dir = zip_filepath.rsplit('\\', 1)[0]
+    else:
+        os.makedirs(dest_dir, exist_ok=True)
+
+    if not os.path.exists(zip_filepath):
+        raise FileNotFoundError(f"File {zip_filepath} does not exist.")
+    if not os.access(zip_filepath, os.R_OK):
+        raise PermissionError(f"Do not have the necessary permissions to read the zip file.")
+    if not os.access(dest_dir, os.W_OK):
+        raise PermissionError(f"Do not have the necessary permissions to write to the destination directory.")
+
+    try:
+        with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
+            zip_ref.extractall(dest_dir)
+    except zipfile.BadZipFile:
+        raise ValueError(f"The file {zip_filepath} is not a zip file.")
+    except Exception as e:
+        raise RuntimeError(f"An unexpected error occurred: {e}")
