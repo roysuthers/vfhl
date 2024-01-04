@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 import traceback
 from pathlib import Path
 from selenium.webdriver import Firefox
@@ -13,13 +14,27 @@ class Browser:
     def __init__(self, browser_download_dir=''):
 
         self.browser_download_dir = browser_download_dir
-        self.browser = self.setBrowserOptions()
+        # self.browser = self.setBrowserOptions()
+        self.browser = None
 
         return
 
     def __enter__(self):
 
-        return self.browser
+        # Create a separate thread to initialize the browser
+        thread = threading.Thread(target=self.init_browser)
+        thread.start()
+
+        # Wait for the specified amount of time
+        thread.join(timeout=30)  # Set timeout to 30 seconds
+
+        if thread.is_alive():
+            raise Exception("Initialization is taking longer than expected...")
+        else:
+            return self.browser
+
+    def init_browser(self):
+        self.browser = self.setBrowserOptions()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
 
@@ -51,6 +66,7 @@ class Browser:
 
         except FileNotFoundError:
             raise Exception(f"Driver not found: {driver_path}")
+            return None
 
         except Exception as e:
             sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
