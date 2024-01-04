@@ -153,12 +153,11 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         blocked = ('blocked', stat_type_agg_method),
         corsi_against = ('corsi_against', 'sum'),
         corsi_for = ('corsi_for', 'sum'),
-        first_game = ('date', 'first'),
-        last_game = ('date', 'last'),
         evg_on_ice = ('evg_on_ice', 'sum'),
         evg_point = ('evg_point', 'sum'),
         fenwick_against = ('fenwick_against', 'sum'),
         fenwick_for = ('quality_starts', 'sum'),
+        first_game = ('date', 'first'),
         game_misconduct_penalties = ('game_misconduct_penalties', stat_type_agg_method),
         games = ('player_id', 'count'),
         games_started = ('games_started', 'sum'),
@@ -170,9 +169,16 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         goals_ps = ('goals_ps', 'sum'),
         goals_sh = ('goals_sh', 'sum'),
         hattricks = ('hattricks', stat_type_agg_method),
+        highDangerShots = ('highDangerShots', stat_type_agg_method),
+        highDangerShotsOnGoal = ('highDangerShotsOnGoal', stat_type_agg_method),
         hits = ('hits', stat_type_agg_method),
+        last_game = ('date', 'last'),
+        lowDangerShots = ('lowDangerShots', stat_type_agg_method),
+        lowDangerShotsOnGoal = ('lowDangerShotsOnGoal', stat_type_agg_method),
         major_penalties = ('major_penalties', stat_type_agg_method),
         match_penalties = ('match_penalties', stat_type_agg_method),
+        mediumDangerShots = ('mediumDangerShots', stat_type_agg_method),
+        mediumDangerShotsOnGoal = ('mediumDangerShotsOnGoal', stat_type_agg_method),
         minor_penalties = ('minor_penalties', stat_type_agg_method),
         misconduct_penalties = ('misconduct_penalties', stat_type_agg_method),
         missed_shots = ('missed_shots', stat_type_agg_method),
@@ -202,28 +208,28 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         team_id = ('team_id', 'last'),
         team_toi_pp_pg_sec = ('team_toi_pp_sec', 'mean'),
         team_toi_pp_sec = ('team_toi_pp_sec', 'sum'),
-        team_toi_pp_sec_ewm= ('team_toi_pp_sec_ewm', 'last'),
         team_toi_pp_sec_ewm_base = ('team_toi_pp_sec_ewm', average_used_for_trending),
+        team_toi_pp_sec_ewm= ('team_toi_pp_sec_ewm', 'last'),
         toi_even_pg_sec = ('toi_even_sec', 'mean'),
         toi_even_sec = ('toi_even_sec', 'sum'),
-        toi_even_sec_ewm= ('toi_even_sec_ewm', 'last'),
         toi_even_sec_ewm_base = ('toi_even_sec_ewm', average_used_for_trending),
+        toi_even_sec_ewm= ('toi_even_sec_ewm', 'last'),
         toi_pg_sec = ('toi_sec', 'mean'),
-        toi_pp_pg_ratio_ewm= ('toi_pp_pg_ratio_ewm', 'last'),
         toi_pp_pg_ratio_ewm_base = ('toi_pp_pg_ratio_ewm', average_used_for_trending),
+        toi_pp_pg_ratio_ewm= ('toi_pp_pg_ratio_ewm', 'last'),
         toi_pp_pg_sec = ('toi_pp_sec', 'mean'),
         toi_pp_ratio = ('toi_pp_ratio', 'last'),
         toi_pp_sec = ('toi_pp_sec', 'sum'),
         toi_pp_sec_base = ('toi_pp_sec', 'mean'),
-        toi_pp_sec_ewm= ('toi_pp_sec_ewm', 'last'),
         toi_pp_sec_ewm_base = ('toi_pp_sec_ewm', average_used_for_trending),
+        toi_pp_sec_ewm= ('toi_pp_sec_ewm', 'last'),
         toi_sec = ('toi_sec', 'sum'),
-        toi_sec_ewm= ('toi_sec_ewm', 'last'),
         toi_sec_ewm_base = ('toi_sec_ewm', average_used_for_trending),
+        toi_sec_ewm= ('toi_sec_ewm', 'last'),
         toi_sh_pg_sec = ('toi_sh_sec', 'mean'),
         toi_sh_sec = ('toi_sh_sec', 'sum'),
-        toi_sh_sec_ewm= ('toi_sh_sec_ewm', 'last'),
         toi_sh_sec_ewm_base = ('toi_sh_sec_ewm', average_used_for_trending),
+        toi_sh_sec_ewm= ('toi_sh_sec_ewm', 'last'),
         wins = ('wins', stat_type_agg_method),
         wins_ot = ('wins_ot', stat_type_agg_method),
         wins_so = ('wins_so', stat_type_agg_method),
@@ -1408,7 +1414,7 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
 
         if season_or_date_radios == 'date':
             sql = textwrap.dedent(f'''\
-                select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
+                select pgs.*, mpss.xGoals, mpss.highDangerShots, mpss.highDangerShotsOnGoal, mpss.lowDangerShots, mpss.lowDangerShotsOnGoal, mpss.mediumDangerShots, mpss.mediumDangerShotsOnGoal, mpgs.xGoalsAgainst
                 from PlayerGameStats pgs
                      left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
                      left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
@@ -1417,7 +1423,7 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
         else: #  season_or_date_radios == 'season'
             if from_season_id != to_season_id:
                 sql = textwrap.dedent(f'''\
-                    select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
+                    select pgs.*, mpss.xGoals, mpss.highDangerShots, mpss.highDangerShotsOnGoal, mpss.lowDangerShots, mpss.lowDangerShotsOnGoal, mpss.mediumDangerShots, mpss.mediumDangerShotsOnGoal, mpgs.xGoalsAgainst
                     from PlayerGameStats pgs
                          left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
                          left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
@@ -1425,7 +1431,7 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
                 ''')
             else:
                 sql = textwrap.dedent(f'''\
-                    select pgs.*, mpss.xGoals, mpgs.xGoalsAgainst
+                    select pgs.*, mpss.xGoals, mpss.highDangerShots, mpss.highDangerShotsOnGoal, mpss.lowDangerShots, mpss.lowDangerShotsOnGoal, mpss.mediumDangerShots, mpss.mediumDangerShotsOnGoal, mpgs.xGoalsAgainst
                     from PlayerGameStats pgs
                          left outer join MoneypuckSkaterStats mpss on mpss.game_id=pgs.gamePk and mpss.player_id=pgs.player_id
                          left outer join MoneypuckGoalieStats mpgs on mpgs.game_id=pgs.gamePk and mpgs.player_id=pgs.player_id
@@ -2323,6 +2329,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'toi sh pg (ewm)', 'table column': 'toi_sh_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
 
             {'title': 'sh%', 'table column': 'shooting%', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater', 'search_builder': True},
+            {'title': 'hd sat', 'table column': 'highDangerShots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater'},
+            {'title': 'hd sog', 'table column': 'highDangerShotsOnGoal', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater'},
         ],
     }
 
@@ -2332,7 +2340,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
         'columns': [
             {'title': 'pts', 'table column': 'points', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'g', 'table column': 'goals', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
-            {'title': 'xG', 'table column': 'xGoals', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True, 'search_builder': True},
+            {'title': 'xg', 'table column': 'xGoals', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'a', 'table column': 'assists', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'ppp', 'table column': 'points_pp', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'sog', 'table column': 'shots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
@@ -2375,8 +2383,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie', 'search_builder': True},
             {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
-            {'title': 'xGA', 'table column': 'xGoalsAgainst', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
-            {'title': 'GAAx', 'table column': 'goals_saved_above_expected', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie'},
+            {'title': 'xga', 'table column': 'xGoalsAgainst', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
+            {'title': 'gsax', 'table column': 'goals_saved_above_expected', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie'},
             {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }

@@ -203,6 +203,12 @@ class MoneyPuck:
                 # shotsRebound = ('shotRebound', 'sum'),
                 goals = ('goal', 'sum'),
                 shotsOnGoal = ('shotWasOnGoal', 'sum'),
+                lowDangerShots = ('xGoal', lambda x: (x < 0.08).sum()),
+                mediumDangerShots = ('xGoal', lambda x: ((x >= 0.08) & (x < 0.2)).sum()),
+                highDangerShots = ('xGoal', lambda x: (x >= 0.2).sum()),
+                lowDangerShotsOnGoal = ('xGoal', lambda x: ((df.loc[x.index]['shotWasOnGoal'] == 1) & (x < 0.08)).sum()),
+                mediumDangerShotsOnGoal = ('xGoal', lambda x: ((df.loc[x.index]['shotWasOnGoal'] == 1) & (x >= 0.08) & (x < 0.2)).sum()),
+                highDangerShotsOnGoal = ('xGoal', lambda x: ((df.loc[x.index]['shotWasOnGoal'] == 1) & (x >= 0.2)).sum()),
                 teamAbbr = ('teamCode', 'first'),
                 xGoals = ('xGoal', 'sum'),
                 xRebounds = ('xRebound', 'sum'),
@@ -211,7 +217,7 @@ class MoneyPuck:
             # Drop the 'shooterPlayerId' column
             df_skaters = df_skaters.drop('shooterPlayerId', axis=1)
             # Convert the desired columns to integers
-            cols_to_convert = ['season', 'game_id', 'player_id', 'goals', 'shotsOnGoal']
+            cols_to_convert = ['season', 'game_id', 'player_id', 'goals', 'shotsOnGoal', 'lowDangerShots', 'mediumDangerShots', 'highDangerShots', 'lowDangerShotsOnGoal', 'mediumDangerShotsOnGoal', 'highDangerShotsOnGoal']
             for col in cols_to_convert:
                 df_skaters[col] = df_skaters[col].astype(int)
 
