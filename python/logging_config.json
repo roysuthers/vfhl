@@ -47,6 +47,10 @@
         "player_lines":{
             "handlers":["fileHandler"],
             "level":"INFO"
+        },
+        "clsMoneyPuck":{
+            "handlers":["fileHandler"],
+            "level":"INFO"
         }
     }
 }

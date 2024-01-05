@@ -945,7 +945,7 @@ class HockeyPool:
         finally:
             msg = 'MoneyPuck download completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)

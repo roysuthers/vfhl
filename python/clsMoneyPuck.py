@@ -71,7 +71,7 @@ class MoneyPuck:
                     except TimeoutException:
                         attempts += 1
                         if attempts >= 3:
-                            msg = f"Timeout occurred for {daily_faceoff_com} on the 3rd attempt. Returning without getting MoneyPuck data."
+                            msg = f"Timeout occurred for {self.dataPage} on the 3rd attempt. Returning without getting MoneyPuck data."
                             if dialog:
                                 dialog['-PROG-'].update(msg)
                                 event, values = dialog.read(timeout=10)
@@ -82,7 +82,7 @@ class MoneyPuck:
                             return
                         else:
                             if batch is True:
-                                logger.info(f"Timeout occurred for {daily_faceoff_com}. Retrying...")
+                                logger.info(f"Timeout occurred for {self.dataPage}. Retrying...")
 
                         # Respectful scraping: sleep to avoid hitting the server with too many requests
                         time.sleep(10)
@@ -122,25 +122,38 @@ class MoneyPuck:
 
                     shots_zip_file_path = ''
                     for link in links:
+
+                        href = link.get_attribute('href')
+                        if batch:
+                            logger.debug(f'Scrolling "{href}" into view...')
                         # Scroll the element into view
                         browser.execute_script("arguments[0].scrollIntoView();", link)
 
                         # Check if the file exists and delete it before downloading
-                        filename = os.path.basename(link.get_attribute('href'))
+                        filename = os.path.basename(href)
                         file_path = os.path.join(self.browser_download_dir, filename)
+                        if batch:
+                            logger.debug(f'Checking existence of "{file_path}"...')
                         if filename.endswith('.zip'):
                             shots_zip_file_path = file_path
                         file_paths.append(file_path)
                         if os.path.exists(file_path):
+                            if batch:
+                                logger.debug(f'Removing "{filename}" from "{self.browser_download_dir}"...')
                             os.remove(file_path)
 
                         # Use JavaScript to click the element
+                        if batch:
+                            logger.debug(f'Clinking "{href}" to start download...')
                         browser.execute_script("arguments[0].click();", link)
+                        if batch:
+                            logger.debug(f'Download starting for "{href}"...')
                         # Add a delay to allow the download to start
                         time.sleep(1)
 
-
                     # Wait for all downloads to complete
+                    if batch:
+                        logger.debug('Waiting for all downloads to complete...')
                     for file_path in file_paths:
                         # Add a delay before checking if the file is still being downloaded
                         time.sleep(1)
@@ -163,6 +176,8 @@ class MoneyPuck:
             else:
                 logger.debug(msg)
 
+            if batch:
+                logger.debug(f'Unzipping "{shots_zip_file_path}"...')
             # unzip shots file
             unzip_file(shots_zip_file_path)
 
@@ -176,6 +191,8 @@ class MoneyPuck:
                 logger.debug(msg)
 
             prefix = os.path.basename(self.browser_download_dir)[:4] + '0'
+            if batch:
+                logger.debug(f'Loading "{shots_zip_file_path}" into dataframe...')
             df = pd.read_csv(shots_zip_file_path)
             df['game_id'] = prefix + df['game_id'].astype(str)
             df['season'] = season.id
@@ -192,6 +209,8 @@ class MoneyPuck:
             # # Update the 'date' column using the 'map' function
             # df['date'] = df['game_id'].map(game_dates)
 
+            if batch:
+                logger.debug(f'Aggregating "{shots_zip_file_path}" dataframe for skaters...')
             df_skaters = df.sort_values(['season','game_id']).groupby(['season','game_id','shooterPlayerId'], as_index=False).agg(
                 season = ('season', 'first'),
                 game_id = ('game_id', 'first'),
@@ -221,6 +240,8 @@ class MoneyPuck:
             for col in cols_to_convert:
                 df_skaters[col] = df_skaters[col].astype(int)
 
+            if batch:
+                logger.debug(f'Aggregating "{shots_zip_file_path}" dataframe for goalies...')
             df_goalies = df[df['goalieIdForShot'] != 0].sort_values(['season','game_id']).groupby(['season','game_id','goalieIdForShot'], as_index=False).agg(
                 season = ('season', 'first'),
                 game_id = ('game_id', 'first'),
@@ -254,6 +275,8 @@ class MoneyPuck:
                 logger.debug(msg)
 
             # save the shots data to the database
+            if batch:
+                logger.debug(f'Updating "MoneypuckShots" table...')
             with get_db_connection() as conn:
                 table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckShots';"
                 table_exists = conn.execute(table_check_query).fetchone() is not None
@@ -262,6 +285,8 @@ class MoneyPuck:
                 df.to_sql('MoneypuckShots', con=conn, if_exists='append', index=False)
 
             # save the skaters data to the database
+            if batch:
+                logger.debug(f'Updating "MoneypuckSkaterStats" table...')
             with get_db_connection() as conn:
                 table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckSkaterStats';"
                 table_exists = conn.execute(table_check_query).fetchone() is not None
@@ -270,6 +295,8 @@ class MoneyPuck:
                 df_skaters.to_sql('MoneypuckSkaterStats', con=conn, if_exists='append', index=False)
 
             # save the goalies data to the database
+            if batch:
+                logger.debug(f'Updating "MoneypuckGoalieStats" table...')
             with get_db_connection() as conn:
                 table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckGoalieStats';"
                 table_exists = conn.execute(table_check_query).fetchone() is not None
@@ -277,9 +304,13 @@ class MoneyPuck:
                     conn.execute(f"DELETE FROM MoneypuckGoalieStats WHERE season = {season.id}")
                 df_goalies.to_sql('MoneypuckGoalieStats', con=conn, if_exists='append', index=False)
 
+            if batch:
+                logger.debug('Loading "skaters.csv" into dataframe...')
             df = pd.read_csv(self.browser_download_dir + '\\skaters.csv')
             df['season'] = season.id
             # save the skaters data to the database
+            if batch:
+                logger.debug(f'Updating "MoneypuckSkaters" table...')
             with get_db_connection() as conn:
                 table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckSkaters';"
                 table_exists = conn.execute(table_check_query).fetchone() is not None
@@ -287,9 +318,13 @@ class MoneyPuck:
                     conn.execute(f"DELETE FROM MoneypuckSkaters WHERE season = {season.id}")
                 df.to_sql('MoneypuckSkaters', con=conn, if_exists='append', index=False)
 
+            if batch:
+                logger.debug('Loading "goalies.csv" into dataframe...')
             df = pd.read_csv(self.browser_download_dir + '\\goalies.csv')
             df['season'] = season.id
             # save the goalies data to the database
+            if batch:
+                logger.debug(f'Updating "MoneypuckGoalies" table...')
             with get_db_connection() as conn:
                 table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckGoalies';"
                 table_exists = conn.execute(table_check_query).fetchone() is not None
