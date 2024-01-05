@@ -2305,7 +2305,7 @@ class HockeyPool:
         finally:
             msg = 'Update of player injuries completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
@@ -2422,7 +2422,7 @@ class HockeyPool:
         finally:
             msg = 'Update of player lines completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
@@ -2510,7 +2510,7 @@ class HockeyPool:
         finally:
             msg = 'Update of Fantrax player info completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
@@ -2588,7 +2588,7 @@ class HockeyPool:
         finally:
             msg = 'Update of pool team rosters completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
@@ -2667,7 +2667,7 @@ class HockeyPool:
         finally:
             msg = 'Update of pool teams completed...'
             if batch:
-                logger.info(msg)
+                logger.debug(msg)
             else:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
