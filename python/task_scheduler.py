@@ -134,7 +134,7 @@ def main():
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
-                logger.info('Calling hp.getMoneyPuckData() for watch_list.')
+                logger.info('Calling hp.getMoneyPuckData().')
                 try:
                     hp.getMoneyPuckData(season=season, batch=True)
                 except:
