@@ -483,26 +483,39 @@ def calc_z_scores(df: pd.DataFrame):
         # with low number of games, to determine stat value for "games above average"
 
         skaters_mask = df.eval(skaters_filter)
+        forward_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
         minimum_one_game_mask = df.eval(minimum_one_game_filter)
 
         df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df.loc[forward_mask & minimum_one_game_mask]
         df_d = df.loc[defense_mask & minimum_one_game_mask]
         df_g = df.loc[goalie_mask & minimum_one_game_mask]
 
         ##########################################################################
         # skaters
         ##########################################################################
-        z_goals = (df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']
-        z_assists = (df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']
-        z_pim = (df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']
-        z_penalties = (df_sktr['penalties'] - mean_cat['sktr penalties']) / np.where(std_cat['sktr penalties'] != 0, std_cat['sktr penalties'], np.nan)
-        z_shots = (df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']
-        z_points_pp = (df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']
-        z_hits = (df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']
-        z_blocked = (df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']
-        z_takeaways = (df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']
+        if positionalScoring is True:
+            z_goals = pd.concat([(df_f['goals'] - mean_cat['f goals']) / std_cat['f goals'], (df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']])
+            z_assists = pd.concat([(df_f['assists'] - mean_cat['f assists']) / std_cat['f assists'], (df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']])
+            z_pim = pd.concat([(df_f['pim'] - mean_cat['f pim']) / std_cat['f pim'], (df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']])
+            z_penalties = pd.concat([(df_f['penalties'] - mean_cat['f penalties']) / std_cat['f penalties'], (df_d['penalties'] - mean_cat['d penalties']) / std_cat['d penalties']])
+            z_shots = pd.concat([(df_f['shots'] - mean_cat['f shots']) / std_cat['f shots'], (df_d['shots'] - mean_cat['d shots']) / std_cat['d shots']])
+            z_points_pp = pd.concat([(df_f['points_pp'] - mean_cat['f points_pp']) / std_cat['f points_pp'], (df_d['points_pp'] - mean_cat['d points_pp']) / std_cat['d points_pp']])
+            z_hits = pd.concat([(df_f['hits'] - mean_cat['f hits']) / std_cat['f hits'], (df_d['hits'] - mean_cat['d hits']) / std_cat['d hits']])
+            z_blocked = pd.concat([(df_f['blocked'] - mean_cat['f blocked']) / std_cat['f blocked'], (df_d['blocked'] - mean_cat['d blocked']) / std_cat['d blocked']])
+            z_takeaways = pd.concat([(df_f['takeaways'] - mean_cat['f takeaways']) / std_cat['f takeaways'], (df_d['takeaways'] - mean_cat['d takeaways']) / std_cat['d takeaways']])
+        else:
+            z_goals = (df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']
+            z_assists = (df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']
+            z_pim = (df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']
+            z_penalties = (df_sktr['penalties'] - mean_cat['sktr penalties']) / np.where(std_cat['sktr penalties'] != 0, std_cat['sktr penalties'], np.nan)
+            z_shots = (df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']
+            z_points_pp = (df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']
+            z_hits = (df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']
+            z_blocked = (df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']
+            z_takeaways = (df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']
 
         ##########################################################################
         # defense
@@ -1290,7 +1303,10 @@ def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
             if score_type != 'score':
                 sktr_scores = pd.concat([d_scores, f_scores])
                 # Rank as a percentage of the maximum value
-                scores[score_type] = round((sktr_scores / sktr_scores.max()) * 100, 0)
+                if positionalScoring is True:
+                    scores[score_type] = pd.concat([round((f_scores / f_scores.max()) * 100, 0), round((d_scores / d_scores.max()) * 100, 0)])
+                else:
+                    scores[score_type] = round((sktr_scores / sktr_scores.max()) * 100, 0)
 
         if score_type in g_score_types:
             g_scores = g_cat_scores[g_cats].sum(axis=1)
@@ -1305,7 +1321,10 @@ def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
 
         if score_type == 'score':
             score_scores = pd.concat([d_scores, f_scores, g_scores])
-            scores[score_type] = round((score_scores / score_scores.max()) * 100, 0)
+            if positionalScoring is True:
+                scores[score_type] = pd.concat([round((f_scores / f_scores.max()) * 100, 0), round((d_scores / d_scores.max()) * 100, 0), round((g_scores / g_scores.max()) * 100, 0)])
+            else:
+                scores[score_type] = round((score_scores / score_scores.max()) * 100, 0)
 
         if score_type == 'score':
             prefix = ''
@@ -1964,10 +1983,13 @@ def rankings_to_html(df: pd.DataFrame, config: Dict) -> dict:
     # return the JSON object as a response to the frontend
     return data_dict
 
-def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative', projection_source: str='') -> dict:
+def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative', projection_source: str='', positional_scoring: bool=False) -> dict:
 
     global statType
     statType = stat_type
+
+    global positionalScoring
+    positionalScoring = positional_scoring
 
     if game_type == 'R':
         season_type = 'Regular Season'

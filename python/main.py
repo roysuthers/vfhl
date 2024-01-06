@@ -28,8 +28,9 @@ def create_app():
         stat_type = request.args.get('statType')
         pool_id = request.args.get('poolID')
         projection_source = request.args.get('projectionSource')
+        positional_scoring = True if request.args.get('positionalScoring') == 'true' else False
 
-        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source)
+        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source, positional_scoring)
         if player_data is None:
             return jsonify({})
 

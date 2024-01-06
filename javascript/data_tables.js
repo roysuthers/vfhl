@@ -3123,7 +3123,7 @@ function getPlayerData(seasonOrDateRadios, callback) {
     // Set the base URL for the Flask API endpoint
     const baseUrl = 'http://localhost:5000/player-data';
 
-    const queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason.value}&toSeason=${toSeason.value}&fromDate=${fromDate.value}&toDate=${toDate.value}&poolID=${poolID.value}&gameType=${gameType.value==='Regular Season' ? 'R' : gameType.value==='Playoffs' ? 'P' : 'Prj'}&statType=${statType.value}&projectionSource=${projectionSource.value}`;
+    const queryParams = `?seasonOrDateRadios=${seasonOrDateRadios}&fromSeason=${fromSeason.value}&toSeason=${toSeason.value}&fromDate=${fromDate.value}&toDate=${toDate.value}&poolID=${poolID.value}&gameType=${gameType.value==='Regular Season' ? 'R' : gameType.value==='Playoffs' ? 'P' : 'Prj'}&statType=${statType.value}&projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
     $.get(baseUrl + queryParams, function(playerData) {
@@ -3506,11 +3506,8 @@ function updateColumnIndexes(columns) {
     z_g_ratio_combo_idx = columns.findIndex(column => column.title === 'z-ratio combo');
     z_g_ratio_calc_idx = columns.findIndex(column => column.title === 'z-ratio');
     z_gaa_idx = columns.findIndex(column => column.title === 'z-gaa');
-    // z_goals_hits_pim_idx = columns.findIndex(column => column.title === 'z-goals +hits +penalties');
     z_goals_idx = columns.findIndex(column => column.title === 'z-g');
-    // z_hits_blk_idx = columns.findIndex(column => column.title === 'z-hits +blks');
     z_hits_idx = columns.findIndex(column => column.title === 'z-hits');
-    // z_hits_pim_idx = columns.findIndex(column => column.title === 'z-hits +penalties');
     offense_score_idx = columns.findIndex(column => column.title === 'sktr offense score');
     z_offense_combo_idx = columns.findIndex(column => column.title === 'z-offense combo');
     z_offense_calc_idx = columns.findIndex(column => column.title === 'z-offense');
@@ -3525,7 +3522,6 @@ function updateColumnIndexes(columns) {
     z_saves_percent_idx = columns.findIndex(column => column.title === 'z-sv%');
     score_idx = columns.findIndex(column => column.title === 'score');
     z_score_calc_idx = columns.findIndex(column => column.title === 'z-score');
-    // z_sog_hits_blk_idx = columns.findIndex(column => column.title === 'z-sog +hits +blk');
     z_sog_idx = columns.findIndex(column => column.title === 'z-sog');
     z_tk_idx = columns.findIndex(column => column.title === 'z-tk');
     z_wins_idx = columns.findIndex(column => column.title === 'z-w');
