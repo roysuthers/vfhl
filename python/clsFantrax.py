@@ -168,7 +168,7 @@ class Fantrax:
                         transactions.append({'player_name': player_name, 'team_abbr': team_abbr, 'comment': comment})
                 except Exception as e:
                     if dialog:
-                        sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                     else:
                         logger.error(repr(e))
                     return
@@ -186,7 +186,7 @@ class Fantrax:
 
         except Exception as e:
             if dialog:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             else:
                 logger.error(repr(e))
 
@@ -410,7 +410,7 @@ class Fantrax:
 
                     except Exception as e:
                         if dialog:
-                            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                         else:
                             logger.error(repr(e))
                         return dfPlayers
@@ -422,7 +422,7 @@ class Fantrax:
 
         except Exception as e:
             if dialog:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             else:
                 logger.error(repr(e))
 
@@ -555,7 +555,7 @@ class Fantrax:
         except Exception as e:
             if dialog:
                 dialog.close()
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                 raise e
             else:
                 logger.error(repr(e))
@@ -616,7 +616,7 @@ class Fantrax:
 
                 except Exception as e:
                     if dialog:
-                        sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                     else:
                         logger.error(repr(e))
                     return
@@ -659,7 +659,7 @@ class Fantrax:
 
                     except Exception as e:
                         if dialog:
-                            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                         else:
                             logger.error(repr(e))
                         return
@@ -669,7 +669,7 @@ class Fantrax:
 
         except Exception as e:
             if dialog:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             else:
                 logger.error(repr(e))
 
@@ -810,7 +810,7 @@ class Fantrax:
                     logger.error(repr(e))
                     raise
                 else:
-                    sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                 return
 
         return
@@ -863,7 +863,7 @@ class Fantrax:
                     logger.error(repr(e))
                     raise
                 else:
-                    sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                 return
 
         return
