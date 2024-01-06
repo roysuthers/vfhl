@@ -2329,8 +2329,8 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'toi sh pg (ewm)', 'table column': 'toi_sh_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
 
             {'title': 'sh%', 'table column': 'shooting%', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater', 'search_builder': True},
-            {'title': 'hd sat', 'table column': 'highDangerShots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater'},
-            {'title': 'hd sog', 'table column': 'highDangerShotsOnGoal', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater'},
+            {'title': 'hd sat', 'table column': 'highDangerShots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True},
+            {'title': 'hd sog', 'table column': 'highDangerShotsOnGoal', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True},
         ],
     }
 
