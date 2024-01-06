@@ -78,11 +78,11 @@ class MoneyPuck:
                                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                                     return
                             else:
-                                logger.info(msg)
+                                logger.error(msg)
                             return
                         else:
                             if batch is True:
-                                logger.info(f"Timeout occurred for {self.dataPage}. Retrying...")
+                                logger.debug(f"Timeout occurred for {self.dataPage}. Retrying...")
 
                         # Respectful scraping: sleep to avoid hitting the server with too many requests
                         time.sleep(10)
@@ -162,7 +162,7 @@ class MoneyPuck:
 
                 except Exception as e:
                     if dialog:
-                        sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                     else:
                         logger.error(repr(e))
                     return
@@ -197,17 +197,6 @@ class MoneyPuck:
             df['game_id'] = prefix + df['game_id'].astype(str)
             df['season'] = season.id
             df['playerPositionThatDidEvent'] = df['playerPositionThatDidEvent'].apply(lambda x: 'LW' if x == 'L' else ('RW' if x == 'R' else x))
-
-            # df['date'] = ''
-            # # Create a dictionary to store the game dates
-            # game_dates = {}
-            # # For each unique 'game_id'...
-            # for game_id in df['game_id'].unique():
-            #     response = requests.get(f'https://api-web.nhle.com/v1/gamecenter/{game_id}/landing')
-            #     game_date = response.json()['gameDate']
-            #     game_dates[game_id] = game_date
-            # # Update the 'date' column using the 'map' function
-            # df['date'] = df['game_id'].map(game_dates)
 
             if batch:
                 logger.debug(f'Aggregating "{shots_zip_file_path}" dataframe for skaters...')
@@ -334,7 +323,7 @@ class MoneyPuck:
 
         except Exception as e:
             if dialog:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             else:
                 logger.error(repr(e))
 
@@ -393,7 +382,7 @@ class MoneyPuck:
 
         except Exception as e:
             if dialog:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             else:
                 logger.error(repr(e))
 
