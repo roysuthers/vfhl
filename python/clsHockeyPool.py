@@ -123,7 +123,7 @@ class HockeyPool:
             NHL_API().get_player_stats(season=season)
 
         except Exception as e:
-            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         return
 
@@ -214,7 +214,7 @@ class HockeyPool:
                     recipients.append(choice)
 
         except Exception as e:
-            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception:', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         return recipients
 
@@ -541,7 +541,7 @@ class HockeyPool:
                 logger.error(repr(e))
                 raise
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'Email NHL team transactions completed...'
@@ -940,7 +940,7 @@ class HockeyPool:
                 logger.error(repr(e))
                 raise
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'MoneyPuck download completed...'
@@ -1084,7 +1084,7 @@ class HockeyPool:
                 points_by_week_pivot.to_sql('PoolTeamPointsByWeekPivot', con=connection, if_exists='replace', index=False)
 
         except Exception as e:
-            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             raise
 
         return
@@ -1127,7 +1127,7 @@ class HockeyPool:
             runtime_columns = [x['runtime column'] for x in pool_team_config['columns'] if 'runtime column' in x]
 
         except Exception as e:
-            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         return df
 
@@ -2280,7 +2280,7 @@ class HockeyPool:
                     if player_json is None:
                         msg = f'There are no NHL players with name "{playerName}".'
                         if batch:
-                            logger.debug(msg)
+                            logger.error(msg)
                         else:
                             sg.popup_ok(msg)
                         continue
@@ -2395,7 +2395,7 @@ class HockeyPool:
                     else:
                         msg = f'NHL player "{name}" (id={player_json["playerId"]}) not found in Player table.'
                     if batch:
-                        logger.info(msg)
+                        logger.error(msg)
                     else:
                         sg.popup_ok(msg)
                     continue
@@ -2408,9 +2408,7 @@ class HockeyPool:
                     try:
                         connection.execute(sql)
                     except Exception as e:
-                        tb = traceback.format_exc()
-                        sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', e, tb)
-
+                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         except Exception as e:
             if batch:
@@ -2505,7 +2503,7 @@ class HockeyPool:
                 logger.error(repr(e))
                 raise
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'Update of Fantrax player info completed...'
@@ -2583,7 +2581,7 @@ class HockeyPool:
             if batch:
                 logger.error(repr(e))
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(__exc=type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'Update of pool team rosters completed...'
@@ -2662,7 +2660,7 @@ class HockeyPool:
             if batch:
                 logger.error(repr(e))
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'Update of pool teams completed...'
@@ -3193,8 +3191,7 @@ class HockeyPool:
                                         refresh_pool_team_config = True
 
                 except Exception as e:
-                    # sg.popup_error_with_traceback('Hockey Pool', 'Exception: ',  f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
-                    sg.popup_error_with_traceback('Hockey Pool', 'Exception: ', repr(e))
+                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
                     # set these to False, to prevent eternal looping
                     refresh_pool_team_config = False
                     refresh_pool_team_roster_config = False
