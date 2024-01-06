@@ -213,7 +213,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                     columns: columns,
 
                     // initial table order
-                    order: [[z_score_idx, "desc"]],
+                    order: [[score_idx, "desc"]],
 
                     // disable zebra strips on alternating rows; it messes with heatmap colours
                     stripeClasses: [],
@@ -436,7 +436,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             ev_ipp_idx, pp_ipp_idx, corsi_for_percent_idx,
                             z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_blk_idx, z_hits_idx, z_pim_idx, z_tk_idx,
                             z_wins_idx, z_saves_idx, z_saves_percent_idx, z_gaa_idx,
-                            z_score_idx, z_offense_idx, z_peripheral_idx, z_combo_idx, z_g_count_idx, z_g_ratio_idx
+                            score_idx, offense_score_idx, peripheral_score_idx, z_combo_idx, g_count_score_idx, g_ratio_score_idx
                         ]},
                             {targets: [last_game_idx], searchBuilder: { defaultCondition: '>' } },
                         {searchBuilder: { defaultCondition: '<=' }, targets: [age_idx, career_games_idx, pdo_idx, shooting_percent_idx]},
@@ -1658,7 +1658,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     }
 
     if (draft_manager === 'Banshee') {
-        playerStatsTable.order([z_score_calc_idx, 'desc'], [z_score_idx, 'desc']);
+        playerStatsTable.order([z_score_calc_idx, 'desc'], [score_idx, 'desc']);
 
         // Manually select player
         // mySearchBuilderCriteria = {
@@ -1689,7 +1689,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
         }
 
     } else if (draft_manager === "Fowler's Flyers") {
-        playerStatsTable.order([z_score_idx, 'desc']);
+        playerStatsTable.order([score_idx, 'desc']);
     } else {
         // playerStatsTable.order([fantrax_score_idx, 'desc']);
         // playerStatsTable.order([adp_idx, 'asc']); // This will generally keep players with few project games from being auto-picked
@@ -2040,9 +2040,9 @@ function calcManagerSummaryZScores(playerStatsTable) {
     rosteredPlayers = [];
     for (let manager in groupedData) {
         for (let position in groupedData[manager]) {
-            // Sort data based on z_score_idx in descending order
+            // Sort data based on score_idx in descending order
             groupedData[manager][position].sort(function(a, b) {
-                return b[z_score_idx] - a[z_score_idx];
+                return b[score_idx] - a[score_idx];
             });
 
             // Filter top rows based on position
@@ -2056,7 +2056,7 @@ function calcManagerSummaryZScores(playerStatsTable) {
         }
 
         // Add the top row from either 'F' or 'D' that is not already in the top 9 for 'F' or top 6 for 'D'
-        let additionalRow = ['F', 'D'].map(pos => groupedData[manager][pos]).flat().sort((a, b) => b[z_score_idx] - a[z_score_idx]).find(item => !rosteredPlayers.includes(item));
+        let additionalRow = ['F', 'D'].map(pos => groupedData[manager][pos]).flat().sort((a, b) => b[score_idx] - a[score_idx]).find(item => !rosteredPlayers.includes(item));
         if (additionalRow) {
             rosteredPlayers.push(additionalRow);
         }
@@ -2073,16 +2073,16 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
         let manager = row[manager_idx];
 
-        let zScore = parseFloat(row[z_score_idx]);
+        let zScore = parseFloat(row[score_idx]);
         if (isNaN(zScore)) {zScore = 0;}
 
-        let zScoreSktr = parseFloat(row[z_score_idx]);
+        let zScoreSktr = parseFloat(row[score_idx]);
         if (isNaN(zScoreSktr) || row[position_idx] === 'G') {zScoreSktr = 0;}
 
-        let zOffense = parseFloat(row[z_offense_idx]);
+        let zOffense = parseFloat(row[offense_score_idx]);
         if (isNaN(zOffense)) {zOffense = 0;}
 
-        let zPeripheral = parseFloat(row[z_peripheral_idx]);
+        let zPeripheral = parseFloat(row[peripheral_score_idx]);
         if (isNaN(zPeripheral)) {zPeripheral = 0;}
 
         let points = parseFloat(row[z_points_idx]);
@@ -2112,13 +2112,13 @@ function calcManagerSummaryZScores(playerStatsTable) {
         let penaltyMinutes = parseFloat(row[z_pim_idx]);
         if (isNaN(penaltyMinutes) || penaltyMinutes < 0) {penaltyMinutes = 0;}
 
-        let zScoreG = parseFloat(row[z_score_idx]);
+        let zScoreG = parseFloat(row[score_idx]);
         if (isNaN(zScoreG) || row[position_idx] !== 'G') {zScoreG = 0;}
 
-        let zCountG = parseFloat(row[z_g_count_idx]);
+        let zCountG = parseFloat(row[g_count_score_idx]);
         if (isNaN(zCountG) || row[position_idx] !== 'G') {zCountG = 0;}
 
-        let zRatioG = parseFloat(row[z_g_ratio_idx]);
+        let zRatioG = parseFloat(row[g_ratio_score_idx]);
         if (isNaN(zRatioG) || row[position_idx] !== 'G') {zRatioG = 0;}
 
         let wins = parseFloat(row[z_wins_idx]);
@@ -2399,7 +2399,7 @@ function colourizeCell(cell, idx, rowData) {
         }
         if (z_score_summary_heatmap_columns.has(idx)) {
             const category = categoryLookup[idx];
-            if ( idx === z_score_idx ) {
+            if ( idx === score_idx ) {
                 const min = min_cat[`${category}`];
                 const max = max_cat[`${category}`];
                 const center = mean_cat[`${category}`];
@@ -2524,7 +2524,7 @@ function columnVisibility() {
     let sort_columns = table.order();
     for ( let sort_info of sort_columns ) {
         if ( sort_info[0] == 0 || table.column( sort_info[0] ).visible() == false ) {
-            sort_columns = [z_score_idx, "desc"];
+            sort_columns = [score_idx, "desc"];
             break;
         }
     }
@@ -3499,10 +3499,10 @@ function updateColumnIndexes(columns) {
     z_assists_idx = columns.findIndex(column => column.title === 'z-a');
     z_blk_idx = columns.findIndex(column => column.title === 'z-blk');
     z_combo_idx = columns.findIndex(column => column.title === 'z-combo');
-    z_g_count_idx = columns.findIndex(column => column.title === 'g count score');
+    g_count_score_idx = columns.findIndex(column => column.title === 'g count score');
     z_g_count_combo_idx = columns.findIndex(column => column.title === 'z-count combo');
     z_g_count_calc_idx = columns.findIndex(column => column.title === 'z-count');
-    z_g_ratio_idx = columns.findIndex(column => column.title === 'g ratio score');
+    g_ratio_score_idx = columns.findIndex(column => column.title === 'g ratio score');
     z_g_ratio_combo_idx = columns.findIndex(column => column.title === 'z-ratio combo');
     z_g_ratio_calc_idx = columns.findIndex(column => column.title === 'z-ratio');
     z_gaa_idx = columns.findIndex(column => column.title === 'z-gaa');
@@ -3511,11 +3511,11 @@ function updateColumnIndexes(columns) {
     // z_hits_blk_idx = columns.findIndex(column => column.title === 'z-hits +blks');
     z_hits_idx = columns.findIndex(column => column.title === 'z-hits');
     // z_hits_pim_idx = columns.findIndex(column => column.title === 'z-hits +penalties');
-    z_offense_idx = columns.findIndex(column => column.title === 'sktr offense score');
+    offense_score_idx = columns.findIndex(column => column.title === 'sktr offense score');
     z_offense_combo_idx = columns.findIndex(column => column.title === 'z-offense combo');
     z_offense_calc_idx = columns.findIndex(column => column.title === 'z-offense');
     z_penalties_idx = columns.findIndex(column => column.title === 'z-penalties');
-    z_peripheral_idx = columns.findIndex(column => column.title === 'sktr peripheral score');
+    peripheral_score_idx = columns.findIndex(column => column.title === 'sktr peripheral score');
     z_peripheral_combo_idx = columns.findIndex(column => column.title === 'z-peripheral combo');
     z_peripheral_calc_idx = columns.findIndex(column => column.title === 'z-peripheral');
     z_pim_idx = columns.findIndex(column => column.title === 'z-pim');
@@ -3523,7 +3523,7 @@ function updateColumnIndexes(columns) {
     z_ppp_idx = columns.findIndex(column => column.title === 'z-ppp');
     z_saves_idx = columns.findIndex(column => column.title === 'z-sv');
     z_saves_percent_idx = columns.findIndex(column => column.title === 'z-sv%');
-    z_score_idx = columns.findIndex(column => column.title === 'score');
+    score_idx = columns.findIndex(column => column.title === 'score');
     z_score_calc_idx = columns.findIndex(column => column.title === 'z-score');
     // z_sog_hits_blk_idx = columns.findIndex(column => column.title === 'z-sog +hits +blk');
     z_sog_idx = columns.findIndex(column => column.title === 'z-sog');
@@ -3534,9 +3534,9 @@ function updateColumnIndexes(columns) {
     goalie_category_heatmap_columns = new Set([wins_idx, saves_idx, gaa_idx, saves_percent_idx]);
     sktr_category_z_score_heatmap_columns = new Set([z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx, z_penalties_idx]);
     goalie_category_z_score_heatmap_columns = new Set([z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx]);
-    z_score_summary_heatmap_columns = new Set([z_score_idx, z_offense_idx, z_peripheral_idx, z_g_count_idx, z_g_ratio_idx]);
-    sktr_z_score_summary_heatmap_columns = new Set([z_score_idx, z_offense_idx, z_peripheral_idx]);
-    goalie_z_score_summary_heatmap_columns = new Set([z_score_idx, z_g_count_idx, z_g_ratio_idx]);
+    z_score_summary_heatmap_columns = new Set([score_idx, offense_score_idx, peripheral_score_idx, g_count_score_idx, g_ratio_score_idx]);
+    sktr_z_score_summary_heatmap_columns = new Set([score_idx, offense_score_idx, peripheral_score_idx]);
+    goalie_z_score_summary_heatmap_columns = new Set([score_idx, g_count_score_idx, g_ratio_score_idx]);
 
     heatmap_columns = [...Array.from(z_score_summary_heatmap_columns), ...Array.from(sktr_category_heatmap_columns), ...Array.from(goalie_category_heatmap_columns), ...Array.from(sktr_category_z_score_heatmap_columns), ...Array.from(goalie_category_z_score_heatmap_columns)]
     combo_columns = [z_combo_idx, z_offense_combo_idx, z_peripheral_combo_idx, z_g_count_combo_idx, z_g_ratio_combo_idx];
@@ -3544,39 +3544,35 @@ function updateColumnIndexes(columns) {
     categoryLookup = {
         [assists_idx]: 'assists',
         [blk_idx]: 'blocked',
+        [g_count_score_idx]: 'g_count',
+        [g_ratio_score_idx]: 'g_ratio',
         [gaa_idx]: 'gaa',
         [goals_idx]: 'goals',
         [hits_idx]: 'hits',
+        [offense_score_idx]: 'offense',
         [penalties_idx]: 'penalties',
+        [peripheral_score_idx]: 'peripheral',
         [pim_idx]: 'pim',
         [points_idx]: 'points',
         [ppp_idx]: 'points_pp',
         [saves_idx]: 'saves',
         [saves_percent_idx]: 'save%',
+        [score_idx]: 'score',
         [sog_idx]: 'shots',
         [sog_pp_idx]: 'shots_powerplay',
         [tk_idx]: 'takeaways',
         [wins_idx]: 'wins',
         [z_assists_idx]: 'z_assists',
         [z_blk_idx]: 'z_blocked',
-        [z_g_count_idx]: 'z_g_count',
-        [z_g_ratio_idx]: 'z_g_ratio',
         [z_gaa_idx]: 'z_gaa',
-        // [z_goals_hits_pim_idx]: 'z_goals_hits_pim',
         [z_goals_idx]: 'z_goals',
-        // [z_hits_blk_idx]: 'z_hits_blk',
         [z_hits_idx]: 'z_hits',
-        // [z_hits_pim_idx]: 'z_hits_pim',
-        [z_offense_idx]: 'z_offense',
         [z_penalties_idx]: 'z_penalties',
-        [z_peripheral_idx]: 'z_peripheral',
         [z_pim_idx]: 'z_pim',
         [z_points_idx]: 'z_points',
         [z_ppp_idx]: 'z_points_pp',
         [z_saves_idx]: 'z_saves',
         [z_saves_percent_idx]: 'z_save%',
-        [z_score_idx]: 'z_score',
-        // [z_sog_hits_blk_idx]: 'z_sog_hits_blk',
         [z_sog_idx]: 'z_shots',
         [z_tk_idx]: 'z_takeaways',
         [z_wins_idx]: 'z_wins',

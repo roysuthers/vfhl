@@ -66,8 +66,8 @@ goalie_z_categories = ['z_wins', 'z_saves', 'z_gaa', 'z_save%']
 # Summary z-score columns
 ###############################################
 # stat z-scores
-sktr_summary_z_scores = ['z_score', 'z_offense', 'z_peripheral']
-g_summary_z_scores = ['z_score', 'z_g_count', 'z_g_ratio']
+sktr_summary_z_scores = ['score', 'offense', 'peripheral']
+g_summary_z_scores = ['score', 'g_count', 'g_ratio']
 ###############################################
 ###############################################
 
@@ -550,17 +550,17 @@ def calc_z_scores(df: pd.DataFrame):
         z_scores = pd.Series(z_scores)
 
         df = df.assign(
-            z_score = z_scores['score'],
-            z_offense = z_scores['offense'],
-            z_peripheral = z_scores['peripheral'],
-            z_g_count = z_scores['g_count'],
-            z_g_ratio = z_scores['g_ratio'],
+            score = z_scores['score'],
+            offense = z_scores['offense'],
+            peripheral = z_scores['peripheral'],
+            g_count = z_scores['g_count'],
+            g_ratio = z_scores['g_ratio'],
             # calc z-scores are calculated in javascript code
-            z_score_calc = '',
-            z_offense_calc = '',
-            z_peripheral_calc = '',
-            z_count_calc = '',
-            z_ratio_calc = '',
+            z_score = '',
+            z_offense = '',
+            z_peripheral = '',
+            z_count = '',
+            z_ratio = '',
         )
 
         z_combos = calc_z_combo(df=df, score_types=['score', 'offense', 'peripheral', 'g_count', 'g_ratio'])
@@ -593,17 +593,17 @@ def calc_projected_draft_round(df_player_stats: pd.DataFrame):
         df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
         # Find potential draft round using z-score
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('z_score', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
         df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-offense
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('z_offense', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
         df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-peripheral
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('z_peripheral', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
         df_player_stats['pdr5'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
@@ -658,7 +658,7 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
 
     # see https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-a-pandas-dataframe
     # cols = df_copy.select_dtypes('number').columns  # limits to a (float), b (int) and e (timedelta)
-    cols=['z_score', 'z_offense', 'z_peripheral']
+    cols=['score', 'offense', 'peripheral']
     df_sub = df_copy.loc[:, cols]
     # OPTION 1: z-score filter: z-score < 3
     # lim = np.abs((df_sub - df_sub.mean()) / df_sub.std(ddof=0)) < 3
@@ -1229,7 +1229,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
 
 def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
 
-    sktr_score_types = ['score', 'offense', 'peripheral', 'sog_hits_blk', 'hits_blk', 'goals_hits_pim', 'hits_pim']
+    sktr_score_types = ['score', 'offense', 'peripheral']
     g_score_types = ['score', 'g_count', 'g_ratio']
     # Concatenate the lists
     score_types = sktr_score_types + g_score_types
@@ -1277,18 +1277,6 @@ def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
             sktr_cats = sktr_periph_cats
         elif score_type == 'offense':
             sktr_cats = sktr_offense_cats
-        elif score_type == 'sog_hits_blk':
-            d_only_cats = []
-            sktr_cats = sktr_sog_hits_blk_cats
-        elif score_type == 'hits_blk':
-            d_only_cats = []
-            sktr_cats = sktr_hits_blk_cats
-        elif score_type == 'goals_hits_pim':
-            d_only_cats = []
-            sktr_cats = sktr_goals_hits_pim_cats
-        elif score_type == 'hits_pim':
-            d_only_cats = []
-            sktr_cats = sktr_hits_pim_cats
         elif score_type == 'g_count':
             g_cats = g_count_cats
         elif score_type == 'g_ratio':
@@ -1320,11 +1308,11 @@ def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
             scores[score_type] = round((score_scores / score_scores.max()) * 100, 0)
 
         if score_type == 'score':
-            prefix = 'z_'
+            prefix = ''
         elif score_type in sktr_score_types:
-            prefix = 'sktr z_'
+            prefix = 'sktr '
         elif score_type in g_score_types:
-            prefix = 'g z_'
+            prefix = 'g '
 
         min_cat[f'{prefix}{score_type}'] = scores[score_type].min()
         max_cat[f'{prefix}{score_type}'] = scores[score_type].max()
@@ -2132,11 +2120,11 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     df_k['checkbox'] = '<input type="checkbox" class="row-checkbox"></input>'
 
     # rank will renumber based on the rows currently displayed in datatable
-    df_k['rank'] = df_k['z_score'].rank(method='min', na_option='bottom', ascending=False)
+    df_k['rank'] = df_k['score'].rank(method='min', na_option='bottom', ascending=False)
     # overall rank
-    df_k['rank overall'] = df_k['z_score'].rank(method='min', na_option='bottom', ascending=False)
+    df_k['rank overall'] = df_k['score'].rank(method='min', na_option='bottom', ascending=False)
     # sort rank
-    df_k['sort rank'] = df_k['z_score'].rank(method='min', na_option='bottom', ascending=False)
+    df_k['sort rank'] = df_k['score'].rank(method='min', na_option='bottom', ascending=False)
 
     config = stats_config(position='all')
     column_headings = get_config_column_headings(config=config)
@@ -2239,21 +2227,21 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     zscore_summary_columns = {
         'columns': [
-            {'title': 'score', 'runtime column': 'z_score', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
-            {'title': 'z-score', 'runtime column': 'z_score_calc', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
+            {'title': 'score', 'runtime column': 'score', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
+            {'title': 'z-score', 'runtime column': 'z_score', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
             {'title': 'z-combo', 'runtime column': 'z_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum')},
-            {'title': 'sktr offense score', 'runtime column': 'z_offense', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
-            {'title': 'z-offense', 'runtime column': 'z_offense_calc', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'sktr offense score', 'runtime column': 'offense', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'z-offense', 'runtime column': 'z_offense', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-offense combo', 'runtime column': 'z_offense_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
-            {'title': 'sktr peripheral score', 'runtime column': 'z_peripheral', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
-            {'title': 'z-peripheral', 'runtime column': 'z_peripheral_calc', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'sktr peripheral score', 'runtime column': 'peripheral', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'z-peripheral', 'runtime column': 'z_peripheral', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-peripheral combo', 'runtime column': 'z_peripheral_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
 
-            {'title': 'g count score', 'runtime column': 'z_g_count', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
-            {'title': 'z-count', 'runtime column': 'z_count_calc', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'g count score', 'runtime column': 'g_count', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'z-count', 'runtime column': 'z_count', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-count combo', 'runtime column': 'z_g_count_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
-            {'title': 'g ratio score', 'runtime column': 'z_g_ratio', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
-            {'title': 'z-ratio', 'runtime column': 'z_ratio_calc', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'g ratio score', 'runtime column': 'g_ratio', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'z-ratio', 'runtime column': 'z_ratio', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-ratio combo', 'runtime column': 'z_g_ratio_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
 
         ],
