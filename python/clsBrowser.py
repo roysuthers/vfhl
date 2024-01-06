@@ -69,7 +69,7 @@ class Browser:
             return None
 
         except Exception as e:
-            sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             return None
 
         return self.browser
