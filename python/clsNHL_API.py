@@ -1860,16 +1860,14 @@ class NHL_API():
                 if batch:
                     logger.error(repr(e))
                 else:
-                    tb = traceback.format_exc()
-                    sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', e, tb)
+                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         except Exception as e:
             if batch:
                 logger.error(repr(e))
                 raise
             else:
-                tb = traceback.format_exc()
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', e, tb)
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
 
         finally:
             msg = 'clsNHL_API.get_player_stats() completed.'
@@ -2139,7 +2137,7 @@ class NHL_API():
             if batch:
                 logger.error(repr(e))
             else:
-                sg.popup_error_with_traceback(sys._getframe().f_code.co_name, 'Exception: ', ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
             raise
 
         return
