@@ -184,7 +184,8 @@ class NHL_API():
                     suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
 
                 if len(suggestions) == 0:
-                    raise RuntimeError(f'Exception: Player "{full_name}" not found at {NHL_API_SEARCH_SUGGESTIONS_URL}')
+                    # raise RuntimeError(f'Exception: Player "{full_name}" not found at {NHL_API_SEARCH_SUGGESTIONS_URL}')
+                    return None
 
                 for suggestion in suggestions:
                     if suggestion['name'].endswith(last_name):
