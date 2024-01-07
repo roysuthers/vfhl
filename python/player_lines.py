@@ -163,9 +163,9 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                     browser.get(daily_faceoff_com)
                     # If the page loads successfully, the loop will break
                     break
-                except TimeoMaxRetryErrorutException:
-                    logger.error(f'No connection could be made to "{daily_faceoff_com}" because the target machine actively refused it. Returning without getting player lines.')
-                    return pd.DataFrame.from_dict([])
+                # except TimeoMaxRetryErrorutException:
+                #     logger.error(f'No connection could be made to "{daily_faceoff_com}" because the target machine actively refused it. Returning without getting player lines.')
+                #     return pd.DataFrame.from_dict([])
                 except TimeoutException:
                     attempts += 1
                     if batch is True:
@@ -245,14 +245,19 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                         browser.get(url)
                         # If the page loads successfully, the loop will break
                         break
-                    except TimeoMaxRetryErrorutException:
-                        logger.error(f'No connection could be made to "{url}" because the target machine actively refused it. Returning without getting player lines.')
-                        return pd.DataFrame.from_dict([])
+                    # except TimeoMaxRetryErrorutException:
+                    #     logger.error(f'No connection could be made to "{url}" because the target machine actively refused it. Returning without getting player lines.')
+                    #     return pd.DataFrame.from_dict([])
                     except TimeoutException:
                         attempts += 1
                         if batch is True:
                             if attempts >= 3:
-                                logger.error(f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines.")
+                                msg = f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines."
+                                if dialog:
+                                    dialog['-PROG-'].update(msg)
+                                    event, values = dialog.read(timeout=10)
+                                else:
+                                    logger.error(msg)
                                 return pd.DataFrame.from_dict([])
                             else:
                                 logger.debug(f"Timeout occurred for {url}. Retrying...")
