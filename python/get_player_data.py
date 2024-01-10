@@ -144,7 +144,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
 
     stat_type_agg_method = eval("'sum' if stat_type == 'Cumulative' else 'mean' if stat_type == 'Per game' else per_60_minutes(df) if stat_type == 'Per 60 minutes' else ewma()")
 
-    df_agg_stats = df.sort_values(['player_id','seasonID', 'date']).groupby(['player_id'], as_index=False).agg(
+    df_agg_stats = df.sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(
         assists = ('assists', stat_type_agg_method),
         assists_gw = ('assists_gw', 'sum'),
         assists_ot = ('assists_ot', 'sum'),
@@ -197,7 +197,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         quality_starts = ('quality_starts', 'sum'),
         really_bad_starts = ('really_bad_starts', 'sum'),
         saves = ('saves', stat_type_agg_method),
-        seasonID = ('seasonID', 'last'),
+        # seasonID = ('seasonID', 'last'),
         shots = ('shots', stat_type_agg_method),
         shots_against = ('shots_against', stat_type_agg_method),
         shots_powerplay = ('shots_powerplay', stat_type_agg_method),
