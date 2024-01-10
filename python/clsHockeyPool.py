@@ -2343,22 +2343,23 @@ class HockeyPool:
                 # logger.debug(f'Return from player_lines.from_daily_fantasy_fuel() with dfPlayerLines size={len(dfPlayerLines)}')
                 logger.debug('Return from player_lines.from_daily_faceoff()')
 
-            error_msg = ''
             if len(dfPlayerLines.index) == 0:
-                error_msg = 'No player lines collected. Returning...'
-            if batch:
-                if error_msg:
-                    logger.error(error_msg)
-                    return
-            else:
-                if error_msg:
-                    dialog['-PROG-'].update(error_msg)
-                    return
+                msg = 'No player lines collected. Returning...'
+                if batch:
+                    logger.error(msg)
                 else:
-                    dialog['-PROG-'].update(f'Player lines collected for {len(dfPlayerLines.index)} players. Writing to database...')
-                event, values = dialog.read(timeout=10)
-                if event == 'Cancel' or event == sg.WIN_CLOSED:
-                    return
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=10)
+                return
+            else:
+                msg = f'Player lines collected for {len(dfPlayerLines.index)} players. Writing to database...'
+                if batch:
+                    logger.debug(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=10)
+                    if event == 'Cancel' or event == sg.WIN_CLOSED:
+                        return
 
             dfPlayerLines.to_sql('dfPlayerLines', sqlite3.connect(DATABASE), index=False, if_exists='replace')
 
