@@ -922,7 +922,8 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         let api = this.api();
                         api.rows().every(function() {
                             let data = this.data();
-                            let name = data[name_idx].match(/>(.*?)</)[1];
+                            let match = data[name_idx].match(/>(.*?)</);
+                            let name = match ? match[1] : data[name_idx];
                             let index = this.index();
                             if (!nameToIndex[name]) {
                                 nameToIndex[name] = [];
@@ -1273,18 +1274,16 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         if (state === false) { // not visible
                             if (manually_unhidden_columns.includes(column_name) === true) {
                                 manually_unhidden_columns.pop(column_name);
-                            } else {
-                                if (manually_hidden_columns.includes(column_name) === false) {
-                                    manually_hidden_columns.push(column_name);
-                                }
+                            }
+                            if (manually_hidden_columns.includes(column_name) === false) {
+                                manually_hidden_columns.push(column_name);
                             }
                         } else { // visible
                             if (manually_hidden_columns.includes(column_name) === true) {
                                 manually_hidden_columns.pop(column_name);
-                            } else {
-                                if (manually_unhidden_columns.includes(column_name) === false) {
-                                    manually_unhidden_columns.push(column_name);
-                                }
+                            }
+                            if (manually_unhidden_columns.includes(column_name) === false) {
+                                manually_unhidden_columns.push(column_name);
                             }
                         }
                     }
