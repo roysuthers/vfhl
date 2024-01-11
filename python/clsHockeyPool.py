@@ -2483,8 +2483,8 @@ class HockeyPool:
                             # minors = 1 if row.minors is True else 0
                             sql = dedent(f'''\
                                 insert or replace into FantraxPlayerInfo
-                                (player_id, player_name, nhl_team, pos, minors, rookie, watch_list, score, next_opp)
-                                values ({row.player_id}, "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
+                                (player_id, fantrax_id, player_name, nhl_team, pos, minors, rookie, watch_list, score, next_opp)
+                                values ({row.player_id}, "{row.fantrax_id}", "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
                                 ''')
                             connection.execute(sql)
                     connection.commit()

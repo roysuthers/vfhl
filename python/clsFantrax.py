@@ -200,6 +200,7 @@ class Fantrax:
 
             dfPlayers = pd.DataFrame(columns=[
                 'player_id',
+                'fantrax_id',
                 'player_name',
                 'nhl_team',
                 'pos',
@@ -344,6 +345,12 @@ class Fantrax:
                                 rookie = 1 if '(R)' in text_parts else 0
                                 pos = text_parts[i + 1]
 
+                                fantrax_id = ''
+                                s = row1.find_element(By.CLASS_NAME, 'scorer__image').get_attribute('style')
+                                match = re.search(r'hs(.*?)_', s)
+                                if match:
+                                    fantrax_id = match.group(1)
+
                                 # get player id
                                 kwargs = get_player_id_from_name(name=name, team_id=team.id, pos=pos)
                                 player = Player().fetch(**kwargs)
@@ -395,6 +402,7 @@ class Fantrax:
                             players.append(
                                 {
                                     'player_id':  0 if player.id == 0 else player.id,
+                                    'fantrax_id': fantrax_id,
                                     'player_name': name if player.id == 0 else player.full_name,
                                     'nhl_team': nhl_team,
                                     'pos': pos,

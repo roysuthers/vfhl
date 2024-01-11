@@ -1669,6 +1669,7 @@ def insert_fantrax_columns(df: pd.DataFrame, game_type: str='R'):
         dfFantraxPlayerInfo = dfFantraxPlayerInfo[~dfFantraxPlayerInfo.index.duplicated()]
 
         fantrax_score = dfFantraxPlayerInfo['score']
+        fantrax_id = dfFantraxPlayerInfo['fantrax_id']
         rookie = dfFantraxPlayerInfo['rookie'].where(dfFantraxPlayerInfo['rookie'] == 1, '').replace(1,'Yes')
 
         # if we're getting projected stats, and there are no rookies, there should be, so get from Dobber
@@ -1685,6 +1686,7 @@ def insert_fantrax_columns(df: pd.DataFrame, game_type: str='R'):
 
         df = df.assign(
             fantrax_score = fantrax_score,
+            fantrax_id = fantrax_id,
             rookie = rookie,
             minors = minors,
             watch_list = watch_list,
@@ -2167,7 +2169,14 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     # Close the database connection
     conn.close()
 
-    df_k['name'] = '<a target="_blank" href="https://www.fantrax.com/fantasy/league/' + league_id + '/players;reload=2;statusOrTeamFilter=ALL;searchName=' + df_k['name'].str.replace(' ', '%20') + '" style="color: green">' + df_k['name'] + '</a>'
+    def create_link(row, league_id):
+        if pd.notnull(row['fantrax id']) and row['fantrax id'] != '':
+            return '<a target="_blank" href="https://www.fantrax.com/player/' + row['fantrax id'] + '/' + league_id + '" style="color: green">' + row['name'] + '</a>'
+        else:
+            return '<a target="_blank" href="https://www.fantrax.com/fantasy/league/' + league_id + '/players;reload=2;statusOrTeamFilter=ALL;searchName=' + row['name'].replace(' ', '%20') + '" style="color: green">' + row['name'] + '</a>'
+
+    df_k['name'] = df_k.apply(create_link, axis=1, args=(league_id,))
+
     # df_k['team'] = '<a target="_blank" href="https://statsapi.web.nhl.com/api/v1/teams/' + df_k['team id str'] + '/roster?expand=roster.person,person.names" style="color: green">' + df_k['team'] + '</a>'
 
     ##############################################################################################
@@ -2197,6 +2206,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'score rank', 'runtime column': 'rank overall', 'data_group': 'general', 'format': eval(f_0_decimals), 'search_builder': True},
             {'title': 'sort rank', 'runtime column': 'sort rank', 'data_group': 'general', 'format': eval(f_0_decimals)},
             {'title': 'id', 'table column': 'player_id', 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'fantrax id', 'table column': 'fantrax_id', 'data_group': 'general', 'hide': True},
             {'title': 'name', 'table column': 'name', 'justify': 'left', 'search_builder': True},
             {'title': 'team id', 'table column': 'team_id', 'data_group': 'general', 'hide': True},
             {'title': 'team', 'table column': 'team_abbr', 'data_group': 'general', 'search_builder': True},
