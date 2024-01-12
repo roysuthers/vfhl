@@ -1908,60 +1908,58 @@ class HockeyPool:
 
     def menu_bar(self):
 
-        menu = [['&File',
-                        ['E&xit']],
-                    ['&Admin',
-                        [
-                            'NHL API...',
-                                [
-                                'Update Players',
-                                'Get Player Stats',
+        menu = [['&File', ['Refresh', '-', 'E&xit']],
+                ['&Admin',
+                    [
+                        'NHL API...',
+                            [
+                            'Update Players',
+                            'Get Player Stats',
+                            '-',
+                            'Get Season Info',
+                            'Get Teams',
+                            ],
+                        '-',
+                        'Get MoneyPuck Data',
+                        '-',
+                        'Update Player Injuries',
+                        'Update Player Lines',
+                        '-',
+                        'Fantrax...',
+                            [
+                                'Update Pool Teams',
                                 '-',
-                                'Get Season Info',
-                                'Get Teams',
-                                ],
-                            '-',
-                            'Get MoneyPuck Data',
-                            '-',
-                            'Update Player Injuries',
-                            'Update Player Lines',
-                            '-',
-                            'Fantrax...',
-                                [
-                                    'Update Pool Teams',
-                                    '-',
-                                    'Update Pool Team Rosters',
-                                    '-',
-                                    'Update Fantrax Player Info',
-                                    '-',
-                                    'Import Watch List',
-                                    '-',
-                                    'Import Draft Picks',
-                                    '-',
-                                    'Email NHL Team Transactions',
-                                    '-',
-                                    'Archive Keeper Lists',
-                                ],
-                            '-',
-                            'Manager Game Pace',
-                            '-',
-                            'Start Flask Server',
-                            '-',
-                            'Start Daily VFHL Scheduled Task',
-                            # 'Start "Hourly VFHL Activities"',
-                            '-',
-                            'Projected Stats...',
-                                [
-                                    'Athletic Import',
-                                    # 'Bangers Import',
-                                    # 'Daily Faceoff Import',
-                                    'Dobber Import',
-                                    # 'DtZ Import',
-                                    'Fantrax Import',
-                                ],
-                        ]
+                                'Update Pool Team Rosters',
+                                '-',
+                                'Update Fantrax Player Info',
+                                '-',
+                                'Import Watch List',
+                                '-',
+                                'Import Draft Picks',
+                                '-',
+                                'Email NHL Team Transactions',
+                                '-',
+                                'Archive Keeper Lists',
+                            ],
+                        '-',
+                        'Manager Game Pace',
+                        '-',
+                        'Start Flask Server',
+                        '-',
+                        'Start Daily VFHL Scheduled Task',
+                        # 'Start "Hourly VFHL Activities"',
+                        '-',
+                        'Projected Stats...',
+                            [
+                                'Athletic Import',
+                                # 'Bangers Import',
+                                # 'Daily Faceoff Import',
+                                'Dobber Import',
+                                # 'DtZ Import',
+                                'Fantrax Import',
+                            ],
                     ]
-                ]
+                ]]
 
         return menu
 
@@ -2957,8 +2955,18 @@ class HockeyPool:
                         self.getPlayerStats()
                         refresh_pool_team_roster_config = True
 
+                    elif event == 'Refresh':
+                        # get stats for all players
+                        self.getPlayerStats()
+                        # refresh pool teams list
+                        self.updatePoolTeamRosters(suppress_prompt=True)
+                        update_pool_teams_tab = True
+                        # refresh pool team rosters
+                        self.getPlayerStats()
+                        refresh_pool_team_roster_config = True
+
                     # NOTE: Need the ending "," to stop "TypeError: 'in <string>' requires string as left operand, not tuple" message
-                    elif event in ('Refresh Roster',):
+                    elif event == 'Refresh Roster':
                         if self.web_host == 'Fantrax' and values['Tab'] == '__POOL_TEAMS_TAB__':
                             mclb = window['__FT_PT_MCLB__']
                         else:
