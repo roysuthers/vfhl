@@ -1,39 +1,19 @@
 # Import Python modules
-import os
-import subprocess
 import textwrap
-import time
 import webbrowser
-from copy import copy
-from datetime import timedelta
 from os import path
-from pathlib import Path
-from typing import List
+from typing import Dict
 from urllib.request import pathname2url
 
-import jmespath as j
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.offline as pyo
-import PySimpleGUI as sg
 import requests
-from math import ceil, floor
-from plotly.subplots import make_subplots
-from sklearn.linear_model import LinearRegression
 
 from clsPlayer import Player
 from clsSeason import Season
-from constants import NHL_API_URL, calendar, program_data_path
-from utils import (calculate_age, get_db_connection,
-                   get_iso_week_start_end_dates, seconds_to_string_time, setCSS_TableStyles,
-                   setCSS_TableStyles2, split_seasonID_into_component_years,
-                   string_to_time)
+from constants import NHL_API_URL
+from utils import calculate_age, get_db_connection, setCSS_TableStyles, setCSS_TableStyles2, split_seasonID_into_component_years
 from constants import generated_html_path
-
-# period for rolling averages
-rolling_avg_period = 3
 
 def calc_player_ages(df: pd.DataFrame) -> pd.Series:
 
@@ -80,6 +60,129 @@ def calculate_breakout_threshold(name: str, height: str, weight: int, career_gam
         breakout_threshold = np.nan
 
     return breakout_threshold
+
+def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, mean_cat: Dict, std_cat: Dict, stat_type: str='Cumulative', position: str='Forwards'):
+
+    # set position prefix
+    if position == 'Skaters':
+        prefix = 'sktr '
+    elif position == 'Forwards':
+        prefix = 'f '
+    elif position == 'Defense':
+        prefix = 'd '
+    else:
+        prefix = ''
+
+    # Define a dictionary for each position and its corresponding conditions
+    cond_dict = {
+        'Skaters': (df['pos'] != "G"),
+        'Forwards': (df['pos'] != "G") & (df['pos'] != "D"),
+        'Defense': (df['pos'] == "D"),
+        'Goalies': (df['pos'] == "G")
+    }
+
+    # Define a dictionary for each statistic and its corresponding list
+    # stats_dict = {
+    #     'points': pts_stats,
+    #     'goals': g_stats,
+    #     'assists': a_stats,
+    #     'points_pp': ppp_stats,
+    #     'shots': sog_stats,
+    #     'takeaways': tk_stats,
+    #     'hits': hit_stats,
+    #     'blocked': blk_stats,
+    #     'pim': pim_stats,
+    #     'wins': wins_stats,
+    #     'saves': saves_stats,
+    #     'gaa': gaa_stats,
+    #     'save%': save_pc_stats
+    # }
+
+    row_headers = ['Maximum', 'Mean', 'Std Dev', 'Std Dev % of Mean', '+ Std Dev', '1+ Std Dev', '2+ Std Dev', '3+ Std Dev']
+
+    column_headers = {
+        'Skaters': ['points', 'goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked', 'pim'],
+        'Goalies': ['wins', 'saves', 'gaa', 'save%']
+    }
+
+    position_type = 'Skaters' if position != 'Goalies' else 'Goalies'
+
+    data = []
+    for row_header in row_headers:
+        row_data = [row_header]
+        for column_header in column_headers[position_type]:
+            dict_elem = f'{prefix}{column_header}'
+            if row_header == 'Maximum':
+                if column_header == 'gaa':
+                    row_data.append('{:0.2f}'.format(round(min_cat[dict_elem], 2)))
+                elif column_header == 'save%':
+                    row_data.append('{:0.3f}'.format(round(max_cat[dict_elem], 3)))
+                else:
+                    if stat_type == 'Cumulative':
+                        row_data.append(int(max_cat[dict_elem]))
+                    else:
+                        row_data.append('{:0.1f}'.format(round(max_cat[dict_elem], 1)))
+            elif row_header == 'Mean':
+                if column_header == 'gaa':
+                    row_data.append('{:0.2f}'.format(round(mean_cat[dict_elem], 2)))
+                elif column_header == 'save%':
+                    row_data.append('{:0.3f}'.format(round(mean_cat[dict_elem], 3)))
+                else:
+                    if stat_type == 'Cumulative':
+                        row_data.append('{:0.1f}'.format(round(mean_cat[dict_elem], 1)))
+                    else:
+                        row_data.append('{:0.2f}'.format(round(mean_cat[dict_elem], 2)))
+            elif row_header == 'Std Dev':
+                if column_header == 'gaa':
+                    row_data.append('{:0.2f}'.format(round(std_cat[dict_elem], 2)))
+                elif column_header == 'save%':
+                    row_data.append('{:0.3f}'.format(round(std_cat[dict_elem], 3)))
+                else:
+                    if stat_type == 'Cumulative':
+                        row_data.append('{:0.1f}'.format(round(std_cat[dict_elem], 1)))
+                    else:
+                        row_data.append('{:0.2f}'.format(round(std_cat[dict_elem], 2)))
+            elif row_header == 'Std Dev % of Mean':
+                row_data.append('{:0.1f}'.format(round(std_cat[dict_elem] / mean_cat[dict_elem] * 100, 1)))
+            elif row_header == '+ Std Dev':
+                if column_header == 'gaa':
+                    row_data.append(str(len(df[(df[column_header]<mean_cat[dict_elem]) & cond_dict[position_type]])))
+                else:
+                    row_data.append(str(len(df[(df[column_header]>mean_cat[dict_elem]) & cond_dict[position_type]])))
+            elif row_header == '1+ Std Dev':
+                if column_header == 'gaa':
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position_type]])))
+                else:
+                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position_type]])))
+            elif row_header == '2+ Std Dev':
+                if column_header == 'gaa':
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                else:
+                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+            elif row_header == '3+ Std Dev':
+                if column_header == 'gaa':
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                else:
+                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+        data.append(row_data)
+
+    if position == 'Goalies':
+        df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'wins', 'saves', 'gaa', 'save%'])
+    else:
+        df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'pts', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'])
+
+    styler = df_stat_summary.style.set_caption(f'<br /><b><u>{stat_type} Stats Summary - {position}</u></b><br /><br />')
+    styler.set_table_attributes('style="display: inline-block; border-collapse:collapse"')
+    styler.set_table_styles(setCSS_TableStyles())
+    if position == 'Goalies':
+        styler.set_properties(subset=['wins', 'saves', 'gaa', 'save%'], **{'text-align': 'center'})
+    else:
+        styler.set_properties(subset=['pts', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'], **{'text-align': 'center'})
+    stat_summary_table = styler.hide(axis='index').to_html()
+
+    stat_summary_table = stat_summary_table.replace('Agg Type', '')
+
+    return stat_summary_table
 
 def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
 
@@ -229,248 +332,6 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
     games_played_per_position_table = styler.hide(axis='index').to_html()
 
     return games_played_per_position_table
-
-def dialog_layout(pool: 'HockeyPool', season: 'Season'):
-
-    global df_active_players
-    df_active_players = get_active_players()
-
-    active_players = df_active_players.to_dict('split')
-    active_players_data = active_players.get('data')
-    active_players_columms = [x.replace('_', ' ') for x in active_players.get('columns')]
-    visible_column_map = [False if x=='id' else True for x in active_players_columms]
-
-    primary_list_types = ['All', 'Compare', 'Match']
-
-    # timeframes = ['Current season', 'Pre-season', 'Previous season', 'Previous playoffs', 'Previous 3 seasons']
-    timeframes = ['Current season', 'Previous season', 'Previous 3 seasons', 'Previous playoffs']
-
-    if season.type == 'R': # regular season
-        stat_types = ['Cumulative', 'Per game', 'Per 60 minutes', 'Proj - The Athletic', 'Proj - DFO', 'Proj - Dobber', 'Proj - DtZ', 'Proj - Fantrax', 'Proj - Averaged', 'Proj - 82 Games', 'Proj - Final Stats']
-    else: # season.type in ('P', 'PR'): # playoffs, pre-season
-        stat_types = ['Cumulative', 'Per game', 'Per 60 minutes', ]
-
-    # Need to filter out timeframes that make no sense for the context season
-    # Season has not started (i.e. upcoming season, preseason, or playoffs)
-    default_timeframe = 'Current season'
-    default_stat_type = 'Cumulative'
-    if season.SEASON_HAS_STARTED is False:
-        timeframes.remove('Current season')
-        if season.type == 'R': # regular season
-            # preseason = Season().getSeason(id=season.id, type='PR')
-            # preseason.set_season_constants()
-            default_timeframe = 'Previous 3 seasons'
-            stat_types.remove('Proj - Final Stats')
-            default_stat_type = 'Proj - Averaged'
-        else: # i.e., pre-season or playoffs
-            timeframes= []
-            default_timeframe = ''
-            stat_types = []
-            default_stat_type = ''
-
-    # Season has started but not ended (i.e. current season)
-    if season.type in ('P', 'PR') and season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
-        timeframes.remove('Previous season')
-        timeframes.remove('Previous 3 seasons')
-
-    # Season has completed
-    if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is True:
-        timeframes.remove('Previous season')
-        timeframes.remove('Previous 3 seasons')
-
-    radar_charts_by_category_disabled = False
-    trend_charts_by_category_disabled = False
-
-    heatmaps_default = True
-    heatmaps_disabled = False
-
-    scoring_categories = ['Points', 'Goals', 'Assists', 'PP Points', 'SoG', 'Takeaways', 'Hits', 'Blocks', 'PiM']
-    scoring_category_types = ['Cumulative', 'Per Game']
-
-    layout = [
-        [
-            sg.Column(layout = [
-                    [
-                        sg.Frame('Statistics:', layout = [
-                            [
-                                sg.Text('List Type:', size=(9, 1)),
-                                sg.Combo(values=primary_list_types, default_value='All', enable_events=True, size=(10, 1), key='_PRIMARY_LIST_TYPE_'),
-                                # sg.Text('Secondary Type:', size=(15, 1)),
-                                # sg.Combo(values=secondary_list_types, default_value='None', enable_events=True, size=(12, 1), key='_SECONDARY_LIST_TYPE_'),
-                            ],
-                            [
-                                sg.Column(layout = [
-                                    [
-                                        sg.Text('Timeframe:', size=(9, 1)),
-                                        sg.Combo(values=timeframes, default_value=default_timeframe, enable_events=True, size=(20, 1), key='_TIMEFRAME_'),
-                                        # sg.pin(sg.Checkbox('Dates', default=False, size=(5, 1), key='_DATES_TIMEFRAME_', enable_events=True)),
-                                        sg.pin(sg.Checkbox('Date Range', default=False, size=(9, 1), key='_DATES_TIMEFRAME_', enable_events=True)),
-                                        sg.pin(elem=
-                                            sg.Column(layout = [
-                                                [
-                                                    # sg.Text('- from', size=(5, 1)),
-                                                    sg.Input('', size=(10, 1), justification='center', key='_START_DATE_'),
-                                                    sg.CalendarButton(
-                                                        begin_at_sunday_plus=1,
-                                                        button_text='',
-                                                        close_when_date_chosen=True,
-                                                        format='%Y-%m-%d',
-                                                        image_filename=calendar,
-                                                        image_subsample=5,
-                                                        key='_START_DATE_CALENDAR_',
-                                                        no_titlebar=False,
-                                                        target='_START_DATE_',
-                                                    ),
-                                                    # sg.Text('to', size=(2, 1)),
-                                                    sg.Text('-', size=(1, 1)),
-                                                    sg.Input('', size=(10, 1), justification='center', key='_END_DATE_'),
-                                                    sg.CalendarButton(
-                                                        begin_at_sunday_plus=1,
-                                                        button_text='',
-                                                        close_when_date_chosen=True,
-                                                        format='%Y-%m-%d',
-                                                        image_filename=calendar,
-                                                        image_subsample=5,
-                                                        key='_END_DATE_CALENDAR_',
-                                                        no_titlebar=False,
-                                                        target='_END_DATE_',
-                                                    ),
-                                                ],
-                                            ], visible=False, key='_DATES_PANE_', pad=(0)),
-                                        ),
-                                        sg.pin(sg.Checkbox('Games', default=False, size=(6, 1), key='_GAMES_TIMEFRAME_', enable_events=True)),
-                                        sg.pin(elem=
-                                            sg.Column(layout = [
-                                                [
-                                                    sg.DropDown([i for i in range(1, 83)], default_value='10', size=(3, 1), enable_events=True, key='_X_GAMES_'),
-                                                ],
-                                            ], visible=False, key='_X_GAMES_PANE_', pad=(1)),
-                                        ),
-                                        # sg.pin(sg.Checkbox('Weeks', default=False, size=(5, 1), key='_WEEKS_TIMEFRAME_', enable_events=True)),
-                                        # sg.pin(elem=
-                                        #     sg.Column(layout = [
-                                        #         [
-                                        #             sg.DropDown([i for i in range(1, season.CURRENT_WEEK + 1)], default_value='5', size=(3, 1), enable_events=True, key='_X_WEEKS_'),
-                                        #         ],
-                                        #     ], visible=False, key='_X_WEEKS_PANE_', pad=(0)),
-                                        # ),
-                                    ],
-                                ], pad=(0)),
-                            ],
-                            [
-                                sg.pin(elem=
-                                    sg.Column(layout = [
-                                        [
-                                            sg.Text('', size=(9, 1)),
-                                            sg.Checkbox(text='Generate Statistics', default=False, size=(15, 1), key='_GEN_STATS_', enable_events=True),
-                                            sg.Checkbox(text='Refresh Rosters', default=False, size=(13, 1), key='_REFRESH_POOL_TEAMS_', enable_events=True),
-                                            sg.Checkbox(text='Refresh Watch List', default=False, size=(15, 1), key='_REFRESH_WATCH_LIST_', enable_events=True),
-                                        ],
-                                    ], visible=True, pad=(0)),
-                                ),
-                            ],
-                            [
-                                sg.Text('Stat Type:', size=(9, 1)),
-                                sg.Combo(values=stat_types, default_value=default_stat_type, size=(20, 1), key='_STAT_TYPE_'),
-                            ],
-                            [
-                                sg.Text('Display:', size=(9, 1)),
-                                sg.Checkbox(text='Statistics Table', default=False, size=(12, 1), key='_SHOW_STATS_TABLE_', enable_events=True),
-                                sg.Checkbox(text='Statistic Summary Tables', default=False, size=(20, 1), key='_SHOW_STAT_SUMMARY_TABLES_', enable_events=True),
-                                sg.Checkbox(text='Manager Game Pace Table', default=True, size=(25, 1), key='_SHOW_MANAGER_GAME_PACE_TABLE_', enable_events=True),
-                            ],
-                        ]),
-                    ],
-                ], vertical_alignment='top', expand_x=True, pad=(0)),
-        ],
-        [
-            sg.Column(layout=
-                [
-                    [
-                        sg.Frame('Filters:', layout=[
-                            [
-                                sg.pin(
-                                    sg.Column(layout=[
-                                        [
-                                            sg.Text('Include Pool Teams:', size=(16, 1)),
-                                            sg.Listbox(values=pool_teams, enable_events=True, select_mode='extended', size=(17, 5), key='_POOL_TEAMS_'),
-                                        ],
-                                    ], expand_y=True, visible=False, key='_POOL_TEAMS_PANE_', pad=(0))
-                                , expand_y=True)
-                            ],
-                            [
-                                sg.pin(
-                                    sg.Column(layout=[
-                                        [
-                                            sg.Text('Match stats by:', size=(16, 1)),
-                                            sg.Radio('Player', group_id='base_for_find_players', default=True, size=(6, 1), key='_BASED_ON_PLAYER_', enable_events=True),
-                                            sg.Radio('Mean', group_id='base_for_find_players', default=False, size=(6, 1), key='_BASED_ON_MEAN_', enable_events=True),
-                                            sg.Text('Type:', size=(6, 1)),
-                                            sg.Combo(values=scoring_category_types, default_value='Per Game', size=(9, 1), key='_MATCH_BY_CATEGORY_TYPE_'),
-                                        ],
-                                        [
-                                            sg.Text('', size=(16, 1)),
-                                            sg.Text('St Dev multipliers:', size=(15, 1)),
-                                            sg.Text('Lower bound', size=(10, 1)),
-                                            sg.Input(default_text='', size=(3, 1), key='_MATCH_FACTOR_FROM_', justification='center'),
-                                            sg.Text('Upper bound', size=(10, 1)),
-                                            sg.Input(default_text='', size=(3, 1), key='_MATCH_FACTOR_TO_', justification='center'),
-                                        ],
-                                        [
-                                            sg.Text('', size=(16, 1)),
-                                            sg.Listbox(values=scoring_categories, size=(10, 3), select_mode='extended', key='_MATCH_BY_CATEGORIES_'),
-                                        ],
-                                    ], expand_y=True, visible=False, key='_MATCH_PLAYERS_PANE_', pad=(0))
-                                , expand_y=True)
-                            ],
-                            [
-                                sg.pin(
-                                    sg.Column(layout=[
-                                        [
-                                            sg.Text('Select Players:', size=(16, 1)),
-                                            sg.Input(size=(10, 1), enable_events=True, key='_PLAYER_SEARCH_'),
-                                        ],
-                                        [
-                                            sg.Text('', size=(16, 1)),
-                                            sg.Table(values=active_players_data, headings=active_players_columms, visible_column_map=visible_column_map, enable_events=True, select_mode='extended', justification='left', num_rows=5, selected_row_colors=('red', 'yellow'), key='_SELECT_PLAYERS_')
-                                        ],
-                                        [
-                                            sg.Text('', size=(16, 1)),
-                                            sg.Checkbox(text='Trend Charts', default=False, size=(10, 1), disabled=trend_charts_by_category_disabled, key='_SHOW_TREND_BY_CAT_CHART_', enable_events=True),
-                                        ],
-                                        [
-                                            sg.Text('', size=(16, 1)),
-                                            sg.Checkbox(text='Radar Chart', default=False, size=(10, 1), disabled=radar_charts_by_category_disabled, key='_SHOW_RADAR_CHART_', enable_events=True),
-                                            sg.Combo(values=scoring_category_types, default_value='Per Game', size=(9, 1), key='_RADAR_CHART_BY_CATEGORY_TYPE_'),
-                                        ],
-                                    ], expand_y=True, visible=False, key='_SELECT_PLAYERS_PANE_', pad=(0))
-                                , expand_y=True)
-                            ],
-                        ], expand_x=True, expand_y=True),
-                    ],
-                ], vertical_alignment='top', expand_x=True, expand_y=True, pad=(0)),
-        ],
-        [
-            sg.OK(bind_return_key=True),
-            sg.Cancel()
-        ],
-    ]
-
-    return layout
-
-def get_active_players() -> pd.DataFrame:
-
-    with get_db_connection() as connection:
-        sql = textwrap.dedent('''\
-            select p.id, (p.last_name || ", " || p.first_name) as name, t.abbr
-            from Player p
-                 join Team t on t.id=p.current_team_id
-            where p.active=1
-            order by p.last_name COLLATE NOCASE ASC, p.first_name COLLATE NOCASE ASC'''
-        )
-        df = pd.read_sql(sql=sql, con=connection)
-
-    return df
 
 def get_player_stats(season: Season, pool: 'HockeyPool', historical: bool=False, pt_roster: bool=False) -> pd.DataFrame:
 
@@ -635,7 +496,6 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
         primary_position = ''
         team_abbr = '(N/A)'
         try:
-            # primary_position = j.search('people[0].primaryPosition.abbreviation', requests.get(f'{NHL_API_URL}/people/{row.player_id}').json())
             player = requests.get(f'{NHL_API_URL}/player/{row.player_id}/landing').json()
             primary_position = player['position']
             team_abbr = player['currentTeamAbbrev'] if 'currentTeamAbbrev' in player else '(N/A)'
@@ -727,398 +587,60 @@ def manager_game_pace(season: Season, pool: 'HockeyPool'):
 
     return
 
-def scoring_category_radar_charts(pool: 'HockeyPool', df: pd.DataFrame, player_ids: List, stat_type: str, pos: str):
+def show_stat_summary_tables(df_cumulative: pd.DataFrame, df_per_game: pd.DataFrame, cumulative_max_cat: Dict, cumulative_min_cat: Dict, cumulative_mean_cat: Dict, cumulative_std_cat: Dict, per_game_max_cat: Dict, per_game_min_cat: Dict, per_game_mean_cat: Dict, per_game_std_cat: Dict, caption: str):
 
-    if pool.web_host == 'Fantrax':
-        # overall rank, based on Fantrax categories
-        goalie_score_categories = ['z_wins', 'z_gaa', 'z_saves', 'z_save%']
-        defense_score_categories = ['z_points', 'z_goals', 'z_assists', 'z_points_pp', 'z_shots', 'z_pim', 'z_hits', 'z_blocked', 'z_takeaways']
-        forward_score_categories = ['z_goals', 'z_assists', 'z_points_pp', 'z_shots', 'z_pim', 'z_hits', 'z_blocked', 'z_takeaways']
-        goalie_pg_score_categories = ['z_wins_pg', 'z_gaa_pg', 'z_saves_pg', 'z_save%_pg']
-        defense_pg_score_categories = ['z_pts_pg', 'z_g_pg', 'z_a_pg', 'z_ppp_pg', 'z_sog_pg', 'z_pim_pg', 'z_hits_pg', 'z_blk_pg', 'z_tk_pg']
-        forward_pg_score_categories = ['z_g_pg', 'z_a_pg', 'z_ppp_pg', 'z_sog_pg', 'z_pim_pg', 'z_hits_pg', 'z_blk_pg', 'z_tk_pg']
+    file_name = caption.replace('<b>', '')\
+                        .replace('</b>', '')\
+                        .replace('<u>', '')\
+                        .replace('</u>', '')\
+                        .replace('<br/>', '')\
+                        .strip()
+    stats_summary_html_file = f'{generated_html_path}/Stats Summary for {file_name}.html'
 
-        goalie_score_category_labels = ['z-wins', 'z-gaa', 'z-saves', 'z-save%']
-        defense_score_category_labels = ['z-points', 'z-goals', 'z-assists', 'z-ppp', 'z-shots', 'z-pim', 'z-hits', 'z-blk', 'z-tk']
-        forward_score_category_labels = ['z-goals', 'z-assists', 'z-ppp', 'z-shots', 'z-pim', 'z-hits', 'z-blk', 'z-tk']
-        goalie_pg_score_category_labels = ['z-wins pg', 'z-gaa pg', 'z-saves pg', 'z-save% pg']
-        defense_pg_score_category_labels = ['z-pts pg', 'z-g pg', 'z-a pg', 'z-ppp pg', 'z-sog pg', 'z-pim pg', 'z-hits pg', 'z-blk pg', 'z-tk pg']
-        forward_pg_score_category_labels = ['z-g pg', 'z-a pg', 'z-ppp pg', 'z-sog pg', 'z-pim pg', 'z-hits pg', 'z-blk pg', 'z-tk pg']
-
-    # if stat_type == 'Cumulative':
-    #     min_z = min(min_cat['f z_goals'], min_cat['f z_assists'], min_cat['f z_points_pp'], min_cat['f z_shots'], min_cat['f z_pim'], min_cat['f z_hits'], min_cat['f z_blocked'], min_cat['f z_takeaways']) \
-    #             if pos == 'F' \
-    #             else min(min_cat['d z_points'], min_cat['d z_goals'], min_cat['d z_assists'], min_cat['d z_points_pp'], min_cat['d z_shots'], min_cat['d z_pim'], min_cat['d z_hits'], min_cat['d z_blocked'], min_cat['d z_takeaways']) \
-    #                 if pos in ('D', 'S') \
-    #                 else min(min_cat['z_wins'], min_cat['z_saves'], min_cat['z_gaa'], min_cat['z_save%'])
-    #     max_z = max(max_cat['f z_goals'], max_cat['f z_assists'], max_cat['f z_points_pp'], max_cat['f z_shots'], max_cat['f z_pim'], max_cat['f z_hits'], max_cat['f z_blocked'], max_cat['f z_takeaways']) \
-    #             if pos == 'F' \
-    #             else max(max_cat['d z_points'], max_cat['d z_goals'], max_cat['d z_assists'], max_cat['d z_points_pp'], max_cat['d z_shots'], max_cat['d z_pim'], max_cat['d z_hits'], max_cat['d z_blocked'], max_cat['d z_takeaways']) \
-    #                 if pos in ('D', 'S') \
-    #                 else max(max_cat['z_wins'], max_cat['z_saves'], max_cat['z_gaa'], max_cat['z_save%'])
-    # else: # stat_type == 'Per Game':
-    #     min_z = min(min_cat['f z_g_pg'], min_cat['f z_a_pg'], min_cat['f z_ppp_pg'], min_cat['f z_sog_pg'], min_cat['f z_pim_pg'], min_cat['f z_hits_pg'], min_cat['f z_blk_pg'], min_cat['f z_tk_pg']) \
-    #             if pos == 'F' \
-    #             else min(min_cat['d z_pts_pg'], min_cat['d z_g_pg'], min_cat['d z_a_pg'], min_cat['d z_ppp_pg'], min_cat['d z_sog_pg'], min_cat['d z_pim_pg'], min_cat['d z_hits_pg'], min_cat['d z_blk_pg'], min_cat['d z_tk_pg']) \
-    #                 if pos in ('D', 'S') \
-    #                 else min(min_cat['z_wins_pg'], min_cat['z_saves_pg'], min_cat['z_gaa_pg'], min_cat['z_save%_pg'])
-    #     max_z = max(max_cat['f z_g_pg'], max_cat['f z_a_pg'], max_cat['f z_ppp_pg'], max_cat['f z_sog_pg'], max_cat['f z_pim_pg'], max_cat['f z_hits_pg'], max_cat['f z_blk_pg'], max_cat['f z_tk_pg']) \
-    #             if  pos == 'F' \
-    #             else max(max_cat['d z_pts_pg'], max_cat['d z_g_pg'], max_cat['d z_a_pg'], max_cat['d z_ppp_pg'], max_cat['d z_sog_pg'], max_cat['d z_pim_pg'], max_cat['d z_hits_pg'], max_cat['d z_blk_pg'], max_cat['d z_tk_pg']) \
-    #                 if pos in ('D', 'S') \
-    #                 else max(max_cat['z_wins_pg'], max_cat['z_saves_pg'], max_cat['z_gaa_pg'], max_cat['z_save%_pg'])
-
-    if stat_type == 'Cumulative':
-        min_z = min(df['z_goals'].min(), df['z_assists'].min(), df['z_points_pp'].min(), df['z_shots'].min(), df['z_pim'].min(), df['z_hits'].min(), df['z_blocked'].min(), df['z_takeaways'].min()) \
-                if pos == 'F' \
-                else min(df['z_points'].min(), df['z_goals'].min(), df['z_assists'].min(), df['z_points_pp'].min(), df['z_shots'].min(), df['z_pim'].min(), df['z_hits'].min(), df['z_blocked'].min(), df['z_takeaways'].min()) \
-                    if pos in ('D', 'S') \
-                    else min(df['z_wins'].min(), df['z_saves'].min(), df['z_gaa'].min(), df['z_save%'].min())
-        max_z = max(df['z_goals'].max(), df['z_assists'].max(), df['z_points_pp'].max(), df['z_shots'].max(), df['z_pim'].max(), df['z_hits'].max(), df['z_blocked'].max(), df['z_takeaways'].max()) \
-                if pos == 'F' \
-                else max(df['z_points'].max(), df['z_goals'].max(), df['z_assists'].max(), df['z_points_pp'].max(), df['z_shots'].max(), df['z_pim'].max(), df['z_hits'].max(), df['z_blocked'].max(), df['z_takeaways'].max()) \
-                    if pos in ('D', 'S') \
-                    else max(df['z_wins'].max(), df['z_saves'].max(), df['z_gaa'].max(), df['z_save%'].max())
-    else: # stat_type == 'Per Game':
-        min_z = min(df['z_g_pg'].min(), df['z_a_pg'].min(), df['z_ppp_pg'].min(), df['z_sog_pg'].min(), df['z_pim_pg'].min(), df['z_hits_pg'].min(), df['z_blk_pg'].min(), df['z_tk_pg'].min()) \
-                if pos == 'F' \
-                else min(df['z_pts_pg'].min(), df['z_g_pg'].min(), df['z_a_pg'].min(), df['z_ppp_pg'].min(), df['z_sog_pg'].min(), df['z_pim_pg'].min(), df['z_hits_pg'].min(), df['z_blk_pg'].min(), df['z_tk_pg'].min()) \
-                    if pos in ('D', 'S') \
-                    else min(df['z_wins_pg'].min(), df['z_saves_pg'].min(), df['z_gaa_pg'].min(), df['z_save%_pg'].min())
-        max_z = max(df['z_g_pg'].max(), df['z_a_pg'].max(), df['z_ppp_pg'].max(), df['z_sog_pg'].max(), df['z_pim_pg'].max(), df['z_hits_pg'].max(), df['z_blk_pg'].max(), df['z_tk_pg'].max()) \
-                if  pos == 'F' \
-                else max(df['z_pts_pg'].max(), df['z_g_pg'].max(), df['z_a_pg'].max(), df['z_ppp_pg'].max(), df['z_sog_pg'].max(), df['z_pim_pg'].max(), df['z_hits_pg'].max(), df['z_blk_pg'].max(), df['z_tk_pg'].max()) \
-                    if pos in ('D', 'S') \
-                    else max(df['z_wins_pg'].max(), df['z_saves_pg'].max(), df['z_gaa_pg'].max(), df['z_save%_pg'].max())
-
-    fig = []
-
-    for player_id in player_ids:
-
-        df_player = df.query('player_id==@player_id').copy(deep=True).reindex()
-        df_player.fillna(0, inplace=True)
-
-        kwargs = {'id': player_id}
-        player = Player().fetch(**kwargs)
-        # pos = player.primary_position
-        player_name = player.full_name
-
-        if stat_type == 'Cumulative':
-            scoring_categories = forward_score_categories \
-                                 if pos == 'F' \
-                                 else defense_score_categories \
-                                      if pos in ('D', 'S') \
-                                      else goalie_score_categories
-            scoring_category_labels = forward_score_category_labels \
-                                      if pos == 'F' \
-                                      else defense_score_category_labels \
-                                           if pos in ('D', 'S') \
-                                           else goalie_score_category_labels
-        else: # stat_type == 'Per Game':
-            scoring_categories = forward_pg_score_categories \
-                                 if pos == 'F' \
-                                 else defense_pg_score_categories \
-                                      if pos in ('D', 'S') \
-                                      else goalie_pg_score_categories
-            scoring_category_labels = forward_pg_score_category_labels \
-                                      if pos == 'F' \
-                                      else defense_pg_score_category_labels \
-                                      if pos in ('D', 'S') \
-                                           else goalie_pg_score_category_labels
-
-        df_temp = df_player[scoring_categories]
-        data = df_temp.to_dict('split')['data'][0]
-
-        scoring_category_labels = [*scoring_category_labels, scoring_category_labels[0]]
-        data = [*data, data[0]]
-
-        fig.append(go.Scatterpolar(r=data, theta=scoring_category_labels, line={'shape': 'spline'}, name=player_name))
-
-    fig = go.Figure(
-        data=fig,
-        layout=go.Layout(
-            template='plotly_dark',
-            polar={'radialaxis': {'visible': True}},
-            showlegend=True,
-            title=go.layout.Title(text='Category Z-scores'),
-            width=800, height=600,
-            paper_bgcolor='rgba(0,0,0,0)', # transparent
-        )
+    stat_summary_tables_html = textwrap.dedent('''\
+        <!doctype html>
+        <html>
+            <caption><b><u>{caption}</u></b></caption.
+            <body>
+                <!-- Stat Summary Tables -->
+                <div>
+                    {sktr_cumulative_stat_summary_table}
+                    &nbsp;&nbsp;
+                    {sktr_per_game_stat_summary_table}
+                </div>
+                <div>
+                    {f_cumulative_stat_summary_table}
+                    &nbsp;&nbsp;
+                    {f_per_game_stat_summary_table}
+                </div>
+                <div>
+                    {d_cumulative_stat_summary_table}
+                    &nbsp;&nbsp;
+                    {d_per_game_stat_summary_table}
+                </div>
+                <div>
+                    {g_cumulative_stat_summary_table}
+                    &nbsp;&nbsp;
+                    {g_per_game_stat_summary_table}
+                </div>
+            </body>
+        </html>
+    ''').format(
+        caption=caption,
+        sktr_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Skaters'),
+        sktr_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Skaters'),
+        f_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Forwards'),
+        f_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Forwards'),
+        d_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Defense'),
+        d_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Defense'),
+        g_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Goalies'),
+        g_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Goalies'),
     )
 
-    fig.update_polars(radialaxis=dict(range=[min_z, max_z]))
+    with open(stats_summary_html_file, 'w', encoding="utf-8-sig") as f:
+        f.write(stat_summary_tables_html)
 
-    radar_chart = pyo.plot(fig, output_type='div')
+    url = 'file:{}'.format(pathname2url(path.abspath(stats_summary_html_file)))
+    webbrowser.open(url)
 
-    # name = player_name.replace(' ', '_')
-    # plt.savefig(f'./output/images/scoring_category_radar_chart_for_{name}.png')
-    # # mpld3.save_html(fig, f'./output/images/scoring_category_radar_chart_for_{name}.html')
-
-    # plt.close()
-
-    # # open radar chart
-    # os.system(f'start ./output/images/scoring_category_radar_chart_for_{name}.png')
-
-    return radar_chart
-
-def scoring_category_trend_charts(pool: 'HockeyPool', df: pd.DataFrame, player_ids: List):
-
-    # overall rank, based on Fantrax categories
-    goalie_compare_data = ['games_started', 'wins', 'gaa', 'saves', 'save%']
-    skater_compare_data = ['toi_even_sec', 'toi_pp_sec', 'toi_pp_ratio_ra', 'points', 'goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked']
-
-    players = []
-    for player_id in player_ids:
-
-        player = Player().fetch(**{'id': player_id})
-        players.append({'name': player.full_name, 'pos': player.primary_position})
-
-    positions = [x['pos'] for x in players]
-    if 'G' in positions and any(['D' in positions, 'LW' in positions, 'C' in positions, 'RW' in positions]):
-        sg.popup_notify('Cannot mix goalies & skaters in same comparison...')
-        return
-
-    categories = goalie_compare_data if 'G' in positions else skater_compare_data
-
-    # set rows & columns for subplots
-    rows = len(categories)
-    cols = len(players)
-
-    if 'G' in positions:
-            subplot_titles = ['Starts',
-                              'Wins',
-                              'GAA',
-                              'Saves',
-                              'Save %'
-                             ]
-    else:
-        subplot_titles = ['Even Time-on-Ice',
-                          'Powerplay Time-on-Ice',
-                          'Powerplay Time-on-Ice %',
-                          'Points',
-                          'Goals',
-                          'Assists',
-                          'Powerplay Points',
-                          'Shots on Goal',
-                          'Takeaways',
-                          'Hits',
-                          'Blocks',
-                         ]
-
-    subplot_titles = np.repeat(subplot_titles, len(players))
-
-    column_titles= [x['name'] for x in players]
-
-    fig = make_subplots(rows=rows,
-                        cols=cols,
-                        subplot_titles=subplot_titles,
-                        column_titles=column_titles,
-                        row_heights=[200 for i in range(len(skater_compare_data))],
-                        #  shared_yaxes=True
-                    )
-
-    # get maximum values per category to compare players on the same scale
-    df_temp = df.copy(deep=True)
-    if 'G' in positions:
-
-        df_temp['games_started'] = df_temp.groupby('player_id')['games_started'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_games_started = df_temp['games_started'].max()
-        min_games_started = df_temp['games_started'].min()
-        max_games_started = ceil(max_games_started) + 0.5 if max_games_started % 1 == 0 else ceil(max_games_started)
-        min_games_started = floor(min_games_started) - 0.5 if min_games_started % 1 == 0 else floor(min_games_started)
-
-        df_temp['wins'] = df_temp.groupby('player_id')['wins'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_wins = df_temp['wins'].max()
-        min_wins = df_temp['wins'].min()
-        max_wins = ceil(max_wins) + 0.5 if max_wins % 1 == 0 else ceil(max_wins)
-        min_wins = floor(min_wins) - 0.5 if min_wins % 1 == 0 else floor(min_wins)
-
-        df_temp['saves'] = df_temp.groupby('player_id')['saves'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_saves = df_temp['saves'].max()
-        min_saves = df_temp['saves'].min()
-        max_saves = ceil(max_saves) + 0.5 if max_saves % 1 == 0 else ceil(max_saves)
-        min_saves = floor(min_saves) - 0.5 if min_saves % 1 == 0 else floor(min_saves)
-
-        df_temp['gaa'] = df_temp.groupby('player_id')['gaa'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_gaa = df_temp['gaa'].max()
-        min_gaa = df_temp['gaa'].min()
-        max_gaa = ceil(max_gaa) + 0.05 if max_gaa % 1 == 0 else ceil(max_gaa)
-        min_gaa = floor(min_gaa) - 0.05 if min_gaa % 1 == 0 else floor(min_gaa)
-
-        df_temp['save%'] = df_temp.groupby('player_id')['save%'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_save_pc = df_temp['save%'].max()
-        min_save_pc = df_temp['save%'].min()
-        max_save_pc = ceil(max_save_pc) + 0.05 if max_save_pc % 1 == 0 else ceil(max_save_pc)
-        min_save_pc = floor(min_save_pc) - 0.05 if min_save_pc % 1 == 0 else floor(min_save_pc)
-
-    else:
-
-        df_temp['points'] = df_temp.groupby('player_id')['points'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_pts = df_temp['points'].max()
-        min_pts = df_temp['points'].min()
-        max_pts = ceil(max_pts) if max_pts % 1 == 0 else ceil(max_pts)
-        min_pts = floor(min_pts) - 0.5 if min_pts % 1 == 0 and floor(min_pts) != 0 else 0
-
-        df_temp['goals'] = df_temp.groupby('player_id')['goals'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_g = df_temp['goals'].max()
-        min_g = df_temp['goals'].min()
-        max_g = ceil(max_g) if max_g % 1 == 0 else ceil(max_g)
-        min_g = floor(min_g) - 0.5 if min_g % 1 == 0 and floor(min_g) != 0 else 0
-
-        df_temp['toi_pp_ratio_ra'] = df_temp.groupby('player_id')['toi_pp_ratio_ra'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_toi_pp_ra = df_temp['toi_pp_ratio_ra'].max()
-        min_toi_pp_ra = df_temp['toi_pp_ratio_ra'].min()
-        max_toi_pp_ra = ceil(max_toi_pp_ra) if max_toi_pp_ra % 1 == 0 else ceil(max_toi_pp_ra)
-        min_toi_pp_ra = floor(min_toi_pp_ra) - 1 if min_toi_pp_ra % 1 == 0 and floor(min_toi_pp_ra) != 0 else 0
-
-        df_temp['assists'] = df_temp.groupby('player_id')['assists'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_a = df_temp['assists'].max()
-        min_a = df_temp['assists'].min()
-        max_a = ceil(max_a) if max_a % 1 == 0 else ceil(max_a)
-        min_a = floor(min_a) - 0.5 if min_a % 1 == 0 and floor(min_a) != 0 else 0
-
-        df_temp['points_pp'] = df_temp.groupby('player_id')['points_pp'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_ppp = df_temp['points_pp'].max()
-        min_ppp = df_temp['points_pp'].min()
-        max_ppp = ceil(max_ppp) if max_ppp % 1 == 0 else ceil(max_ppp)
-        min_ppp = floor(min_ppp) - 0.5 if min_ppp % 1 == 0 and floor(min_ppp) != 0 else 0
-
-        df_temp['shots'] = df_temp.groupby('player_id')['shots'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_sog = df_temp['shots'].max()
-        min_sog = df_temp['shots'].min()
-        max_sog = ceil(max_sog) if max_sog % 1 == 0 else ceil(max_sog)
-        min_sog = floor(min_sog) - 0.5 if min_sog % 1 == 0 and floor(min_sog) != 0 else 0
-
-        # df_temp['pim'] = df_temp.groupby('player_id')['pim'].transform(lambda x: x.rolling(rolling_period, 1).mean())
-        # max_pim = df_temp['pim'].max()
-        # min_pim = df_temp['pim'].min()
-        # max_pim = ceil(max_pim) if max_pim % 1 == 0 else ceil(max_pim)
-        # min_pim = floor(min_pim) - 0.5 if min_pim % 1 == 0 and floor(min_pim) != 0 else 0
-
-        df_temp['hits'] = df_temp.groupby('player_id')['hits'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_hits = df_temp['hits'].max()
-        min_hits = df_temp['hits'].min()
-        max_hits = ceil(max_hits) if max_hits % 1 == 0 else ceil(max_hits)
-        min_hits = floor(min_hits) - 0.5 if min_hits % 1 == 0 and floor(min_hits) != 0 else 0
-
-        df_temp['blocked'] = df_temp.groupby('player_id')['blocked'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_blk = df_temp['blocked'].max()
-        min_blk = df_temp['blocked'].min()
-        max_blk = ceil(max_blk) if max_blk % 1 == 0 else ceil(max_blk)
-        min_blk = floor(min_blk) - 0.5 if min_blk % 1 == 0 and floor(min_blk) != 0 else 0
-
-        df_temp['takeaways'] = df_temp.groupby('player_id')['takeaways'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_tk = df_temp['takeaways'].max()
-        min_tk = df_temp['takeaways'].min()
-        max_tk = ceil(max_tk) if max_tk % 1 == 0 else ceil(max_tk)
-        min_tk = floor(min_tk) - 0.5 if min_tk % 1 == 0 and floor(min_tk) != 0 else 0
-
-        # convert to timedelta...
-        # get maximum values for toi columns to compare players on the same scale
-        df_temp['toi_even_sec'] = df_temp.groupby('player_id')['toi_even_sec'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_toi_even = df_temp['toi_even_sec'].apply(lambda s: pd.Timedelta(seconds=s)).astype('timedelta64[s]').astype('int64').max()
-        min_toi_even = df_temp['toi_even_sec'].apply(lambda s: pd.Timedelta(seconds=s)).astype('timedelta64[s]').astype('int64').min()
-        max_toi_even = ceil(max_toi_even) + 30 if max_toi_even % 1 == 0 else ceil(max_toi_even)
-        min_toi_even = floor(min_toi_even) - 30 if min_toi_even % 1 == 0 and floor(min_toi_even) != 0 else 0
-
-        df_temp['toi_pp_sec'] = df_temp.groupby('player_id')['toi_pp_sec'].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-        max_toi_pp = df_temp['toi_pp_sec'].apply(lambda s: pd.Timedelta(seconds=s)).astype('timedelta64[s]').astype('int64').max()
-        min_toi_pp = df_temp['toi_pp_sec'].apply(lambda s: pd.Timedelta(seconds=s)).astype('timedelta64[s]').astype('int64').min()
-        max_toi_pp = ceil(max_toi_pp) + 30 if max_toi_pp % 1 == 0 else ceil(max_toi_pp)
-        min_toi_pp = floor(min_toi_pp) - 30 if min_toi_pp % 1 == 0 and floor(min_toi_pp) != 0 else 0
-
-    idx = 1
-    for player_id in player_ids:
-
-        df_player = df.query('player_id==@player_id').copy(deep=True).reindex()
-        df_player.fillna(0, inplace=True)
-
-        for i, cat in enumerate(categories):
-
-            df_temp = df_player.copy(deep=True)
-            df_temp = df_temp[['player_id', 'date', cat]]
-            df_temp[cat] = df_temp.groupby('player_id')[cat].transform(lambda x: x.rolling(rolling_avg_period, 1).mean())
-
-            # add trendline
-            if df_temp[cat].size > 0:
-                model = LinearRegression().fit(np.array(df_temp['date'].astype('datetime64[ns]').astype('int64')).reshape(-1,1), np.array(df_temp[cat]))
-                y_hat = model.predict(np.array(df_temp['date'].astype('datetime64[ns]').astype('int64')).reshape(-1,1))
-
-            if cat in ('toi_even_sec', 'toi_pp_sec'):
-                # convert to timedelta...
-                df_temp['time'] = df_temp[cat].apply(lambda s: pd.Timedelta(seconds=s))
-
-                fig.add_trace(go.Scatter(x=df_temp['date'],
-                                         y=df_temp['time'].astype('timedelta64[s]').astype('int64'),
-                                         marker={'color': 'red', 'symbol': 'x', 'size': 10},
-                                         mode="markers",
-                                         hovertemplate=df_temp['time'].astype('timedelta64[s]').astype('int64').apply(lambda t: ''.join(['Date: %{x} <br>TOI: ', seconds_to_string_time(t)])),
-                                         cliponaxis=False,
-                                ),
-                        row=i + 1, col=idx
-                        )
-
-            else:
-
-                fig.add_trace(go.Scatter(x=df_temp['date'],
-                                         y=df_temp[cat],
-                                         marker={'color': 'red', 'symbol': 'x', 'size': 10},
-                                         mode="markers",
-                                        # hovertemplate=''.join(['Date: %{x} <br>', f'{subplot_titles[cat]}'+': %{y}']),
-                                         cliponaxis=False,
-                                    ),
-                        row=i + 1, col=idx
-                        )
-
-            # add trendline
-            if df_temp[cat].size > 0:
-                fig.add_trace(go.Scatter(x=df_temp['date'], y=y_hat, marker={'color': 'black'}, mode='lines'), row=i + 1, col=idx)
-
-        idx = idx + 1
-
-    fig.update_layout(overwrite=True,
-                      height=len(categories) * 210,
-                      width=1800 if len(players) >= 2 else 900,
-                      title_text=f'{rolling_avg_period}-Game Rolling Average',
-                      title_font_size=36,
-                      title_x=0.5,
-                      template='plotly_dark',
-                      showlegend=False,
-                )
-    fig.update_xaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-    )
-    fig.update_yaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-    )
-
-    # fix up tick labels
-    toi_even_ticks = pd.Series(range(min_toi_even, max_toi_even, 60 if (max_toi_even - min_toi_even) < 120 else 120))
-    toi_pp_ticks = pd.Series(range(min_toi_pp, max_toi_pp, 30 if (max_toi_pp - min_toi_pp) < 60 else 60))
-
-    for i in range(1, idx):
-
-        fig.update_yaxes(range=[min_toi_even, max_toi_even,], tickmode='array', tickvals=toi_even_ticks, ticktext=toi_even_ticks.apply(seconds_to_string_time), row=skater_compare_data.index('toi_even_sec') + 1, col=i)
-        fig.update_yaxes(range=[min_toi_pp, max_toi_pp,], tickmode='array', tickvals=toi_pp_ticks, ticktext=toi_pp_ticks.apply(seconds_to_string_time), row=skater_compare_data.index('toi_pp_sec') + 1, col=i)
-        fig.update_yaxes(range=[min_toi_pp_ra, max_toi_pp_ra,], row=skater_compare_data.index('toi_pp_ratio_ra') + 1, col=i)
-        fig.update_yaxes(range=[min_pts, max_pts,], row=skater_compare_data.index('points') + 1, col=i)
-        fig.update_yaxes(range=[min_g, max_g,], row=skater_compare_data.index('goals') + 1, col=i)
-        fig.update_yaxes(range=[min_a, max_a,], row=skater_compare_data.index('assists') + 1, col=i)
-        fig.update_yaxes(range=[min_ppp, max_ppp,], row=skater_compare_data.index('points_pp') + 1, col=i)
-        fig.update_yaxes(range=[min_sog, max_sog,], row=skater_compare_data.index('shots') + 1, col=i)
-        fig.update_yaxes(range=[min_tk, max_tk,], row=skater_compare_data.index('takeaways') + 1, col=i)
-        fig.update_yaxes(range=[min_hits, max_hits,], row=skater_compare_data.index('hits') + 1, col=i)
-        fig.update_yaxes(range=[min_blk, max_blk,], row=skater_compare_data.index('blocked') + 1, col=i)
-        # fig.update_yaxes(range=[min_pim, max_pim,], row=skater_compare_data.index('points') + 1, col=i)
-
-    # column titles are overlaying the first subplot title
-    fig.for_each_annotation(lambda a: a.update(y = 1.01) if a.text in column_titles else a)
-    fig.for_each_annotation(lambda a: a.update(font=dict(size=24)) if a.text in column_titles else a)
-
-    rolling_average_charts = pyo.plot(fig, output_type='div')
-
-    return rolling_average_charts
+    return

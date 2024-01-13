@@ -30,6 +30,7 @@ from pandas.io.formats.style import Styler
 from tabulate import tabulate
 
 # NHL Pool classes
+import get_player_data
 import injuries
 import player_lines
 import player_stats as ps
@@ -42,7 +43,7 @@ from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
 from constants import DATABASE
-from utils import get_db_connection, get_db_cursor, get_player_id_from_name
+from utils import get_db_connection, get_db_cursor, get_player_id_from_name, split_seasonID_into_component_years
 
 FONT = 'Consolas 12'
 sg.SetOptions(
@@ -1943,6 +1944,7 @@ class HockeyPool:
                             ],
                         '-',
                         'Manager Game Pace',
+                        'Position Statistics',
                         '-',
                         'Start Flask Server',
                         '-',
@@ -2088,6 +2090,52 @@ class HockeyPool:
         ]
 
         return styles
+
+    def show_stat_summary_tables(self, season: Season):
+
+        # Get teams to save in dictionary
+        df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={season.id} and game_type="R"', con=get_db_connection())
+        teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
+
+        df_game_stats = get_player_data.get_game_stats(season_or_date_radios='season', from_season_id=season.id, to_season_id=season.id, from_date='', to_date='', pool_id='', game_type='R')
+
+        if df_player_stats is None or df_player_stats.empty:
+            return
+
+        # aggregate cumulative stats per player
+        df_cumulative = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Cumulative', teams_dict=teams_dict)
+
+        # calc max, mean, and std
+        get_player_data.calc_scoring_category_maximums(df=df_cumulative)
+        get_player_data.calc_scoring_category_minimums(df=df_cumulative)
+        get_player_data.calc_scoring_category_means(df=df_cumulative)
+        get_player_data.calc_scoring_category_std_deviations(df=df_cumulative)
+
+        cumulative_max_cat = get_player_data.max_cat.copy()
+        cumulative_min_cat = get_player_data.min_cat.copy()
+        cumulative_mean_cat = get_player_data.mean_cat.copy()
+        cumulative_std_cat = get_player_data.std_cat.copy()
+
+        # aggregate per game stats per player
+        df_per_game = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Per game', teams_dict=teams_dict)
+
+        # calc max, mean, and std
+        get_player_data.calc_scoring_category_maximums(df=df_per_game)
+        get_player_data.calc_scoring_category_minimums(df=df_per_game)
+        get_player_data.calc_scoring_category_means(df=df_per_game)
+        get_player_data.calc_scoring_category_std_deviations(df=df_per_game)
+
+        per_game_max_cat = get_player_data.max_cat.copy()
+        per_game_min_cat = get_player_data.min_cat.copy()
+        per_game_mean_cat = get_player_data.mean_cat.copy()
+        per_game_std_cat = get_player_data.std_cat.copy()
+
+        from_year, to_year = split_seasonID_into_component_years(season_id=season.id)
+        caption = f'<b><u>Statistics for the {from_year}-{to_year} season</u><br/>'
+
+        ps.show_stat_summary_tables(df_cumulative=df_cumulative, df_per_game=df_per_game, cumulative_max_cat=cumulative_max_cat, cumulative_min_cat=cumulative_min_cat, cumulative_mean_cat=cumulative_mean_cat, cumulative_std_cat=cumulative_std_cat, per_game_max_cat=per_game_max_cat, per_game_min_cat=per_game_min_cat, per_game_mean_cat=per_game_mean_cat, per_game_std_cat=per_game_std_cat, caption=caption)
+
+        return
 
     def start_daily_vfhl_scheduled_task(self):
 
@@ -3186,6 +3234,9 @@ class HockeyPool:
                     elif event == 'Manager Game Pace':
                         ps.manager_game_pace(season=season, pool=self)
 
+                    elif event == 'Position Statistics':
+                        self.show_stat_summary_tables(season=season)
+
                     elif event == 'Start Flask Server':
                         commands = 'cd C:\\Users\\Roy\\Documents\\GitHub\\vfhl\\python && C:\\Users\\Roy\\AppData\\Local\\Programs\\Python\\Python310\\python.exe main.py'
                         # Execute the commands
@@ -3195,9 +3246,9 @@ class HockeyPool:
                         self.start_daily_vfhl_scheduled_task()
 
                     elif event == 'Get Pool Standings':
-                                        self.get_pool_standings()
-                                        update_pool_teams_tab = True
-                                        refresh_pool_team_config = True
+                        self.get_pool_standings()
+                        update_pool_teams_tab = True
+                        refresh_pool_team_config = True
 
                 except Exception as e:
                     sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')

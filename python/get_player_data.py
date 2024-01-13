@@ -121,7 +121,7 @@ def add_pre_draft_keeper_list_column_to_df(season_id: str, df: pd.DataFrame):
 
     return
 
-def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.DataFrame:
+def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_dict: Dict={}) -> pd.DataFrame:
 
     def average_used_for_trending(x):
         try:
@@ -669,24 +669,24 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
     # Create a deep copy of df
     df_copy = df.copy(deep=True)
 
-    # see https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-a-pandas-dataframe
-    # cols = df_copy.select_dtypes('number').columns  # limits to a (float), b (int) and e (timedelta)
-    cols=['score', 'offense', 'peripheral']
-    df_sub = df_copy.loc[:, cols]
-    # OPTION 1: z-score filter: z-score < 3
-    # lim = np.abs((df_sub - df_sub.mean()) / df_sub.std(ddof=0)) < 3
+    # # see https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-a-pandas-dataframe
+    # # cols = df_copy.select_dtypes('number').columns  # limits to a (float), b (int) and e (timedelta)
+    # cols=['score', 'offense', 'peripheral']
+    # df_sub = df_copy.loc[:, cols]
+    # # OPTION 1: z-score filter: z-score < 3
+    # # lim = np.abs((df_sub - df_sub.mean()) / df_sub.std(ddof=0)) < 3
 
-    # OPTION 2: quantile filter: discard 1% upper / lower values
-    # lim = np.logical_or(df_sub > df_sub.quantile(0.99, numeric_only=False),
-    #                     df_sub < df_sub.quantile(0.01, numeric_only=False))
-    lim = np.logical_or(df_sub > df_sub.quantile(0.99,), df_sub < df_sub.quantile(0.01))
+    # # OPTION 2: quantile filter: discard 1% upper / lower values
+    # # lim = np.logical_or(df_sub > df_sub.quantile(0.99, numeric_only=False),
+    # #                     df_sub < df_sub.quantile(0.01, numeric_only=False))
+    # lim = np.logical_or(df_sub > df_sub.quantile(0.99,), df_sub < df_sub.quantile(0.01))
 
-    # OPTION 3: iqr filter: within 2.22 IQR (equiv. to z-score < 3)
-    # iqr = df_sub.quantile(0.75, numeric_only=False) - df_sub.quantile(0.25, numeric_only=False)
-    # lim = np.abs((df_sub - df_sub.median()) / iqr) < 2.22
+    # # OPTION 3: iqr filter: within 2.22 IQR (equiv. to z-score < 3)
+    # # iqr = df_sub.quantile(0.75, numeric_only=False) - df_sub.quantile(0.25, numeric_only=False)
+    # # lim = np.abs((df_sub - df_sub.median()) / iqr) < 2.22
 
-    # replace outliers with nan
-    df_copy.loc[:, cols] = df_sub.where(~lim, np.nan)
+    # # replace outliers with nan
+    # df_copy.loc[:, cols] = df_sub.where(~lim, np.nan)
 
     try:
 
@@ -2005,7 +2005,7 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
 
     # add team games played for each player
     # Get teams to save in dictionary
-    global teams_dict
+    # global teams_dict
     if from_season_id == to_season_id:
         df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={from_season_id} and game_type="{game_type}"', con=get_db_connection())
     else:
@@ -2026,7 +2026,7 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
 
         #######################################################################################
         # aggregate per game stats per player
-        df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type)
+        df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type, teams_dict=teams_dict)
 
         ###################################################################################
         # skater shot attempt % (5v5) report
