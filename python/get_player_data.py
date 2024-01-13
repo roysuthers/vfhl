@@ -163,6 +163,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_di
         games_started = ('games_started', 'sum'),
         goals = ('goals', stat_type_agg_method),
         goals_against = ('goals_against', stat_type_agg_method),
+        goals_against_sum = ('goals_against', 'sum'),
         goals_gw = ('goals_gw', 'sum'),
         goals_ot = ('goals_ot', 'sum'),
         goals_pp = ('goals_pp', 'sum'),
@@ -197,9 +198,11 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_di
         quality_starts = ('quality_starts', 'sum'),
         really_bad_starts = ('really_bad_starts', 'sum'),
         saves = ('saves', stat_type_agg_method),
+        saves_sum = ('saves', 'sum'),
         # seasonID = ('seasonID', 'last'),
         shots = ('shots', stat_type_agg_method),
         shots_against = ('shots_against', stat_type_agg_method),
+        shots_against_sum = ('shots_against', 'sum'),
         shots_powerplay = ('shots_powerplay', stat_type_agg_method),
         shots_powerplay_sum = ('shots_powerplay', 'sum'),
         shutouts = ('shutouts', stat_type_agg_method),
@@ -935,9 +938,9 @@ def calc_scoring_category_means(df: pd.DataFrame):
         for cat in all_categories:
             if columns_series.isin([cat]).any():
                 if cat == 'gaa':
-                    mean_cat[cat] = df_g['goals_against'].sum() / df_g['toi_sec'].sum() * 3600
+                    mean_cat[cat] = df_g['goals_against_sum'].sum() / df_g['toi_sec'].sum() * 3600
                 elif cat == 'save%':
-                    mean_cat[cat] = df_g['saves'].sum() / df_g['shots_against'].sum()
+                    mean_cat[cat] = df_g['saves_sum'].sum() / df_g['shots_against_sum'].sum()
                 else:
                     mean_cat[cat] = df_g[cat].mean()
             else:
@@ -1011,7 +1014,7 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
                 std_cat[cat] = None
 
         # also need goals_against, used when calculating gaa z-scores
-        std_cat['goals_against'] = df_g['goals_against'].std()
+        std_cat['goals_against'] = df_g['goals_against_sum'].std()
 
     except:
         print(f'{traceback.format_exc()} in calc_scoring_category_std_deviations()')
