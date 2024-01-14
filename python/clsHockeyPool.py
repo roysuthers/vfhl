@@ -3006,11 +3006,8 @@ class HockeyPool:
                     elif event == 'Refresh':
                         # get stats for all players
                         self.getPlayerStats()
-                        # refresh pool teams list
-                        self.updatePoolTeamRosters(suppress_prompt=True)
                         update_pool_teams_tab = True
-                        # refresh pool team rosters
-                        self.getPlayerStats()
+                        refresh_pool_team_config = True
                         refresh_pool_team_roster_config = True
 
                     # NOTE: Need the ending "," to stop "TypeError: 'in <string>' requires string as left operand, not tuple" message
