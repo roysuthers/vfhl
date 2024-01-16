@@ -197,44 +197,44 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
             for a_tag in a_tags:
                 team_urls.append(a_tag.get_attribute('href'))
 
-        team_abbrs = {
-            'anaheim-ducks': 'ANA',
-            'arizona-coyotes': 'ARI',
-            'boston-bruins': 'BOS',
-            'buffalo-sabres': 'BUF',
-            'calgary-flames': 'CGY',
-            'carolina-hurricanes': 'CAR',
-            'chicago-blackhawks': 'CHI',
-            'colorado-avalanche': 'COL',
-            'columbus-blue-jackets': 'CBJ',
-            'dallas-stars': 'DAL',
-            'detroit-red-wings': 'DET',
-            'edmonton-oilers': 'EDM',
-            'florida-panthers': 'FLA',
-            'los-angeles-kings': 'LAK',
-            'minnesota-wild': 'MIN',
-            'montreal-canadiens': 'MTL',
-            'nashville-predators': 'NSH',
-            'new-jersey-devils': 'NJD',
-            'new-york-islanders': 'NYI',
-            'new-york-rangers': 'NYR',
-            'ottawa-senators': 'OTT',
-            'philadelphia-flyers': 'PHI',
-            'pittsburgh-penguins': 'PIT',
-            'san-jose-sharks': 'SJS',
-            'seattle-kraken': 'SEA',
-            'st-louis-blues': 'STL',
-            'tampa-bay-lightning': 'TBL',
-            'toronto-maple-leafs': 'TOR',
-            'vancouver-canucks': 'VAN',
-            'vegas-golden-knights': 'VGK',
-            'washington-capitals': 'WSH',
-            'winnipeg-jets': 'WPG'
-        }
+            team_abbrs = {
+                'anaheim-ducks': 'ANA',
+                'arizona-coyotes': 'ARI',
+                'boston-bruins': 'BOS',
+                'buffalo-sabres': 'BUF',
+                'calgary-flames': 'CGY',
+                'carolina-hurricanes': 'CAR',
+                'chicago-blackhawks': 'CHI',
+                'colorado-avalanche': 'COL',
+                'columbus-blue-jackets': 'CBJ',
+                'dallas-stars': 'DAL',
+                'detroit-red-wings': 'DET',
+                'edmonton-oilers': 'EDM',
+                'florida-panthers': 'FLA',
+                'los-angeles-kings': 'LAK',
+                'minnesota-wild': 'MIN',
+                'montreal-canadiens': 'MTL',
+                'nashville-predators': 'NSH',
+                'new-jersey-devils': 'NJD',
+                'new-york-islanders': 'NYI',
+                'new-york-rangers': 'NYR',
+                'ottawa-senators': 'OTT',
+                'philadelphia-flyers': 'PHI',
+                'pittsburgh-penguins': 'PIT',
+                'san-jose-sharks': 'SJS',
+                'seattle-kraken': 'SEA',
+                'st-louis-blues': 'STL',
+                'tampa-bay-lightning': 'TBL',
+                'toronto-maple-leafs': 'TOR',
+                'vancouver-canucks': 'VAN',
+                'vegas-golden-knights': 'VGK',
+                'washington-capitals': 'WSH',
+                'winnipeg-jets': 'WPG'
+            }
 
-        with Browser() as browser:
+        # with Browser() as browser:
 
-            wait = WebDriverWait(browser, 60)
+        #     wait = WebDriverWait(browser, 60)
 
             players = []
             for url in team_urls:
@@ -250,16 +250,16 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                     #     return pd.DataFrame.from_dict([])
                     except TimeoutException:
                         attempts += 1
-                        if batch is True:
-                            if attempts >= 3:
-                                msg = f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines."
-                                if dialog:
-                                    dialog['-PROG-'].update(msg)
-                                    event, values = dialog.read(timeout=10)
-                                else:
-                                    logger.error(msg)
-                                return pd.DataFrame.from_dict([])
+                        if attempts >= 3:
+                            msg = f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines."
+                            if dialog:
+                                dialog['-PROG-'].update(msg)
+                                event, values = dialog.read()
                             else:
+                                logger.error(msg)
+                            return pd.DataFrame.from_dict([])
+                        else:
+                            if batch is True:
                                 logger.debug(f"Timeout occurred for {url}. Retrying...")
 
                         # Respectful scraping: sleep to avoid hitting the server with too many requests
