@@ -360,8 +360,10 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_di
             return x_agg.iloc[-1]
         return wrapper
 
+    df_g = df.query(goalie_filter)
+
     stat_type_agg_method = eval("ewma2() if stat_type == 'EWMA' else 'sum'")
-    gaa_and_save_percent_inputs = df.sort_values(['player_id','seasonID', 'date']).groupby(['player_id'], as_index=False).agg(
+    gaa_and_save_percent_inputs = df_g.sort_values(['player_id','seasonID', 'date']).groupby(['player_id'], as_index=False).agg(
         player_id = ('player_id', 'last'),
         pos = ('pos', 'last'),
         goals_against = ('goals_against', stat_type_agg_method),
@@ -562,8 +564,8 @@ def calc_z_scores(df: pd.DataFrame):
         ##########################################################################
         # Overall z-scores
         global z_scores
-        z_scores = calc_summary_z_scores(df=df)
-        z_scores = pd.Series(z_scores)
+        z_scores = calc_summary_scores(df=df)
+        # z_scores = pd.Series(z_scores)
 
         df = df.assign(
             score = z_scores['score'],
@@ -1243,97 +1245,139 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
 
     return df
 
-def calc_summary_z_scores(df: pd.DataFrame) -> pd.DataFrame:
+def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
 
-    sktr_score_types = ['score', 'offense', 'peripheral']
-    g_score_types = ['score', 'g_count', 'g_ratio']
-    # Concatenate the lists
-    score_types = sktr_score_types + g_score_types
-    # Use a list comprehension to remove duplicates while preserving order
-    score_types = [item for index, item in enumerate(score_types) if score_types.index(item) == index]
+    sktr_summary_score_types = ['score', 'offense', 'peripheral']
+    g_summary_score_types = ['score', 'g_count', 'g_ratio']
+    summary_score_types = sktr_summary_score_types + g_summary_score_types
+    # use a set to remove duplicates and convert it back to a list while preserving order
+    summary_score_types = list(dict.fromkeys(sktr_summary_score_types + g_summary_score_types))
 
-    g_count_cats = ['wins', 'saves']
-    g_ratio_gaa = ['gaa']
-    g_ratio_save_pc = ['save%']
-    sktr_hits_blk_cats = ['hits', 'blocked']
-    sktr_sog_hits_blk_cats = ['shots'] + sktr_hits_blk_cats
-    sktr_goals_hits_pim_cats = ['goals', 'hits', 'pim']
-    sktr_hits_pim_cats = ['hits', 'pim']
-    sktr_offense_cats = ['goals', 'assists', 'shots', 'points_pp']
-    sktr_periph_cats = ['hits', 'blocked', 'pim', 'takeaways']
-    d_only_cats = ['points']
-
+    sktr_offense_cats = ['z_goals', 'z_assists', 'z_shots', 'z_points_pp']
+    sktr_periph_cats = ['z_hits', 'z_blocked', 'z_pim', 'z_takeaways']
     sktr_cats = sktr_offense_cats + sktr_periph_cats
+
+    f_offense_cats = sktr_offense_cats
+    f_periph_cats = sktr_periph_cats
+    f_cats = f_offense_cats + sktr_periph_cats
+
+    d_only_cats = ['z_points']
     d_offense_cats = d_only_cats + sktr_offense_cats
-    d_cats = d_only_cats + sktr_cats
-    g_ratio_cats = g_ratio_gaa + g_ratio_save_pc
+    d_periph_cats = sktr_periph_cats
+    d_cats = d_offense_cats + d_periph_cats
+
+    g_count_cats = ['z_wins', 'z_saves']
+    g_ratio_cats = ['z_gaa', 'z_save%']
     g_cats = g_count_cats + g_ratio_cats
 
-    mask_d = df.eval(defense_filter)
-    mask_g = df.eval(goalie_filter)
-    mask_f = df.eval(forwards_filter)
-    mask_sktr = df.eval(skaters_filter)
-    minimum_one_game_mask = df.eval(minimum_one_game_filter)
+    mask_sktr = df.eval(f"{skaters_filter} and {minimum_one_game_filter}")
+    mask_f = df.eval(f"{forwards_filter} and {minimum_one_game_filter}")
+    mask_d = df.eval(f"{defense_filter} and {minimum_one_game_filter}")
+    mask_g = df.eval(f"{goalie_filter} and {minimum_one_game_filter}")
 
-    std_sktr_cats = df.loc[mask_sktr & minimum_one_game_mask, sktr_cats].std()
-    std_d_cats = pd.concat([df.loc[mask_d & minimum_one_game_mask, d_only_cats].std(), std_sktr_cats])
-    std_g_cats = df.loc[mask_g & minimum_one_game_mask, g_cats].std()
+    df_sktr = df.loc[mask_sktr,:]
+    df_f = df.loc[mask_f,:]
+    df_d = df.loc[mask_d,:]
+    df_g = df.loc[mask_g,:]
+
+    sktr_cat_scores = df_sktr[sktr_cats]
+    f_cat_scores = df_f[f_cats]
+    d_only_cat_scores = df_d[d_only_cats]
+    d_cat_scores = df_d[d_cats]
+    g_cat_scores = df_g[g_cats]
+
+    sktr_games = df_sktr['games']
+    f_games = df_f['games']
+    d_games = df_d['games']
+    g_games = df_g['games']
+
+    sktr_max_games = sktr_games.max()
+    f_max_games = f_games.max()
+    d_max_games = d_games.max()
+    g_max_games = g_games.max()
+
+    def custom_decay(n_games, max_games, a=1):
+        return (n_games / max_games) ** a
+
+    # Calculate the multipliers
+    if statType == 'Cumulative':
+        sktr_multipliers = custom_decay(sktr_games, sktr_max_games, a=0)
+        f_multipliers = custom_decay(f_games, f_max_games, a=0)
+        d_multipliers = custom_decay(d_games, d_max_games, a=0)
+        g_count_multipliers = custom_decay(g_games, g_max_games, a=0)
+        g_ratio_multipliers = custom_decay(g_games, g_max_games)
+    else:
+        sktr_multipliers = custom_decay(sktr_games, sktr_max_games)
+        f_multipliers = custom_decay(f_games, f_max_games)
+        d_multipliers = custom_decay(d_games, d_max_games)
+        g_count_multipliers = custom_decay(g_games, g_max_games)
+        g_ratio_multipliers = g_count_multipliers
+
+    def normalize_scores(series, new_min=0, new_max=100):
+        old_min = series.min()
+        old_max = series.max()
+        return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
 
     scores = {}
     scores['player_id'] = df['player_id']
-
-    d_cat_scores = df.loc[mask_d & minimum_one_game_mask, d_cats] / std_d_cats[d_cats]
-    f_cat_scores = df.loc[mask_f & minimum_one_game_mask, sktr_cats] / std_sktr_cats[sktr_cats]
-    g_cat_scores = pd.concat([df.loc[mask_g & minimum_one_game_mask, g_count_cats] / std_g_cats[g_count_cats], -1 * ((df.loc[mask_g & minimum_one_game_mask, g_ratio_gaa] - mean_cat['gaa']) / std_g_cats[g_ratio_gaa]), (df.loc[mask_g & minimum_one_game_mask, g_ratio_save_pc] - mean_cat['save%']) / std_g_cats[g_ratio_save_pc]], axis=1)
-
-    for score_type in score_types:
-
+    for score_type in summary_score_types:
         if score_type == 'peripheral':
             d_only_cats = []
             sktr_cats = sktr_periph_cats
+            f_cats = f_periph_cats
+            d_cats = d_periph_cats
         elif score_type == 'offense':
             sktr_cats = sktr_offense_cats
+            f_cats = f_offense_cats
+            d_cats = d_offense_cats
         elif score_type == 'g_count':
             g_cats = g_count_cats
         elif score_type == 'g_ratio':
             g_cats = g_ratio_cats
 
-        d_cats = d_only_cats + sktr_cats
+        if score_type in sktr_summary_score_types:
+            sktr_scores_sum = pd.concat([d_only_cat_scores[d_only_cats], sktr_cat_scores[sktr_cats]], axis=1).sum(axis=1)
+            sktr_scores = round(normalize_scores(sktr_scores_sum * sktr_multipliers), 2)
 
-        if score_type in sktr_score_types:
-            d_scores = d_cat_scores[d_cats].sum(axis=1)
-            f_scores = f_cat_scores[sktr_cats].sum(axis=1)
+            f_scores_sum = f_cat_scores[f_cats].sum(axis=1)
+            f_scores = round(normalize_scores(f_scores_sum * f_multipliers), 2)
+
+            d_scores_sum = d_cat_scores[d_cats].sum(axis=1)
+            d_scores = round(normalize_scores(d_scores_sum * d_multipliers), 2)
+
+        if score_type in g_summary_score_types:
+            g_count_scores_sum = g_cat_scores[g_count_cats].sum(axis=1)
+            g_ratio_scores_sum = g_cat_scores[g_ratio_cats].sum(axis=1)
+            if score_type == 'score':
+                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers + g_ratio_scores_sum * g_ratio_multipliers), 2)
+            elif score_type == 'g_count':
+                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers), 2)
+            elif score_type == 'g_ratio':
+                g_scores = round(normalize_scores(g_ratio_scores_sum * g_ratio_multipliers), 2)
+
+        # Rank as a percentage of the maximum value
+        if score_type in sktr_summary_score_types:
             if score_type != 'score':
-                sktr_scores = pd.concat([d_scores, f_scores])
-                # Rank as a percentage of the maximum value
                 if positionalScoring is True:
-                    scores[score_type] = pd.concat([round((f_scores / f_scores.max()) * 100, 0), round((d_scores / d_scores.max()) * 100, 0)])
+                    scores[score_type] = pd.concat([f_scores, d_scores])
                 else:
-                    scores[score_type] = round((sktr_scores / sktr_scores.max()) * 100, 0)
+                    scores[score_type] = sktr_scores
 
-        if score_type in g_score_types:
-            g_scores = g_cat_scores[g_cats].sum(axis=1)
-            # don't want negative g_scores
-            g_scores_min = g_scores.min()
-            if g_scores_min < 0:
-                g_scores += abs(g_scores_min)
-
+        if score_type in g_summary_score_types:
             if score_type != 'score':
-                # Rank as a percentage of the maximum value
-                scores[score_type] = round((g_scores / g_scores.max()) * 100, 0)
+                scores[score_type] = g_scores
 
         if score_type == 'score':
-            score_scores = pd.concat([d_scores, f_scores, g_scores])
             if positionalScoring is True:
-                scores[score_type] = pd.concat([round((f_scores / f_scores.max()) * 100, 0), round((d_scores / d_scores.max()) * 100, 0), round((g_scores / g_scores.max()) * 100, 0)])
+                scores[score_type] = pd.concat([f_scores, d_scores, g_scores])
             else:
-                scores[score_type] = round((score_scores / score_scores.max()) * 100, 0)
+                scores[score_type] = pd.concat([sktr_scores, g_scores])
 
         if score_type == 'score':
             prefix = ''
-        elif score_type in sktr_score_types:
+        elif score_type in sktr_summary_score_types:
             prefix = 'sktr '
-        elif score_type in g_score_types:
+        elif score_type in g_summary_score_types:
             prefix = 'g '
 
         min_cat[f'{prefix}{score_type}'] = scores[score_type].min()
@@ -2120,7 +2164,10 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
         df_player_stats.query('(games.notna() and games>=1) or watch_list=="Yes"', inplace=True)
     else:
         # drop players in minors and not on active nhl team roster, and not on a pool team
-        df_player_stats.query('(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y") or (poolteam_id!="" and poolteam_id.notna()) or watch_list=="Yes" or (line.notna() and line!="") or (pp_line.notna() and pp_line!="") or picked_by!=""', inplace=True)
+        # removed minors=="" from `'(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y")`. if player has
+        # played games, then should be in player lists
+        # for the same reason as above, I removed nhl_roster_status=="y" from `'(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y")`
+        df_player_stats.query('(games>=1 and games.notna()) or (poolteam_id!="" and poolteam_id.notna()) or watch_list=="Yes" or (line.notna() and line!="") or (pp_line.notna() and pp_line!="") or picked_by!=""', inplace=True)
 
     # df_player_stats['pool_team'].fillna(value='', inplace=True)
 
@@ -2262,20 +2309,20 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     zscore_summary_columns = {
         'columns': [
-            {'title': 'score', 'runtime column': 'score', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
+            {'title': 'score', 'runtime column': 'score', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
             {'title': 'z-score', 'runtime column': 'z_score', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
             {'title': 'z-combo', 'runtime column': 'z_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum')},
-            {'title': 'sktr offense score', 'runtime column': 'offense', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'sktr offense score', 'runtime column': 'offense', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-offense', 'runtime column': 'z_offense', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-offense combo', 'runtime column': 'z_offense_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
-            {'title': 'sktr peripheral score', 'runtime column': 'peripheral', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'sktr peripheral score', 'runtime column': 'peripheral', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-peripheral', 'runtime column': 'z_peripheral', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-peripheral combo', 'runtime column': 'z_peripheral_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
 
-            {'title': 'g count score', 'runtime column': 'g_count', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'g count score', 'runtime column': 'g_count', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-count', 'runtime column': 'z_count', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-count combo', 'runtime column': 'z_g_count_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
-            {'title': 'g ratio score', 'runtime column': 'g_ratio', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'g ratio score', 'runtime column': 'g_ratio', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-ratio', 'runtime column': 'z_ratio', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-ratio combo', 'runtime column': 'z_g_ratio_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
 
