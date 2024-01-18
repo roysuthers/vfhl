@@ -146,24 +146,24 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
                 row_data.append('{:0.1f}'.format(round(std_cat[dict_elem] / mean_cat[dict_elem] * 100, 1)))
             elif row_header == '+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<mean_cat[dict_elem]) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<=mean_cat[dict_elem]) & cond_dict[position]])))
                 else:
-                    row_data.append(str(len(df[(df[column_header]>mean_cat[dict_elem]) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]>=mean_cat[dict_elem]) & cond_dict[position]])))
             elif row_header == '1+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - std_cat[dict_elem])) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - std_cat[dict_elem])) & cond_dict[position]])))
                 else:
-                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position]])))
             elif row_header == '2+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - (2 * std_cat[dict_elem]))) & cond_dict[position]])))
                 else:
-                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position]])))
             elif row_header == '3+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - (3 * std_cat[dict_elem]))) & cond_dict[position]])))
                 else:
-                    row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position]])))
         data.append(row_data)
 
     if position == 'Goalies':
