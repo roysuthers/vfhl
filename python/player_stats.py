@@ -151,17 +151,17 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
                     row_data.append(str(len(df[(df[column_header]>mean_cat[dict_elem]) & cond_dict[position_type]])))
             elif row_header == '1+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - std_cat[dict_elem])) & cond_dict[position_type]])))
                 else:
                     row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position_type]])))
             elif row_header == '2+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
                 else:
                     row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position_type]])))
             elif row_header == '3+ Std Dev':
                 if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
+                    row_data.append(str(len(df[(df[column_header]<(mean_cat[dict_elem] - (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
                 else:
                     row_data.append(str(len(df[(df[column_header]>(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position_type]])))
         data.append(row_data)
