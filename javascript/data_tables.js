@@ -1268,7 +1268,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                     // check if the colvisClicked flag is true
                     if (colvisClicked) {
                         // column: index of the column whose visibility changed
-                        column_name =table.column(column).name() + ':name';
+                        column_name = table.column(column).name() + ':name';
                         // state: true if the column is now visible, false if it is now hidden
                         // add your custom code here to handle the column visibility change
                         if (state === false) { // not visible
