@@ -436,9 +436,9 @@ class NHL_API():
                 # Update Player table
                 sql = "update Player set active = 0, roster_status = 'N', current_team_id = 0, current_team_abbr=''"
                 connection.execute(sql)
-                connection.commit()
 
                 # Iterate over players
+                c = connection.cursor()
                 for idx, row in df_players.iterrows():
                     player_id = row['id']
                     # Update player attributes in the database
@@ -455,15 +455,24 @@ class NHL_API():
                         where id = ?
                     """)
                     params = (row['height'], row['weight'], row['active'], row['current_team_id'], row['current_team_abbr'], row['primary_position'], row['roster_status'], int(row['games']), player_id)
-                    connection.execute(sql, params)
+                    c.execute(sql, params)
 
                     sql = dedent(f"""\
-                        INSERT OR REPLACE INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
-                        VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
+                        UPDATE TeamRosters
+                        SET seasonID={season.id}, player_id={player_id}, team_abbr="{row['current_team_abbr']}", name="{row['first_name']} {row['last_name']}", pos="{row['primary_position']}"
+                        WHERE seasonID = {season.id} AND player_id = {player_id}
                     """)
-                    connection.execute(sql)
+                    c.execute(sql)
+                    # If no row was updated, insert a new one
+                    c.execute("SELECT changes()")
+                    if c.fetchone()[0] == 0:
+                        sql = dedent(f"""\
+                            INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
+                            VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
+                        """)
+                        c.execute(sql)
 
-                    connection.commit()
+                connection.commit()
 
         except Exception as e:
             if batch:
