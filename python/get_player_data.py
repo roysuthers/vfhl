@@ -1314,6 +1314,8 @@ def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
         g_ratio_multipliers = g_count_multipliers
 
     def normalize_scores(series, new_min=0, new_max=100):
+        # It seems the Fantrax has a min = ~3 for skaters, and min = ~25
+        # I have no particular reason to replicate these minimums, but just gonnar run with them for now
         old_min = series.min()
         old_max = series.max()
         return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
@@ -1337,23 +1339,23 @@ def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
 
         if score_type in sktr_summary_score_types:
             sktr_scores_sum = pd.concat([d_only_cat_scores[d_only_cats], sktr_cat_scores[sktr_cats]], axis=1).sum(axis=1)
-            sktr_scores = round(normalize_scores(sktr_scores_sum * sktr_multipliers), 2)
+            sktr_scores = round(normalize_scores(sktr_scores_sum * sktr_multipliers, new_min=3), 2)
 
             f_scores_sum = f_cat_scores[f_cats].sum(axis=1)
-            f_scores = round(normalize_scores(f_scores_sum * f_multipliers), 2)
+            f_scores = round(normalize_scores(f_scores_sum * f_multipliers, new_min=3), 2)
 
             d_scores_sum = d_cat_scores[d_cats].sum(axis=1)
-            d_scores = round(normalize_scores(d_scores_sum * d_multipliers), 2)
+            d_scores = round(normalize_scores(d_scores_sum * d_multipliers, new_min=3), 2)
 
         if score_type in g_summary_score_types:
             g_count_scores_sum = g_cat_scores[g_count_cats].sum(axis=1)
             g_ratio_scores_sum = g_cat_scores[g_ratio_cats].sum(axis=1)
             if score_type == 'score':
-                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers + g_ratio_scores_sum * g_ratio_multipliers), 2)
+                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers + g_ratio_scores_sum * g_ratio_multipliers, new_min=25), 2)
             elif score_type == 'g_count':
-                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers), 2)
+                g_scores = round(normalize_scores(g_count_scores_sum * g_count_multipliers, new_min=25), 2)
             elif score_type == 'g_ratio':
-                g_scores = round(normalize_scores(g_ratio_scores_sum * g_ratio_multipliers), 2)
+                g_scores = round(normalize_scores(g_ratio_scores_sum * g_ratio_multipliers, new_min=25), 2)
 
         # Rank as a percentage of the maximum value
         if score_type in sktr_summary_score_types:
