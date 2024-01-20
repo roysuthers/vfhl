@@ -493,7 +493,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         // custom sort for 'dobber z-score rank' column
                         // custom sort for 'dtz z-score rank' column
                         // custom sort for 'fantrax z-score rank' column
-                        { targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx], type: "custom_integer_sort", orderSequence: ['asc']},
+                        { targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dfo_zscore_rank_idx, dobber_zscore_rank_idx, dtz_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, breakout_threshold_idx], type: "custom_integer_sort", orderSequence: ['asc']},
 
                         // custom sort for ''toi pg (trend)' column
                         // custom sort for 'toi even pg (trend)' column
@@ -930,6 +930,18 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             }
                             nameToIndex[name].push(index);
                         });
+
+                        $.fn.dataTable.ext.search.push(
+                            function(settings, data, dataIndex) {
+                                var breakout_threshold = data[breakout_threshold_idx];
+                                var shooting_percent = data[shooting_percent_idx];
+
+                                if(breakout_threshold === "" || shooting_percent === "") {
+                                    return false;
+                                }
+                                return true;
+                            }
+                        );
 
                     },
 
