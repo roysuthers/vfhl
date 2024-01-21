@@ -457,8 +457,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             team_idx,
                             watch_idx
                         ]},
-                        {searchBuilder: { defaultCondition: 'between' }, targets: [breakout_threshold_idx]},
-                        {searchBuilder: { defaultCondition: '!null' }, targets: [game_today_idx]},
+                        {searchBuilder: { defaultCondition: '!null' }, targets: [breakout_threshold_idx, game_today_idx]},
                         {searchBuilder: { defaultCondition: 'selectedPlayers' }, targets: [id_idx]},
 
                         // searchBuilder rename columns
