@@ -27,8 +27,8 @@ from constants import  DATABASE, NHL_API_URL
 from utils import calculate_age, seconds_to_string_time, split_seasonID_into_component_years, string_to_time
 
 # formatting for ranking tables
-# f_0_decimals = compile("lambda x: '' if pd.isna(x) or x in ['', 0] else '{:0.0f}'.format(x)", '<string>', 'eval')
-f_0_decimals = compile("lambda x: '' if pd.isna(x) or x == '' else '{:0.0f}'.format(x)", '<string>', 'eval')
+f_0_decimals = compile("lambda x: '' if pd.isna(x) or x in ['', 0] else '{:0.0f}'.format(x)", '<string>', 'eval')
+f_0_decimals_show_0 = compile("lambda x: '' if pd.isna(x) or x == '' else '{:0.0f}'.format(x)", '<string>', 'eval')
 f_0_toi_to_empty = compile("lambda x: '' if x in ('00:00', None) or pd.isna(x) else x", '<string>', 'eval')
 f_0_toi_to_empty_and_show_plus = compile("lambda x: '' if x in ('+00:00', '+0:00', '00:00', '0:00', None) or pd.isna(x) else x", '<string>', 'eval')
 f_1_decimal = compile("lambda x: '' if pd.isna(x) or x in ['', 0] or round(x,1)==0.0 else '{:0.1f}'.format(x)", '<string>', 'eval')
@@ -2269,7 +2269,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'height', 'table column': 'height', 'data_group': 'general', 'hide': True},
             {'title': 'weight', 'table column': 'weight', 'data_group': 'general', 'hide': True},
             {'title': 'career games', 'table column': 'career_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals), 'data_group': 'skater', 'hide': True, 'search_builder': True},
+            {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'rookie', 'table column': 'rookie', 'data_group': 'general', 'hide': True, 'search_builder': True},
