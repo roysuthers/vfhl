@@ -501,9 +501,6 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         // custom sort for ''toi sh pg (trend)' column
                         { targets: [toi_pg_trend_idx, toi_even_pg_trend_idx, toi_pp_pg_trend_idx, toi_sh_pg_trend_idx], type: "custom_time_delta_sort", orderSequence: ['desc']},
 
-                        // custom sort for 'breakout threshold' column
-                        { targets: [breakout_threshold_idx], type: "custom_breakout_sort", orderSequence: ['asc']},
-
                         // skater scoring category heatmaps
                         { targets: Array.from(sktr_category_heatmap_columns),
                             createdCell: function (td, cellData, rowData, row, col) {
@@ -931,18 +928,6 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             nameToIndex[name].push(index);
                         });
 
-                        $.fn.dataTable.ext.search.push(
-                            function(settings, data, dataIndex) {
-                                var breakout_threshold = data[breakout_threshold_idx];
-                                var shooting_percent = data[shooting_percent_idx];
-
-                                if(breakout_threshold === "" || shooting_percent === "") {
-                                    return false;
-                                }
-                                return true;
-                            }
-                        );
-
                     },
 
                     drawCallback: function() {
@@ -1202,29 +1187,6 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                             return 0;
                         }
                     },
-
-                    // custom ascending sort for "breakout threshold" column
-                    "custom_breakout_sort-asc": function (val_1, val_2) {
-
-                        if (val_1 == val_2) {
-                            return 0;
-                        }
-                        if (val_1 == '') {
-                            return 1;
-                        }
-                        if (val_2 == '') {
-                            return -1;
-                        }
-
-                        // want to intermix -ve & +ve values, because -1 game under and -1 game over
-                        // imply the player is just as likely to readh his breakout (if he hasn't already)
-                        if (Math.abs(parseInt(val_1)) < Math.abs(parseInt(val_2))) {
-                            return -1;
-                        }
-                        if (Math.abs(parseInt(val_1)) > Math.abs(parseInt(val_2))) {
-                            return 1;
-                        }
-                    }
 
                 });
 
