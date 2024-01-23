@@ -569,7 +569,7 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         [20, 50, 100, 250, 500, -1],
                         ['20 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
                     ],
-                    pageLength: 50,
+                    pageLength: 20,
                     // use 'api' selection style; was using 'multi+shift'
                     select: 'api',
                     buttons: [
