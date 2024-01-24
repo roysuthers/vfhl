@@ -799,6 +799,16 @@ document.getElementById('getStatsButton').addEventListener('click', async () => 
                         //     ],
                         //     logic: 'AND',
                         // }
+                        preDefined: {
+                            criteria: [
+                                {
+                                    condition: '>=',
+                                    data: 'gp',
+                                    value: [1]
+                                }
+                            ],
+                            logic: 'AND',
+                        },
                         conditions: {
                             playerId: {
                                 'selectedPlayers': {
