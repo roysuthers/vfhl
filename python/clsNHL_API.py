@@ -233,7 +233,11 @@ class NHL_API():
         return None
 
     def fetch_data(self, url):
-        return requests.get(url).json()
+        response = requests.get(url)
+        if 'message' in response:
+            return request
+        else:
+            return response.json()
 
     def process_player(self, player, roster_status):
         player_id = player.get('id')
@@ -594,7 +598,7 @@ class NHL_API():
 
             ####################################################################
             # Get teams to save in dictionary
-            dfTeams = self.get_team_stats(season=season, game_type=season.type)
+            dfTeams = self.get_team_stats(season=season, game_type=season.type, batch=batch)
             if dfTeams is None: # this is usually true for upcoming season for which API call return "object not found" error
                 return
             teams_dict = {}
@@ -1954,40 +1958,41 @@ class NHL_API():
             if response.status_code == 200:
                 # Extract the data from the JSON response
                 data = response.json()['data']
+
+                # teams = [{'id': d['teamId'], 'name': d['teamFullName'], 'abbr': d['abbreviation'], 'game': d['gamesPlayed']} for d in data]
+                team_counts = Counter(d['teamId'] for d in data)
+                # Now create a new list with the aggregated data
+                teams = []
+                for team_id, games_played in team_counts.items():
+                    # Find the team name by searching the original data
+                    # (Assumes that all entries for a team have the same name)
+                    team_name = next((d['teamFullName'] for d in data if d['teamId'] == team_id), None)
+
+                    teams.append({
+                        'id': team_id,
+                        'name': team_name,
+                        'games': games_played
+                    })
+
+                with get_db_connection() as connection:
+                    for team in teams:
+                        team_id = team['id']
+                        team_games = team['games']
+                        # # https://statsapi.web.nhl.com/api/v1/schedule?season=20212022&gameType=PR&teamId=1
+                        # team['games'] = j.search('totalGames', requests.get(f'{NHL_API_URL}/schedule?season={season.id}&gameType={game_type}&startDate={season.start_date}&endDate={datetime.strftime(YESTERDAY, "%Y-%m-%d")}&teamId={team_id}').json())
+
+                        sql = f'''insert or replace into TeamStats
+                                (seasonID, game_type, team_id, games)
+                                values ({season.id}, "{game_type}", {team_id}, {team_games})'''
+                        cursor = connection.cursor()
+                        cursor.execute(sql)
+
             else:
                 # Handle any errors
                 request_error = True
                 msg = f'Error: {response.status_code}'
                 if batch:
-                    logger.debug(msg)
-
-            # teams = [{'id': d['teamId'], 'name': d['teamFullName'], 'abbr': d['abbreviation'], 'game': d['gamesPlayed']} for d in data]
-            team_counts = Counter(d['teamId'] for d in data)
-            # Now create a new list with the aggregated data
-            teams = []
-            for team_id, games_played in team_counts.items():
-                # Find the team name by searching the original data
-                # (Assumes that all entries for a team have the same name)
-                team_name = next((d['teamFullName'] for d in data if d['teamId'] == team_id), None)
-
-                teams.append({
-                    'id': team_id,
-                    'name': team_name,
-                    'games': games_played
-                })
-
-            with get_db_connection() as connection:
-                for team in teams:
-                    team_id = team['id']
-                    team_games = team['games']
-                    # # https://statsapi.web.nhl.com/api/v1/schedule?season=20212022&gameType=PR&teamId=1
-                    # team['games'] = j.search('totalGames', requests.get(f'{NHL_API_URL}/schedule?season={season.id}&gameType={game_type}&startDate={season.start_date}&endDate={datetime.strftime(YESTERDAY, "%Y-%m-%d")}&teamId={team_id}').json())
-
-                    sql = f'''insert or replace into TeamStats
-                              (seasonID, game_type, team_id, games)
-                              values ({season.id}, "{game_type}", {team_id}, {team_games})'''
-                    cursor = connection.cursor()
-                    cursor.execute(sql)
+                    logger.error(msg)
 
         except Exception as e:
             logger.error(repr(e))
@@ -1998,6 +2003,7 @@ class NHL_API():
             else: # request_error is True
                 if batch is False:
                     sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+                df = pd.DataFrame()
 
         return df
 
