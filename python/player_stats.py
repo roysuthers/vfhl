@@ -507,11 +507,19 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
                 primary_position = 'C'
             elif player_id == 8474141: # Patrick Kane
                 primary_position = 'C'
-        df_temp.loc[idx, 'pos'] = primary_position
+        df_temp.loc[idx, 'pos'] = f'{primary_position}W' if primary_position in ('L', 'R') else primary_position
         df_temp.loc[idx, 'team_abbr'] = team_abbr
 
-    # merge dataframes
+
+    # First, ensure that 'seasonID' and 'player_id' are set as the index for both dataframes
+    df.set_index(['seasonID', 'player_id'], inplace=True)
+    df_temp.set_index(['seasonID', 'player_id'], inplace=True)
+    # Find the rows in df_temp that are not in df
+    df_temp = df_temp.loc[~df_temp.index.isin(df.index)]
+    # Concatenate df and df_temp
     df = pd.concat([df, df_temp])
+    # Reset the index
+    df.reset_index(inplace=True)
 
     # set None column values to empty
     df['poolteam_id'] = df['poolteam_id'].apply(lambda x: '' if x is None else x)
