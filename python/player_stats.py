@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+import get_player_data
 from clsPlayer import Player
 from clsSeason import Season
 from constants import NHL_API_URL
@@ -63,120 +64,142 @@ def calculate_breakout_threshold(name: str, height: str, weight: int, career_gam
 
 def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, mean_cat: Dict, std_cat: Dict, stat_type: str='Cumulative', position: str='Forwards'):
 
+    if position == 'Forwards':
+        forward_mask = df.eval(get_player_data.forwards_filter)
+        minimum_games_filter = get_player_data.minimum_skater_games_percent
+        minimum_skater_games_mask = df.eval(get_player_data.minimum_skater_games_filter)
+        df = df.loc[forward_mask & minimum_skater_games_mask]
+    elif position == 'Defensemen':
+        defense_mask = df.eval(get_player_data.defense_filter)
+        minimum_games_filter = get_player_data.minimum_skater_games_percent
+        minimum_skater_games_mask = df.eval(get_player_data.minimum_skater_games_filter)
+        df = df.loc[defense_mask & minimum_skater_games_mask]
+    else: # positiion == 'Goalies':
+        goalie_mask = df.eval(get_player_data.goalie_filter)
+        minimum_games_filter = get_player_data.minimum_goalie_games_percent
+        minimum_goalie_starts_mask = df.eval(get_player_data.minimum_goalie_starts_filter)
+        df = df.loc[goalie_mask & minimum_goalie_starts_mask]
+
     # set position prefix
-    if position == 'Skaters':
-        prefix = 'sktr '
-    elif position == 'Forwards':
+    if position == 'Forwards':
         prefix = 'f '
-    elif position == 'Defense':
+    elif position == 'Defensemen':
         prefix = 'd '
     else:
         prefix = ''
 
-    # Define a dictionary for each position and its corresponding conditions
-    cond_dict = {
-        'Skaters': (df['pos'] != "G"),
-        'Forwards': (df['pos'] != "G") & (df['pos'] != "D"),
-        'Defense': (df['pos'] == "D"),
-        'Goalies': (df['pos'] == "G")
-    }
-
-    # Define a dictionary for each statistic and its corresponding list
-    # stats_dict = {
-    #     'points': pts_stats,
-    #     'goals': g_stats,
-    #     'assists': a_stats,
-    #     'points_pp': ppp_stats,
-    #     'shots': sog_stats,
-    #     'takeaways': tk_stats,
-    #     'hits': hit_stats,
-    #     'blocked': blk_stats,
-    #     'pim': pim_stats,
-    #     'wins': wins_stats,
-    #     'saves': saves_stats,
-    #     'gaa': gaa_stats,
-    #     'save%': save_pc_stats
-    # }
-
-    row_headers = ['Maximum', 'Mean', 'Std Dev', 'Std Dev % of Mean', '+ Std Dev', '1+ Std Dev', '2+ Std Dev', '3+ Std Dev']
+    row_headers = ['Maximum', 'Mean', 'Std Dev', 'Scarcity Rating', 'Elite', 'Great', 'Good', 'Average', 'Total - Average +']
 
     column_headers = {
-        'Skaters': ['points', 'goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked', 'pim'],
+        'Forwards': ['goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked', 'pim'],
+        'Defensemen': ['points', 'goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked', 'pim'],
         'Goalies': ['wins', 'saves', 'gaa', 'save%']
     }
 
-    position_type = 'Skaters' if position != 'Goalies' else 'Goalies'
+    # Define formatting information for each row header and column header combination
+    formatting_info = {
+        'Maximum': {
+            'gaa': '',
+            'save%': '',
+            'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:.0f}'
+        },
+        'Mean': {
+            'gaa': '{:0.2f}',
+            'save%': '{:0.3f}',
+            'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:0.1f}'
+        },
+        'Std Dev': {
+            'gaa': '{:0.2f}',
+            'save%': '{:0.3f}',
+            'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:0.1f}'
+        },
+        'Scarcity Rating': {
+            'default': ''
+        },
+        'Elite': {
+            'default': lambda x, z_from: str(len(df[(df[x] >= z_from)])),
+        },
+        'Great': {
+            'default': lambda x, z_from, z_to: str(len(df[(df[x] >= z_from) & (df[x] < z_to)])),
+        },
+        'Good': {
+            'default': lambda x, z_from, z_to: str(len(df[(df[x] >= z_from) & (df[x] < z_to)])),
+        },
+        'Average': {
+            'default': lambda x, z_from, z_to: str(len(df[(df[x] >= z_from) & (df[x] < z_to)])),
+        },
+        'Total - Average +': {
+            'default': lambda x, z_from: str(len(df[(df[x] >= z_from)])),
+        }
+    }
 
     data = []
     for row_header in row_headers:
-        row_data = [row_header]
-        for column_header in column_headers[position_type]:
+        if row_header == 'Scarcity Rating':
+            row_data = ['']
+        elif row_header == 'Elite':
+            z_from = 3
+            row_data = [f'z-score >= {z_from}']
+        elif row_header == 'Great':
+            z_from = 2
+            z_to = 3
+            row_data = [f'z-score >= {z_from} and < {z_to}']
+        elif row_header == 'Good':
+            z_from = 1
+            z_to = 2
+            row_data = [f'z-score >= {z_from} and < {z_to}']
+        elif row_header == 'Average':
+            z_from = 0
+            z_to = 1
+            row_data = [f'z-score >= {z_from} and < {z_to}']
+        elif row_header == 'Total - Average +':
+            z_from = 0
+            row_data = [f'z-score >= {z_from}']
+        else:
+            row_data = [row_header]
+
+        for column_header in column_headers[position]:
             dict_elem = f'{prefix}{column_header}'
+            z_header = f'z_{column_header}'
+
+            if column_header not in formatting_info[row_header]:
+                format_string = formatting_info[row_header]['default']
+            else:
+                format_string = formatting_info[row_header][column_header]
+
             if row_header == 'Maximum':
-                if column_header == 'gaa':
-                    row_data.append('{:0.2f}'.format(round(min_cat[dict_elem], 2)))
-                elif column_header == 'save%':
-                    row_data.append('{:0.3f}'.format(round(max_cat[dict_elem], 3)))
+                if column_header == 'gaa' or column_header == 'save%':
+                    row_data.append('')
                 else:
-                    if stat_type == 'Cumulative':
-                        row_data.append(int(max_cat[dict_elem]))
-                    else:
-                        row_data.append('{:0.1f}'.format(round(max_cat[dict_elem], 1)))
+                    row_data.append(format_string.format(round(max_cat[dict_elem], 1)))
             elif row_header == 'Mean':
-                if column_header == 'gaa':
-                    row_data.append('{:0.2f}'.format(round(mean_cat[dict_elem], 2)))
-                elif column_header == 'save%':
-                    row_data.append('{:0.3f}'.format(round(mean_cat[dict_elem], 3)))
-                else:
-                    if stat_type == 'Cumulative':
-                        row_data.append('{:0.1f}'.format(round(mean_cat[dict_elem], 1)))
-                    else:
-                        row_data.append('{:0.2f}'.format(round(mean_cat[dict_elem], 2)))
+                row_data.append(format_string.format(mean_cat[dict_elem]))
             elif row_header == 'Std Dev':
-                if column_header == 'gaa':
-                    row_data.append('{:0.2f}'.format(round(std_cat[dict_elem], 2)))
-                elif column_header == 'save%':
-                    row_data.append('{:0.3f}'.format(round(std_cat[dict_elem], 3)))
-                else:
-                    if stat_type == 'Cumulative':
-                        row_data.append('{:0.1f}'.format(round(std_cat[dict_elem], 1)))
-                    else:
-                        row_data.append('{:0.2f}'.format(round(std_cat[dict_elem], 2)))
-            elif row_header == 'Std Dev % of Mean':
-                row_data.append('{:0.1f}'.format(round(std_cat[dict_elem] / mean_cat[dict_elem] * 100, 1)))
-            elif row_header == '+ Std Dev':
-                if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<=mean_cat[dict_elem]) & cond_dict[position]])))
-                else:
-                    row_data.append(str(len(df[(df[column_header]>=mean_cat[dict_elem]) & cond_dict[position]])))
-            elif row_header == '1+ Std Dev':
-                if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - std_cat[dict_elem])) & cond_dict[position]])))
-                else:
-                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + std_cat[dict_elem])) & cond_dict[position]])))
-            elif row_header == '2+ Std Dev':
-                if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - (2 * std_cat[dict_elem]))) & cond_dict[position]])))
-                else:
-                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + (2 * std_cat[dict_elem]))) & cond_dict[position]])))
-            elif row_header == '3+ Std Dev':
-                if column_header == 'gaa':
-                    row_data.append(str(len(df[(df[column_header]<=(mean_cat[dict_elem] - (3 * std_cat[dict_elem]))) & cond_dict[position]])))
-                else:
-                    row_data.append(str(len(df[(df[column_header]>=(mean_cat[dict_elem] + (3 * std_cat[dict_elem]))) & cond_dict[position]])))
+                row_data.append(format_string.format(std_cat[dict_elem]))
+            elif row_header == 'Scarcity Rating':
+                row_data.append('')
+            elif row_header in ('Elite', 'Total - Average +'):
+                row_data.append(format_string(z_header, z_from))
+            elif row_header in ('Great', 'Good', 'Average'):
+                row_data.append(format_string(z_header, z_from, z_to))
+
         data.append(row_data)
 
     if position == 'Goalies':
         df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'wins', 'saves', 'gaa', 'save%'])
-    else:
+    elif position == 'Forwards':
+        df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'])
+    else: # position == 'Defensemen'
         df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'pts', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'])
 
-    styler = df_stat_summary.style.set_caption(f'<br /><b><u>{stat_type} Stats Summary - {position}</u></b><br /><br />')
+    styler = df_stat_summary.style.set_caption(f'<br /><b><u>{stat_type} Stats Summary for {str(len(df))} {position}</b></u><br />(minimum {minimum_games_filter}% of team games)<br /><br />')
     styler.set_table_attributes('style="display: inline-block; border-collapse:collapse"')
     styler.set_table_styles(setCSS_TableStyles())
     if position == 'Goalies':
         styler.set_properties(subset=['wins', 'saves', 'gaa', 'save%'], **{'text-align': 'center'})
-    else:
+    elif position == 'Forwards':
+        styler.set_properties(subset=['g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'], **{'text-align': 'center'})
+    else: # position == 'Defensemen'
         styler.set_properties(subset=['pts', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'], **{'text-align': 'center'})
     stat_summary_table = styler.hide(axis='index').to_html()
 
@@ -612,11 +635,6 @@ def show_stat_summary_tables(df_cumulative: pd.DataFrame, df_per_game: pd.DataFr
             <body>
                 <!-- Stat Summary Tables -->
                 <div>
-                    {sktr_cumulative_stat_summary_table}
-                    &nbsp;&nbsp;
-                    {sktr_per_game_stat_summary_table}
-                </div>
-                <div>
                     {f_cumulative_stat_summary_table}
                     &nbsp;&nbsp;
                     {f_per_game_stat_summary_table}
@@ -635,12 +653,10 @@ def show_stat_summary_tables(df_cumulative: pd.DataFrame, df_per_game: pd.DataFr
         </html>
     ''').format(
         caption=caption,
-        sktr_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Skaters'),
-        sktr_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Skaters'),
         f_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Forwards'),
         f_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Forwards'),
-        d_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Defense'),
-        d_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Defense'),
+        d_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Defensemen'),
+        d_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Defensemen'),
         g_cumulative_stat_summary_table=create_stat_summary_table(df=df_cumulative, max_cat=cumulative_max_cat, min_cat=cumulative_min_cat, mean_cat=cumulative_mean_cat, std_cat=cumulative_std_cat, stat_type='Cumulative', position='Goalies'),
         g_per_game_stat_summary_table=create_stat_summary_table(df=df_per_game, max_cat=per_game_max_cat, min_cat=per_game_min_cat, mean_cat=per_game_mean_cat, std_cat=per_game_std_cat, stat_type='Per Game', position='Goalies'),
     )
