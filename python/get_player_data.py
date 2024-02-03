@@ -45,6 +45,10 @@ defense_position_code = "D"
 goalie_position_code = "G"
 
 minimum_one_game_filter = 'games >= 1'
+minimum_skater_games_percent = 20
+minimum_skater_games_filter = f'percent_of_team_games >= {minimum_skater_games_percent}'
+minimum_goalie_games_percent = 20
+minimum_goalie_starts_filter = f'percent_of_team_games >= {minimum_goalie_games_percent}'
 
 skaters_filter = f'pos in {skater_position_codes}'
 forwards_filter = f'pos in {forward_position_codes}'
@@ -122,7 +126,7 @@ def add_pre_draft_keeper_list_column_to_df(season_id: str, df: pd.DataFrame):
 
     return
 
-def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_dict: Dict={}) -> pd.DataFrame:
+def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.DataFrame:
 
     def average_used_for_trending(x):
         try:
@@ -381,9 +385,10 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', teams_di
     # set NaN
     df_agg_stats.fillna({'games': 0, 'toi_pg': '', 'toi_even_pg': '', 'toi_pp_pg': '', 'team_toi_pp_pg': '', 'toi_sh_pg': ''}, inplace=True)
 
-    team_games = df_agg_stats['team_id'].apply(lambda x: teams_dict[x]['games'] if pd.notna(x) else np.nan)
+    teams_dict = df.groupby('team_id')['gamePk'].nunique().to_dict()
+    team_games = df_agg_stats['team_id'].apply(lambda x: teams_dict[x] if pd.notna(x) else np.nan)
     # add column for ratio of games to team games
-    percent_of_team_games = df_agg_stats['games'].div(team_games).round(2)
+    percent_of_team_games = df_agg_stats['games'].div(team_games).multiply(100).round(1)
 
     ########################################################################################################
     # shooting percentage
@@ -481,7 +486,7 @@ def calc_breakout_threshold(name: str, height: str, weight: int, career_games: i
 
     return breakout_threshold
 
-def calc_z_scores(df: pd.DataFrame):
+def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_summary_scores: bool=True):
 
     try:
 
@@ -493,6 +498,8 @@ def calc_z_scores(df: pd.DataFrame):
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
         minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
         df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
         df_f = df.loc[forward_mask & minimum_one_game_mask]
@@ -502,7 +509,7 @@ def calc_z_scores(df: pd.DataFrame):
         ##########################################################################
         # skaters
         ##########################################################################
-        if positionalScoring is True:
+        if positional_scoring is True:
             z_goals = pd.concat([(df_f['goals'] - mean_cat['f goals']) / std_cat['f goals'], (df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']])
             z_assists = pd.concat([(df_f['assists'] - mean_cat['f assists']) / std_cat['f assists'], (df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']])
             z_pim = pd.concat([(df_f['pim'] - mean_cat['f pim']) / std_cat['f pim'], (df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']])
@@ -535,12 +542,14 @@ def calc_z_scores(df: pd.DataFrame):
         z_saves = (df_g['saves'] - mean_cat['saves']) / std_cat['saves']
 
         # Remove outliers from 'gaa' column
-        df_filtered = df_g.dropna(subset=['gaa'])
-        z_gaa = -1 * (df_filtered['gaa'] - df_filtered['gaa'].mean()) / df_filtered['gaa'].std()
+        # df_filtered = df_g.dropna(subset=['gaa'])
+        # z_gaa = -1 * (df_filtered['gaa'] - df_filtered['gaa'].mean()) / df_filtered['gaa'].std()
+        z_gaa = -1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']
 
         # Remove outliers from 'save%' column
-        df_filtered = df_g.dropna(subset=['save%'])
-        z_save_pct = (df_filtered['save%'] - df_filtered['save%'].mean()) / df_filtered['save%'].std()
+        # df_filtered = df_g.dropna(subset=['save%'])
+        # z_save_pct = (df_filtered['save%'] - df_filtered['save%'].mean()) / df_filtered['save%'].std()
+        z_save_pct = (df_g['save%'] - mean_cat['save%']) / std_cat['save%']
 
         df = df.assign(
             z_points = z_points,
@@ -562,35 +571,37 @@ def calc_z_scores(df: pd.DataFrame):
         df['z_save%'] = df['z_save_pct']
         df.drop('z_save_pct', axis=1, inplace=True)
 
-        ##########################################################################
-        # Overall z-scores
-        global z_scores
-        z_scores = calc_summary_scores(df=df)
-        # z_scores = pd.Series(z_scores)
+        if calculate_summary_scores is True:
 
-        df = df.assign(
-            score = z_scores['score'],
-            offense = z_scores['offense'],
-            peripheral = z_scores['peripheral'],
-            g_count = z_scores['g_count'],
-            g_ratio = z_scores['g_ratio'],
-            # calc z-scores are calculated in javascript code
-            z_score = '',
-            z_offense = '',
-            z_peripheral = '',
-            z_count = '',
-            z_ratio = '',
-        )
+            ##########################################################################
+            # Overall z-scores
+            global z_scores
+            z_scores = calc_summary_scores(df=df)
+            # z_scores = pd.Series(z_scores)
 
-        z_combos = calc_z_combo(df=df, score_types=['score', 'offense', 'peripheral', 'g_count', 'g_ratio'])
+            df = df.assign(
+                score = z_scores['score'],
+                offense = z_scores['offense'],
+                peripheral = z_scores['peripheral'],
+                g_count = z_scores['g_count'],
+                g_ratio = z_scores['g_ratio'],
+                # calc z-scores are calculated in javascript code
+                z_score = '',
+                z_offense = '',
+                z_peripheral = '',
+                z_count = '',
+                z_ratio = '',
+            )
 
-        df = df.assign(
-            z_combo = z_combos['score'],
-            z_offense_combo = z_combos['offense'],
-            z_peripheral_combo = z_combos['peripheral'],
-            z_g_count_combo = z_combos['g_count'],
-            z_g_ratio_combo = z_combos['g_ratio'],
-        )
+            z_combos = calc_z_combo(df=df, score_types=['score', 'offense', 'peripheral', 'g_count', 'g_ratio'])
+
+            df = df.assign(
+                z_combo = z_combos['score'],
+                z_offense_combo = z_combos['offense'],
+                z_peripheral_combo = z_combos['peripheral'],
+                z_g_count_combo = z_combos['g_count'],
+                z_g_ratio_combo = z_combos['g_ratio'],
+            )
 
     except:
         print(f'{traceback.format_exc()} in calc_z_scores()')
@@ -700,12 +711,14 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
         forwards_mask = df_copy.eval(forwards_filter)
         defense_mask = df_copy.eval(defense_filter)
         goalie_mask = df_copy.eval(goalie_filter)
-        minimum_one_game_mask = df_copy.eval(minimum_one_game_filter)
+        # minimum_one_game_mask = df_copy.eval(minimum_one_game_filter)
+        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df_copy.loc[skaters_mask & minimum_one_game_mask]
-        df_f = df_copy.loc[forwards_mask & minimum_one_game_mask]
-        df_d = df_copy.loc[defense_mask & minimum_one_game_mask]
-        df_g = df_copy.loc[goalie_mask & minimum_one_game_mask]
+        df_sktr = df_copy.loc[skaters_mask & minimum_skater_games_mask]
+        df_f = df_copy.loc[forwards_mask & minimum_skater_games_mask]
+        df_d = df_copy.loc[defense_mask & minimum_skater_games_mask]
+        df_g = df_copy.loc[goalie_mask & minimum_goalie_starts_mask]
 
         columns = list(df_copy.columns)
         all_categories = sktr_categories + sktr_z_categories
@@ -789,12 +802,14 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
-        df_f = df.loc[forwards_mask & minimum_one_game_mask]
-        df_d = df.loc[defense_mask & minimum_one_game_mask]
-        df_g = df.loc[goalie_mask & minimum_one_game_mask]
+        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
+        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
+        df_d = df.loc[defense_mask & minimum_skater_games_mask]
+        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
@@ -887,12 +902,14 @@ def calc_scoring_category_means(df: pd.DataFrame):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
-        df_f = df.loc[forwards_mask & minimum_one_game_mask]
-        df_d = df.loc[defense_mask & minimum_one_game_mask]
-        df_g = df.loc[goalie_mask & minimum_one_game_mask]
+        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
+        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
+        df_d = df.loc[defense_mask & minimum_skater_games_mask]
+        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
@@ -940,12 +957,13 @@ def calc_scoring_category_means(df: pd.DataFrame):
         all_categories = goalie_categories
         for cat in all_categories:
             if columns_series.isin([cat]).any():
-                if cat == 'gaa':
-                    mean_cat[cat] = df_g['goals_against_sum'].sum() / df_g['toi_sec'].sum() * 3600
-                elif cat == 'save%':
-                    mean_cat[cat] = df_g['saves_sum'].sum() / df_g['shots_against_sum'].sum()
-                else:
-                    mean_cat[cat] = df_g[cat].mean()
+                # if cat == 'gaa':
+                #     mean_cat[cat] = df_g['goals_against_sum'].sum() / df_g['toi_sec'].sum() * 3600
+                # elif cat == 'save%':
+                #     mean_cat[cat] = df_g['saves_sum'].sum() / df_g['shots_against_sum'].sum()
+                # else:
+                #     mean_cat[cat] = df_g[cat].mean()
+                mean_cat[cat] = df_g[cat].mean()
             else:
                 mean_cat[cat] = None
 
@@ -962,12 +980,14 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
-        df_f = df.loc[forwards_mask & minimum_one_game_mask]
-        df_d = df.loc[defense_mask & minimum_one_game_mask]
-        df_g = df.loc[goalie_mask & minimum_one_game_mask]
+        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
+        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
+        df_d = df.loc[defense_mask & minimum_skater_games_mask]
+        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
@@ -1210,7 +1230,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
             shots_against = lambda x: np.where(x['save_percent'] == 0, 0, x['saves'].div(x['save_percent'])),
             goals_against = lambda x: x['gaa'].mul(x['games']),
             team_games = 82,
-            percent_of_team_games = lambda x: x['games'].fillna(0).div(x['team_games']).round(2)
+            percent_of_team_games = lambda x: x['games'].fillna(0).div(x['team_games']).multiply(100).round(1)
         )
 
         # Replace the values in the 'save%' column with the values in the 'save_percent' column
@@ -1246,7 +1266,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
 
     return df
 
-def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
+def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False) -> pd.DataFrame:
 
     sktr_summary_score_types = ['score', 'offense', 'peripheral']
     g_summary_score_types = ['score', 'g_count', 'g_ratio']
@@ -1361,7 +1381,7 @@ def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
         # Rank as a percentage of the maximum value
         if score_type in sktr_summary_score_types:
             if score_type != 'score':
-                if positionalScoring is True:
+                if positional_scoring is True:
                     scores[score_type] = pd.concat([f_scores, d_scores])
                 else:
                     scores[score_type] = sktr_scores
@@ -1371,7 +1391,7 @@ def calc_summary_scores(df: pd.DataFrame) -> pd.DataFrame:
                 scores[score_type] = g_scores
 
         if score_type == 'score':
-            if positionalScoring is True:
+            if positional_scoring is True:
                 scores[score_type] = pd.concat([f_scores, d_scores, g_scores])
             else:
                 scores[score_type] = pd.concat([sktr_scores, g_scores])
@@ -1406,6 +1426,8 @@ def calc_z_combo(df: pd.DataFrame, score_types: List[str]=['score']) -> pd.Serie
     defense_mask = df.eval(defense_filter)
     goalie_mask = df.eval(goalie_filter)
     minimum_one_game_mask = df.eval(minimum_one_game_filter)
+    # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+    # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
     df_f = df.loc[forwards_mask & minimum_one_game_mask]
     df_d = df.loc[defense_mask & minimum_one_game_mask]
@@ -2040,9 +2062,6 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     global statType
     statType = stat_type
 
-    global positionalScoring
-    positionalScoring = positional_scoring
-
     if game_type == 'R':
         season_type = 'Regular Season'
     elif game_type == 'P':
@@ -2053,14 +2072,14 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     global timeframe
     timeframe =  season_type
 
-    # add team games played for each player
-    # Get teams to save in dictionary
-    # global teams_dict
-    if from_season_id == to_season_id:
-        df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={from_season_id} and game_type="{game_type}"', con=get_db_connection())
-    else:
-        df_teams = pd.read_sql(f'select team_id, sum(games) as games from TeamStats where seasonID between {from_season_id} and {to_season_id} and game_type="{game_type}" group by team_id', con=get_db_connection())
-    teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
+    # # add team games played for each player
+    # # Get teams to save in dictionary
+    # # global teams_dict
+    # if from_season_id == to_season_id:
+    #     df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={from_season_id} and game_type="{game_type}"', con=get_db_connection())
+    # else:
+    #     df_teams = pd.read_sql(f'select team_id, sum(games) as games from TeamStats where seasonID between {from_season_id} and {to_season_id} and game_type="{game_type}" group by team_id', con=get_db_connection())
+    # teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
 
     if season_type == 'Projected Season':
         df_player_stats = calc_player_projected_stats(current_season_stats=True, season_id=from_season_id, projection_source=projection_source)
@@ -2076,7 +2095,7 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
 
         #######################################################################################
         # aggregate per game stats per player
-        df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type, teams_dict=teams_dict)
+        df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type)
 
         ###################################################################################
         # skater shot attempt % (5v5) report
@@ -2149,7 +2168,7 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     calc_scoring_category_std_deviations(df=df_player_stats)
 
     # z-scores
-    df_player_stats = calc_z_scores(df=df_player_stats)
+    df_player_stats = calc_z_scores(df=df_player_stats, positional_scoring=positional_scoring)
 
     # calc global minumums & maximums
     calc_scoring_category_minimums(df=df_player_stats)
@@ -2283,6 +2302,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
             {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'gp', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
+            {'title': '% of team gp', 'table column': 'percent_of_team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'first game', 'table column': 'first_game', 'format': eval(f_str), 'data_group': 'general', 'hide': True},
             {'title': 'last game', 'table column': 'last_game', 'format': eval(f_str), 'data_group': 'general', 'default order': 'desc', 'search_builder': True, 'hide': True},
             {'title': 'game today', 'table column': 'next_opp', 'data_group': 'general', 'hide': True, 'search_builder': True},

@@ -2093,9 +2093,9 @@ class HockeyPool:
 
     def show_stat_summary_tables(self, season: Season):
 
-        # Get teams to save in dictionary
-        df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={season.id} and game_type="R"', con=get_db_connection())
-        teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
+        # # Get teams to save in dictionary
+        # df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={season.id} and game_type="R"', con=get_db_connection())
+        # teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
 
         df_game_stats = get_player_data.get_game_stats(season_or_date_radios='season', from_season_id=season.id, to_season_id=season.id, from_date='', to_date='', pool_id='', game_type='R')
 
@@ -2103,13 +2103,14 @@ class HockeyPool:
             return
 
         # aggregate cumulative stats per player
-        df_cumulative = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Cumulative', teams_dict=teams_dict)
+        df_cumulative = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Cumulative')
 
         # calc max, mean, and std
         get_player_data.calc_scoring_category_maximums(df=df_cumulative)
         get_player_data.calc_scoring_category_minimums(df=df_cumulative)
         get_player_data.calc_scoring_category_means(df=df_cumulative)
         get_player_data.calc_scoring_category_std_deviations(df=df_cumulative)
+        df_cumulative = get_player_data.calc_z_scores(df=df_cumulative, positional_scoring=True, calculate_summary_scores=False)
 
         cumulative_max_cat = get_player_data.max_cat.copy()
         cumulative_min_cat = get_player_data.min_cat.copy()
@@ -2117,13 +2118,14 @@ class HockeyPool:
         cumulative_std_cat = get_player_data.std_cat.copy()
 
         # aggregate per game stats per player
-        df_per_game = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Per game', teams_dict=teams_dict)
+        df_per_game = get_player_data.aggregate_game_stats(df=df_game_stats, stat_type='Per game')
 
         # calc max, mean, and std
         get_player_data.calc_scoring_category_maximums(df=df_per_game)
         get_player_data.calc_scoring_category_minimums(df=df_per_game)
         get_player_data.calc_scoring_category_means(df=df_per_game)
         get_player_data.calc_scoring_category_std_deviations(df=df_per_game)
+        df_per_game = get_player_data.calc_z_scores(df=df_per_game, positional_scoring=True, calculate_summary_scores=False)
 
         per_game_max_cat = get_player_data.max_cat.copy()
         per_game_min_cat = get_player_data.min_cat.copy()
