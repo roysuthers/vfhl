@@ -88,7 +88,7 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
     else:
         prefix = ''
 
-    row_headers = ['Maximum', 'Mean', 'Std Dev', 'Scarcity Rating', 'Elite', 'Great', 'Good', 'Average', 'Total - Average +']
+    row_headers = ['Minimum', 'Maximum', 'Mean', 'Std Dev', 'Z-score Counts', 'Elite', 'Great', 'Good', 'Average', 'Total - Average +']
 
     column_headers = {
         'Forwards': ['goals', 'assists', 'points_pp', 'shots', 'takeaways', 'hits', 'blocked', 'pim'],
@@ -98,6 +98,11 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
 
     # Define formatting information for each row header and column header combination
     formatting_info = {
+        'Minimum': {
+            'gaa': '{:0.2f}',
+            'save%': '{:0.3f}',
+            'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:.0f}'
+        },
         'Maximum': {
             'gaa': '{:0.2f}',
             'save%': '{:0.3f}',
@@ -113,7 +118,7 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
             'save%': '{:0.3f}',
             'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:0.1f}'
         },
-        'Scarcity Rating': {
+        'Z-score Counts': {
             'default': ''
         },
         'Elite': {
@@ -135,31 +140,26 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
 
     data = []
     for row_header in row_headers:
-        if row_header == 'Scarcity Rating':
-            row_data = ['']
-        elif row_header == 'Elite':
+        if row_header == 'Elite':
             z_from = 3
-            row_data = [f'z-score >= {z_from}']
+            row_data = [f'&nbsp;&nbsp;>= {z_from}']
         elif row_header == 'Great':
             z_from = 2
             z_to = 3
-            row_data = [f'z-score >= {z_from} and < {z_to}']
+            row_data = [f'&nbsp;&nbsp;>= {z_from} and < {z_to}']
         elif row_header == 'Good':
             z_from = 1
             z_to = 2
-            row_data = [f'z-score >= {z_from} and < {z_to}']
+            row_data = [f'&nbsp;&nbsp;>= {z_from} and < {z_to}']
         elif row_header == 'Average':
             z_from = 0
             z_to = 1
-            row_data = [f'z-score >= {z_from} and < {z_to}']
+            row_data = [f'&nbsp;&nbsp;>= {z_from} and < {z_to}']
         elif row_header == 'Total - Average +':
             z_from = 0
-            row_data = [f'z-score >= {z_from}']
+            row_data = [f'&nbsp;&nbsp;>= {z_from}']
         else:
-            if row_header == 'Maximum' and position == 'Goalies':
-                row_data = ['Max (gaa Min)']
-            else:
-                row_data = [row_header]
+            row_data = [row_header]
 
         for column_header in column_headers[position]:
             dict_elem = f'{prefix}{column_header}'
@@ -170,16 +170,15 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
             else:
                 format_string = formatting_info[row_header][column_header]
 
-            if row_header == 'Maximum':
-                if column_header == 'gaa':
-                    row_data.append(format_string.format(min_cat[dict_elem]))
-                else:
-                    row_data.append(format_string.format(max_cat[dict_elem]))
+            if row_header == 'Minimum':
+                row_data.append(format_string.format(min_cat[dict_elem]))
+            elif row_header == 'Maximum':
+                row_data.append(format_string.format(max_cat[dict_elem]))
             elif row_header == 'Mean':
                 row_data.append(format_string.format(mean_cat[dict_elem]))
             elif row_header == 'Std Dev':
                 row_data.append(format_string.format(std_cat[dict_elem]))
-            elif row_header == 'Scarcity Rating':
+            elif row_header == 'Z-score Counts':
                 row_data.append('')
             elif row_header in ('Elite', 'Total - Average +'):
                 row_data.append(format_string(z_header, z_from))
@@ -189,7 +188,7 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
         data.append(row_data)
 
     if position == 'Goalies':
-        df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'wins', 'saves', 'gaa', 'save%'])
+        df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'w', 'sv', 'gaa', 'sv%'])
     elif position == 'Forwards':
         df_stat_summary = pd.DataFrame(data, columns=['Agg Type', 'g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'])
     else: # position == 'Defensemen'
@@ -199,7 +198,7 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
     styler.set_table_attributes('style="display: inline-block; border-collapse:collapse"')
     styler.set_table_styles(setCSS_TableStyles())
     if position == 'Goalies':
-        styler.set_properties(subset=['wins', 'saves', 'gaa', 'save%'], **{'text-align': 'center'})
+        styler.set_properties(subset=['w', 'sv', 'gaa', 'sv%'], **{'text-align': 'center'})
     elif position == 'Forwards':
         styler.set_properties(subset=['g', 'a', 'ppp', 'sog', 'tk', 'hits', 'blk', 'pim'], **{'text-align': 'center'})
     else: # position == 'Defensemen'
