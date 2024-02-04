@@ -99,8 +99,8 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
     # Define formatting information for each row header and column header combination
     formatting_info = {
         'Maximum': {
-            'gaa': '',
-            'save%': '',
+            'gaa': '{:0.2f}',
+            'save%': '{:0.3f}',
             'default': '{:0.2f}' if stat_type != 'Cumulative' else '{:.0f}'
         },
         'Mean': {
@@ -156,7 +156,10 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
             z_from = 0
             row_data = [f'z-score >= {z_from}']
         else:
-            row_data = [row_header]
+            if row_header == 'Maximum' and position == 'Goalies':
+                row_data = ['Max (gaa Min)']
+            else:
+                row_data = [row_header]
 
         for column_header in column_headers[position]:
             dict_elem = f'{prefix}{column_header}'
@@ -168,10 +171,10 @@ def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, me
                 format_string = formatting_info[row_header][column_header]
 
             if row_header == 'Maximum':
-                if column_header == 'gaa' or column_header == 'save%':
-                    row_data.append('')
+                if column_header == 'gaa':
+                    row_data.append(format_string.format(min_cat[dict_elem]))
                 else:
-                    row_data.append(format_string.format(round(max_cat[dict_elem], 1)))
+                    row_data.append(format_string.format(max_cat[dict_elem]))
             elif row_header == 'Mean':
                 row_data.append(format_string.format(mean_cat[dict_elem]))
             elif row_header == 'Std Dev':
