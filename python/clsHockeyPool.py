@@ -1790,7 +1790,7 @@ class HockeyPool:
 
         # dfKeeperLists = pd.read_excel(f'./python/input/excel/{season.id}/VFHL Team Keepers prior to Draft.xlsx', header=0)
         columns = [
-            f'{season.id} as season_id',
+            f'{pool.id} as pool_id',
             'pt.name as pool_team',
             'ptr.player_id',
             'p.full_name as player_name',
@@ -1820,7 +1820,8 @@ class HockeyPool:
 
         dfKeeperLists = pd.read_sql(sql, con=get_db_connection())
 
-        sql = f'delete from KeeperListsArchive where season_id={season.id}'
+        # sql = f'delete from KeeperListsArchive where season_id={season.id}'
+        sql = f'delete from KeeperListsArchive where pool_id={pool.id}'
         with get_db_connection() as connection:
             connection.execute(sql)
             connection.commit()
