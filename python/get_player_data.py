@@ -109,9 +109,9 @@ def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
 
     return df
 
-def add_pre_draft_keeper_list_column_to_df(season_id: str, df: pd.DataFrame):
+def add_pre_draft_keeper_list_column_to_df(pool_id: str, df: pd.DataFrame):
 
-    sql = f'select player_id, "Yes" as pre_draft_keeper from KeeperListsArchive where season_id={season_id}'
+    sql = f'select player_id, "Yes" as pre_draft_keeper, pool_team as pre_draft_manager from KeeperListsArchive where pool_id={pool_id}'
     df_keeper_list = pd.read_sql(sql, con=get_db_connection())
 
     # add pre-draft keeper columns to df
@@ -119,8 +119,10 @@ def add_pre_draft_keeper_list_column_to_df(season_id: str, df: pd.DataFrame):
     df_keeper_list.set_index(['player_id'], inplace=True)
 
     df['pre_draft_keeper'] = df_keeper_list['pre_draft_keeper']
+    df['pre_draft_manager'] = df_keeper_list['pre_draft_manager']
 
     df.fillna({'pre_draft_keeper': ''}, inplace=True)
+    df.fillna({'pre_draft_manager': ''}, inplace=True)
 
     df.reset_index(inplace=True)
 
@@ -2174,11 +2176,11 @@ def rank_players(season_or_date_radios: str, from_season_id: str, to_season_id: 
     calc_scoring_category_minimums(df=df_player_stats)
     calc_scoring_category_maximums(df=df_player_stats)
 
-    # if show_draft_list_info:
+    # add draft list info
     df_player_stats = add_draft_list_columns_to_df(season_id=to_season_id, df=df_player_stats)
 
-    # if pre_draft_keeper columns:
-    add_pre_draft_keeper_list_column_to_df(season_id=to_season_id, df=df_player_stats)
+    # add pre_draft_keeper & pre_draft_manager columns:
+    add_pre_draft_keeper_list_column_to_df(pool_id=pool_id, df=df_player_stats)
 
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     if game_type == 'Prj':
@@ -2291,6 +2293,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'pre-draft manager', 'table column': 'pre_draft_manager', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'rookie', 'table column': 'rookie', 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
             {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
