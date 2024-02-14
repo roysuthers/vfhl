@@ -522,6 +522,11 @@
                 } else { // "Projected Season"
                     return;
                 }
+                // Set maxDate to today only if today is earlier than the current maxDate
+                const yesterday = moment().subtract(1, 'days'); // Get yesterday's date
+                if (yesterday.isBefore(maxDate)) {
+                    maxDate = yesterday;
+                }
             }
 
             function setProjectionSourceVisibility() {
@@ -579,7 +584,9 @@
                         'This Calendar Year': [moment().startOf('year'), moment().endOf('year')],
                         'Last Calendar Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')],
                         'Last 12 Months': [moment().subtract(365, 'days'), moment().subtract(1, 'days')]
-                    }
+                    },
+                    showDropdowns: true,
+                    linkedCalendars: false,
                 }, cb);
 
                 cb(start, end);
