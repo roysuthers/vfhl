@@ -2173,7 +2173,8 @@ class HockeyPool:
                 return
 
         # Display the values in a PySimpleGUI dialog
-        user_response  = sg.popup_ok_cancel('Task Info', f'Last Run Time: {last_run_time}\nLast Task Result: {last_task_result}\nNext Run Time: {next_run_time}\nDo you want to continue?')
+        # user_response  = sg.popup_ok_cancel('Task Info', f'Last Run Time: {last_run_time}\nLast Task Result: {last_task_result}\nNext Run Time: {next_run_time}\nDo you want to continue?')
+        user_response = 'OK'
         if user_response == 'OK':
             # run task
             cmd = f'powershell.exe "Start-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
