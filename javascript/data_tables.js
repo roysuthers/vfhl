@@ -2851,6 +2851,13 @@ function createMyCategoryNeedsTable() {
             drawCallback(settings) {
                 const api = this.api();
                 const values = api.rows({ page: 'current' }).data().toArray().map(row => parseFloat(row.value));
+
+                // Check if values is an array and has a non-zero length
+                if (!Array.isArray(values) || !values.length) {
+                    // Exit the function
+                    return;
+                }
+
                 const min = Math.min(...values);
                 const max = Math.max(...values);
                 const mean = values.reduce((a, b) => a + b) / values.length;
@@ -3035,6 +3042,14 @@ function getMyCategoryNeeds() {
     const categories = ['points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways', 'penaltyMinutes', 'wins', 'saves', 'gaa', 'savePercent'];
     const mySummaryZScores = managerSummaryZScores.find(item => item.manager === 'Banshee');
 
+    // Check if mySummaryZScores is empty or not
+    if (!mySummaryZScores || !mySummaryZScores.length) {
+        // If it is empty, set categoryNeeds to an empty dictionary
+        const categoryNeeds = {};
+        return [{ manager: 'Banshee', ...categoryNeeds }];
+    }
+
+    // Otherwise, proceed with the original code
     const categoryNeeds = categories.reduce((acc, category) => {
         // Get all z-scores for the current category
         const allZScores = managerSummaryZScores.map(manager => manager[category]);
@@ -3786,11 +3801,31 @@ function updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZS
 
         if (newDataItem) {
             // update rowData with data from newDataItem
-            rowData[z_score_calc_idx] = newDataItem.ZScoreCalc.toFixed(1);
-            rowData[z_offense_calc_idx] = newDataItem.ZOffenseCalc.toFixed(1);
-            rowData[z_peripheral_calc_idx] = newDataItem.ZPeripheralCalc.toFixed(1);
-            rowData[z_g_count_calc_idx] = newDataItem.zGCountCalc.toFixed(1);
-            rowData[z_g_ratio_calc_idx] = newDataItem.zGRatioCalc.toFixed(1);
+            if (newDataItem.ZScoreCalc !== undefined) {
+                rowData[z_score_calc_idx] = newDataItem.ZScoreCalc.toFixed(1);
+            } else {
+                rowData[z_score_calc_idx] = ''
+            }
+            if (newDataItem.ZOffenseCalc !== undefined) {
+                rowData[z_offense_calc_idx] = newDataItem.ZOffenseCalc.toFixed(1);
+            } else {
+                rowData[z_offense_calc_idx] = ''
+            }
+            if (newDataItem.ZPeripheralCalc !== undefined) {
+                rowData[z_peripheral_calc_idx] = newDataItem.ZPeripheralCalc.toFixed(1);
+            } else {
+                rowData[z_peripheral_calc_idx] = ''
+            }
+            if (newDataItem.zGCountCalc !== undefined) {
+                rowData[z_g_count_calc_idx] = newDataItem.zGCountCalc.toFixed(1);
+            } else {
+                rowData[z_g_count_calc_idx] = ''
+            }
+            if (newDataItem.zGRatioCalc !== undefined) {
+                rowData[z_g_ratio_calc_idx] = newDataItem.zGRatioCalc.toFixed(1);
+            } else {
+                rowData[z_g_ratio_calc_idx] = ''
+            }
             this.data(rowData);
         }
     } );
