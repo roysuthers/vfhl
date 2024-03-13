@@ -121,7 +121,7 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         # query the website and return the html to the variable 'page'
         page = urlopen(url)
 
-        # parse the html using beautiful soup and store in variable 'tableData'
+        # parse the html using beautiful soup
         soup = BeautifulSoup(page, "html.parser")
 
         msg = f'Scraping "{url}"...'
@@ -133,44 +133,44 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         else:
             logger.debug(msg)
 
-        table = soup.find(name="table", attrs={"class": "table"})
-
         name = []
         team = []
         date_of_injury = []
         injury_type = []
         injury_note = []
 
-        for row in table.findAll(name="tr"):
-            cells = row.find_all(name=["td"])
-            if len(cells) == 3:
-                td_cells = cells[2].text.strip().split('\n')
-                player_name, inj_type = td_cells[1].split(' - ', 1)
-                if player_name.strip() == '':
-                    continue
-                name.append(player_name.strip())
-                nhl_team = cells[0].next.get('href').replace('/team/', '').strip()
-                if nhl_team:
-                    team.append(nhl_teams[nhl_team])
-                else:
-                    team.append('')
-                if len(td_cells) > 3:
-                    date_of_injury.append(td_cells[3].strip())
-                elif len(td_cells) > 2:
-                    date_of_injury.append(td_cells[2].strip())
-                else:
-                    date_of_injury.append('')
-                injury_type.append(inj_type.strip())
-                injury_note.append(td_cells[0])
+        # subtract 2 for "Next" & "Last" links
+        pages_count = len(soup.find_all(name="li", attrs={"class": "pager__item"})) - 2
 
-        msg = f'Found "{name}" in injury list...'
-        if dialog:
-            dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
-            if event == 'Cancel' or event == sg.WIN_CLOSED:
-                return
-        else:
-            logger.debug(msg)
+        # page numbers start at 0
+        for page_number in range(pages_count):
+
+            if page_number >= 1:
+                page = urlopen(f'{url}?page={page_number}')
+                soup = BeautifulSoup(page, "html.parser")
+
+            table = soup.find(name="div", attrs={"class": "pp_layout_main"})
+
+            for row in table.findAll(name="div", attrs={"class": "border-b"}):
+                elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
+                inj_type = elements[0].split(' | ', 1)
+                exp_return = elements[1].replace('Expected Return', 'Expected Return ')
+                player_name, inj_desc = elements[2].split(' | ', 1)
+                name.append(player_name)
+                nhl_team = row.find(name=["a"]).get('href').rsplit('/', 1)[1]
+                team.append(nhl_teams[nhl_team])
+                date_of_injury.append(exp_return)
+                injury_type.append(inj_type[0])
+                injury_note.append(inj_desc)
+
+            # msg = f'Found "{name}" in injury list...'
+            # if dialog:
+            #     dialog['-PROG-'].update(msg)
+            #     event, values = dialog.read(timeout=10)
+            #     if event == 'Cancel' or event == sg.WIN_CLOSED:
+            #         return
+            # else:
+            #     logger.debug(msg)
 
         df = pd.DataFrame(name,columns=["name"])
         df['team'] = team

@@ -2322,7 +2322,7 @@ class HockeyPool:
                 # Update Player
                 playerName = dfPlayerInjuries['name'][idx]
                 playerTeam = dfPlayerInjuries['team'][idx]
-                injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' (', dfPlayerInjuries['date'][idx], ')'])
+                injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' - ', dfPlayerInjuries['date'][idx]])
                 injuryNote = dfPlayerInjuries['note'][idx]
 
                 # Get NHL Player
