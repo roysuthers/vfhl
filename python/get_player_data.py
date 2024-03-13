@@ -78,6 +78,9 @@ g_summary_z_scores = ['score', 'g_count', 'g_ratio']
 
 # period for exponential moving averages
 ewm_span = 10
+ewm_span_min = 1
+ewm_span_max = 20
+ewm_span_percent_of_games = 50
 
 min_cat = defaultdict(None)
 max_cat = defaultdict(None)
@@ -96,14 +99,21 @@ def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
     df.set_index(['player_id'], inplace=True)
     df_draft_list.set_index(['player_id'], inplace=True)
 
+    # Rename columns in df_draft_list
+    df_draft_list.rename(columns={'season_id': 'seasonID', 'player': 'name', 'pool_team': 'picked_by'}, inplace=True)
+
+    # udpate players in df
     df = df.assign(
         round = df_draft_list['round'],
         pick = df_draft_list['pick'],
         overall = df_draft_list['overall'],
-        picked_by = df_draft_list['pool_team'],
+        picked_by = df_draft_list['picked_by'],
     )
 
-    df.fillna({'picked_by': ''}, inplace=True)
+    # add players not in df
+    df = pd.concat([df, df_draft_list.loc[~df_draft_list.index.isin(df.index)]])
+
+    df.fillna({'round': '','pick': '','overall': '','picked_by': ''}, inplace=True)
 
     df.reset_index(inplace=True)
 
@@ -246,6 +256,8 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         xGoals = ('xGoals', stat_type_agg_method),
         xGoalsAgainst = ('xGoalsAgainst', stat_type_agg_method),
     )
+
+    calculate_ewm_span(int(df_agg_stats['games'].max()))
 
     # if stats have not been yet been retrieved from nhl rest api, for the current week, df_agg_stats will be emtpy
     if len(df_agg_stats.index) == 0:
@@ -487,6 +499,13 @@ def calc_breakout_threshold(name: str, height: str, weight: int, career_games: i
         breakout_threshold = np.nan
 
     return breakout_threshold
+
+def calculate_ewm_span(games):
+
+    global ewm_span
+    ewm_span = max(ewm_span_min, min(ewm_span_max, int(games // (100 / ewm_span_percent_of_games))))
+
+    return ewm_span
 
 def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_summary_scores: bool=True):
 
