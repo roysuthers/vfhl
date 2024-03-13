@@ -1544,7 +1544,7 @@ class HockeyPool:
 
     def import_draft_picks(self, season: Season):
 
-        dfDraftResults = pd.read_csv(f'./python/input/excel/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
+        dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
 
         for idx, row in dfDraftResults.iterrows():
             # get player
@@ -1579,7 +1579,12 @@ class HockeyPool:
             dfDraftResults.loc[idx, 'player_id'] = player.id
 
         # drop not needed columns
-        dfDraftResults.drop(columns=['Player ID', 'Time (EDT)'], inplace=True)
+        columns_to_drop = ['Player ID']
+        if 'Time (EDT)' in dfDraftResults.columns:
+            columns_to_drop.append('Time (EDT)')
+        else:
+            columns_to_drop.append('Time (EST)')
+        dfDraftResults.drop(columns=columns_to_drop, inplace=True)
 
         # add season column
         dfDraftResults['season_id'] = season.id
