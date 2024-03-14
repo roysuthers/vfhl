@@ -596,7 +596,7 @@ class Fantrax:
 
                 browser.get(self.homePage)
 
-                table = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'league-home-standings-content table')))
+                table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-home/section/div/div[1]/league-home-standings/pane/section/div[2]/div/league-home-standings-content/table')))
 
                 msg = 'Scraping pool team names...'
                 if dialog:
