@@ -3043,7 +3043,7 @@ function getMyCategoryNeeds() {
     const mySummaryZScores = managerSummaryZScores.find(item => item.manager === 'Banshee');
 
     // Check if mySummaryZScores is empty or not
-    if (!mySummaryZScores || !mySummaryZScores.length) {
+    if (!mySummaryZScores || Object.keys(mySummaryZScores).length == 0) {
         // If it is empty, set categoryNeeds to an empty dictionary
         const categoryNeeds = {};
         return [{ manager: 'Banshee', ...categoryNeeds }];
