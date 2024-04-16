@@ -2321,6 +2321,7 @@ class HockeyPool:
 
                 # Update Player
                 playerName = dfPlayerInjuries['name'][idx]
+                playerName = playerName.strip()
                 playerTeam = dfPlayerInjuries['team'][idx]
                 injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' - ', dfPlayerInjuries['date'][idx]])
                 injuryNote = dfPlayerInjuries['note'][idx]
