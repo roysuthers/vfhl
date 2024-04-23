@@ -1865,11 +1865,12 @@ class HockeyPool:
     def layout_window(self):
 
         seasons = season.fetch_many()
-        if season.type == 'P':
-            next_season_id = season.getNextSeasonID()
-            pools = self.fetch_many(**{'Criteria': [['season_id', '==', next_season_id]]})
-        else:
-            pools = self.fetch_many(**{'Criteria': [['season_id', '==', season.id]]})
+        # if season.type == 'P':
+        #     next_season_id = season.getNextSeasonID()
+        #     pools = self.fetch_many(**{'Criteria': [['season_id', '==', next_season_id]]})
+        # else:
+        #     pools = self.fetch_many(**{'Criteria': [['season_id', '==', season.id]]})
+        pools = self.fetch_many(**{'Criteria': [['season_id', '==', season.id]]})
         if len(pools) > 0:
             default_pool = pools[0]['name']
         else:
@@ -2787,12 +2788,13 @@ class HockeyPool:
                             ft_ptr_mclb_container.update(visible=False)
 
                             # Update Pool Teams tab
-                            if season.SEASON_HAS_STARTED is True and season.type == 'P':
-                                next_season_id = season.getNextSeasonID()
-                                next_season_pool = HockeyPool().fetch(**{'Criteria': [['season_id', '==', next_season_id]]})
-                                df = self.get_pool_teams_as_df(pool=next_season_pool)
-                            else:
-                                df = self.get_pool_teams_as_df(pool=self)
+                            # if season.SEASON_HAS_STARTED is True and season.type == 'P':
+                            #     next_season_id = season.getNextSeasonID()
+                            #     next_season_pool = HockeyPool().fetch(**{'Criteria': [['season_id', '==', next_season_id]]})
+                            #     df = self.get_pool_teams_as_df(pool=next_season_pool)
+                            # else:
+                            #     df = self.get_pool_teams_as_df(pool=self)
+                            df = self.get_pool_teams_as_df(pool=self)
 
                             if config_sort_column_name is None:
                                 df.sort_values(by=['points', 'name'], ascending=[False, True], inplace=True)
