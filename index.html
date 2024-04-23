@@ -183,6 +183,7 @@
                     <option value=4>VFHL 2021-2022</option>
                     <option value=6>VFHL 2022-2023</option>
                     <option value=7 selected>VFHL 2023-2024</option>
+                    <option value=11>VFHL 2024-2025</option>
                 </select>
             </div>
             <div class="form-group">
@@ -353,7 +354,7 @@
             const projectionSourceLabel = document.querySelector('#projectionSourceWrap label');
             const statType = document.querySelector("#statType");
 
-            const upcomingSeason = '20232024';
+            const upcomingSeason = '20242025';
 
             // Object to store the start and end dates for each season
             const regularSeasonDates = {
@@ -364,17 +365,20 @@
                 '20212022': { startDate: '2021-10-12', endDate: '2022-05-01' },
                 '20222023': { startDate: '2022-10-07', endDate: '2023-04-14' },
                 '20232024': { startDate: '2023-10-10', endDate: '2024-04-18' },
+                '20242025': { startDate: '2024-10-10', endDate: '2025-04-18' },
             };
 
             // Object to store the start and end dates for each season
             const playoffsSeasonDates = {
                 '20212022': { startDate: '2022-05-02', endDate: '2022-06-30' },
                 '20222023': { startDate: '2023-04-17', endDate: '2023-06-19' },
+                '20232024': { startDate: '2023-04-20', endDate: '2023-06-18' },
             };
 
             // Object to store the start and end dates for the next season's projections
             const projectedSeasonDates = {
                 '20232024': { startDate: '2023-10-10', endDate: '2024-04-18' },
+                '20242025': { startDate: '2024-10-10', endDate: '2025-04-18' },
             };
 
             // trigger change event on first select
