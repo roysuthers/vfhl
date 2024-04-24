@@ -234,8 +234,8 @@ class NHL_API():
 
     def fetch_data(self, url):
         response = requests.get(url)
-        if 'message' in response:
-            return request
+        if response.status_code == 404:
+            return response.status_code
         else:
             return response.json()
 
@@ -290,8 +290,8 @@ class NHL_API():
                 # https://api-web.nhle.com/v1/standings/now
                 # https://api-web.nhle.com/v1/standings/{date}
                 standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
-                if 'message' in standings:
-                    error_msg = standings['message']
+                if standings == 404:
+                    error_msg = standings['text']
                     msg = f'API request failed: Error message "{error_msg}"...'
                     if batch:
                         logger.debug(msg)
@@ -318,8 +318,11 @@ class NHL_API():
                 players = []
                 for team_abbr in teams:
                     roster = self.fetch_data(f'{NHL_API_URL}/roster/{team_abbr}/{seasonID}')
-                    if 'message' in roster:
-                        error_msg = roster['message']
+                    if roster == 404:
+                        roster_seasonID = season.getPreviousSeasonID()
+                        roster = self.fetch_data(f'{NHL_API_URL}/roster/{team_abbr}/{roster_seasonID}')
+                    if roster == 404:
+                        error_msg = roster['text']
                         msg = f'API request failed: Error message "{error_msg}"...'
                         if batch:
                             logger.debug(msg)
@@ -330,8 +333,8 @@ class NHL_API():
                         return
 
                     prospects = self.fetch_data(f'{NHL_API_URL}/prospects/{team_abbr}')
-                    if 'message' in prospects:
-                        error_msg = prospects['message']
+                    if prospects == 404:
+                        error_msg = prospects['text']
                         msg = f'API request failed: Error message "{error_msg}"...'
                         if batch:
                             logger.debug(msg)
