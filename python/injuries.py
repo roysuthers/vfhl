@@ -154,8 +154,10 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
             for row in table.findAll(name="div", attrs={"class": "border-b"}):
                 elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
                 inj_type = elements[0].split(' | ', 1)
-                exp_return = elements[1].replace('Expected Return', 'Expected Return ')
-                player_name, inj_desc = elements[2].split(' | ', 1)
+                player_name = elements[1]
+                inj_desc = elements[2]
+                exp_return = elements[3].replace('Expected Return', 'Expected Return ')
+
                 name.append(player_name)
                 nhl_team = row.find(name=["a"]).get('href').rsplit('/', 1)[1]
                 team.append(nhl_teams[nhl_team])
