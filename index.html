@@ -341,6 +341,7 @@
         <script>
 
             // Get references to the radio buttons and control elements
+            const poolID = document.querySelector('#poolID');
             const gameType = document.querySelector('#gameType');
             const seasonOrDateRadios = document.querySelectorAll('input[name="seasonOrDate"]');
             const seasonControls = document.querySelector('#seasonControls');
@@ -475,7 +476,15 @@
                 });
 
                 // Set the last option as the selected option
-                fromSeason.options[fromSeason.options.length - 1].selected = true;
+                // fromSeason.options[fromSeason.options.length - 1].selected = true;
+                function findIndexByTextValue(selectElement, targetText) {
+                    const optionsArray = Array.from(selectElement.options);
+                    const index = optionsArray.findIndex((opt) => opt.text === targetText);
+                    return index;
+                }
+                var targetText = poolID[poolID.selectedIndex].text.substr(-9);
+                var idx = findIndexByTextValue(fromSeason, targetText);
+                fromSeason.options[idx].selected = true;
 
                 // Add options for all seasons starting with the selected season & up to the most recent season to the toSeason element
                 let selectedFromSeason = fromSeason.value;
