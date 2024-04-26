@@ -134,12 +134,12 @@ def main():
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
-                logger.info('Calling hp.getMoneyPuckData().')
-                try:
-                    hp.getMoneyPuckData(season=season, batch=True)
-                except:
-                    logger.info('Exception in call to hp.getMoneyPuckData() returned.')
-                logger.info('Call to hp.getMoneyPuckData() returned.')
+            logger.info('Calling hp.getMoneyPuckData().')
+            try:
+                hp.getMoneyPuckData(season=season, batch=True)
+            except:
+                logger.info('Exception in call to hp.getMoneyPuckData() returned.')
+            logger.info('Call to hp.getMoneyPuckData() returned.')
 
         logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
         caption = f'Task Scheduler: "Daily VFHL Scheduled Task" notification'
