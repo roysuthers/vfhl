@@ -287,9 +287,11 @@ class NHL_API():
 
             with ThreadPoolExecutor() as executor:
                 # There is no api to get a list of teams (for now), so using the current standings
-                # https://api-web.nhle.com/v1/standings/now
+                # As of May 15, 2024, getting standings by date returns an empty list
                 # https://api-web.nhle.com/v1/standings/{date}
-                standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
+                # standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
+                # https://api-web.nhle.com/v1/standings/now
+                standings = self.fetch_data(f'{NHL_API_URL}/standings/now')
                 if standings == 404:
                     error_msg = standings['text']
                     msg = f'API request failed: Error message "{error_msg}"...'
