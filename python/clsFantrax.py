@@ -1,7 +1,10 @@
 import logging
+import os
 import re
 import sys
+import time
 import traceback
+from datetime import datetime
 from textwrap import dedent
 from typing import Dict, List
 
@@ -86,6 +89,8 @@ class Fantrax:
         self.pool_id = pool_id
         self.user_name = 'Roy_Suthers'
         self.season = Season().getSeason(id=season_id)
+
+        self.browser_download_dir = os.path.abspath(f'./python/input/fantrax/{season_id}')
 
         return
 
@@ -435,6 +440,217 @@ class Fantrax:
                 logger.error(repr(e))
 
         return dfPlayers
+
+    def scrapePoolTeamPeriodRosters(self, season_id, pool_teams: List=[], dialog: sg.Window=None):
+
+        try:
+
+            logger = logging.getLogger(__name__)
+
+            with get_db_connection() as connection:
+                league_id = connection.cursor().execute(f'select league_id from HockeyPool hp where id={self.pool_id}').fetchone()['league_id']
+
+            # Dataframe for pool team roster entry
+            dfPoolTeamPeriodRoster = pd.DataFrame(columns=['season', 'pool_team', 'period', 'date', 'illegal_period', 'player_name', 'fantrax_id', 'nhl_team', 'pos', 'status', 'gp', 'pt_d', 'g', 'a', 'pim', 'sog', 'ppp', 'hit', 'blk', 'tk', 'w', 'gaa', 'sv', 'sv_pc', 'g_toi_sec', 'ga', 'sa'])
+
+            msg = 'Waiting for web driver...'
+            if dialog:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=10)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+            else:
+                logger.debug(msg)
+
+            # Get pool teams
+            kwargs = {'Criteria': [['pool_id', '==', self.pool_id]], 'Sort': [['name', 'asc']]}
+            teams = PoolTeam().fetch_many(**kwargs)
+            if pool_teams:
+                teams = [team for team in teams if team.name in pool_teams]
+
+            # Iterate through pool teams to extract roster players
+            if not dialog:
+                logger.debug('Iterating through pool teams to extract roster players by periods')
+
+            season = Season().getSeason(id=season_id)
+
+            # Map month names to their numeric values
+            month_mapping = {
+                'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
+                'may': 5, 'jun': 6, 'jul': 7, 'aug': 8,
+                'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+            }
+
+            for team in teams:
+
+                seasonID, period, date, illegal_period, poolTeam, name, id, nhl_team, pos, status, gp, pt_d, g, a, pim, sog, ppp, hit, blk, tk, g_toi_sec, w, sv, gaa, sv_pc, ga, sa = ([] for _ in range(27))
+
+                period_number = 1
+
+                with Browser(self.browser_download_dir) as browser:
+
+                    # Set default wait time
+                    wait = WebDriverWait(browser, 60)
+
+                    while True:
+
+                        # Uncomment the following when testing
+                        if period_number == 2:
+                            period_number = 192
+
+                        for position in ('Skaters', 'Goalies'):
+
+                            scoringCategoryType = 5 if position == 'Skaters' else 1 # position == 'Goalies'
+
+                            url = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={team.fantrax_id};scoringCategoryType={scoringCategoryType};timeframeTypeCode=BY_PERIOD;period={period_number}'
+
+                            for attempt in range(3):
+                                try:
+                                    browser.get(url)
+                                    break
+                                except TimeoutException as e:
+                                    if attempt == 2:
+                                        msg = f'Unable to get period "{period_number}" url after 3 attempts.'
+                                        if dialog:
+                                            dialog['-PROG-'].update(msg)
+                                            event, values = dialog.read(timeout=10)
+                                        else:
+                                            logger.debug(msg)
+                                        return dfPoolTeamPeriodRoster
+
+                                    # Respectful scraping: sleep to avoid hitting the server with too many requests
+                                    time.sleep(10)
+                                    continue
+
+                            if position == 'Skaters':
+
+                                # get alert section
+                                alert_section = wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'content__main')))
+
+                                # get period date
+                                period_and_date = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="mat-select-value-5"]/span/span')))
+                                formatted_date = get_date_info(period_and_date, period_number, season_id, month_mapping)
+
+                                # break if date is today
+                                if formatted_date is not None:
+                                    today = datetime.today().date()
+                                    formatted_date_obj = datetime.strptime(formatted_date, '%Y-%m-%d').date()
+                                if formatted_date is None or formatted_date_obj == today:
+                                    period_number = 0
+                                    break
+
+                                # get alerts
+                                illegal_roster_alert = check_for_alerts(alert_section)
+
+                            # Get tables for skaters & goalies
+                            msg = f'Getting period {period_number} {position} roster for "{team.name}"'
+                            if dialog:
+                                dialog['-PROG-'].update(msg)
+                                event, values = dialog.read(timeout=10)
+                                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                                    return dfPoolTeamPeriodRoster
+                            else:
+                                logger.debug(msg)
+
+                            # Check if the file exists and delete it before downloading
+                            filename = os.path.basename('Fantrax-Team-Roster-Vikings Fantasy Hockey League.csv')
+                            file_path = os.path.join(self.browser_download_dir, filename)
+                            if not dialog:
+                                logger.debug(f'Checking existence of "{file_path}"...')
+                            for attempt in range(3):
+                                if os.path.exists(file_path):
+                                    if not dialog:
+                                        logger.debug(f'Attempt #{attempt} to remove "{filename}" from "{self.browser_download_dir}".')
+                                    os.remove(file_path)
+                                    if attempt == 2 and os.path.exists(file_path):
+                                        msg = f'Unable to delete "{file_path}" after 3 attempts. Terminating'
+                                        if dialog:
+                                            dialog['-PROG-'].update(msg)
+                                            event, values = dialog.read(timeout=10)
+                                        else:
+                                            logger.debug(msg)
+                                        return dfPoolTeamPeriodRoster
+                                    time.sleep(1)
+                                    continue
+
+                            button = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[1]/filter-panel/div/div/div[4]/div[2]/button[2]')))
+                            button.click()
+
+                            if not dialog:
+                                logger.debug(f'Loading "{file_path}" into dataframe...')
+
+                            skip_rows = get_skip_rows(file_path, position)
+                            if len(skip_rows) == 0:
+                                msg = f'Problem reading {position} csv fle for "{team.name}" in period {period_number}.'
+                                if dialog:
+                                    dialog['-PROG-'].update(msg)
+                                    event, values = dialog.read(timeout=10)
+                                else:
+                                    logger.debug(msg)
+                                return dfPoolTeamPeriodRoster
+
+                            df = pd.read_csv(file_path, skiprows=skip_rows)
+
+                            if position == 'Skaters':
+                                df = df[df['Pos'].isin(['F', 'D', 'Skt'])]
+                            else: # position == 'Goalies
+                                df = df[df['Pos'] == 'G']
+                                # Convert time strings to timedeltas
+                                df['Min'] = pd.to_timedelta("00:" + df['Min'])
+                                # Extract total seconds
+                                df['Min'] = df['Min'].dt.total_seconds()
+                                # Replace NaN with 0
+                                df['Min'].fillna(0, inplace=True)
+
+                            # Extend the lists with the new data
+                            seasonID.extend([season_id] * len(df))
+                            poolTeam.extend([team.name] * len(df))
+                            period.extend([period_number] * len(df))
+                            date.extend([formatted_date] * len(df))
+                            illegal_period.extend([illegal_roster_alert] * len(df))
+                            name.extend(df['Player'].tolist())
+                            id.extend(df['ID'].tolist())
+                            nhl_team.extend(df['Team'].tolist())
+                            pos.extend(df['Pos'].tolist())
+                            status.extend(df['Status'].tolist())
+                            gp.extend(df['GP'].tolist())
+
+                            # Use vectorized operations for complex operations
+                            pt_d.extend(df['Pt-D'] if position == 'Skaters' else [''] * len(df))
+                            g.extend(df['G'] if position == 'Skaters' else [''] * len(df))
+                            a.extend(df['A'] if position == 'Skaters' else [''] * len(df))
+                            pim.extend(df['PIM'] if position == 'Skaters' else [''] * len(df))
+                            sog.extend(df['SOG'] if position == 'Skaters' else [''] * len(df))
+                            ppp.extend(df['PPP'] if position == 'Skaters' else [''] * len(df))
+                            hit.extend(df['Hit'] if position == 'Skaters' else [''] * len(df))
+                            blk.extend(df['Blk'] if position == 'Skaters' else [''] * len(df))
+                            tk.extend(df['Tk'] if position == 'Skaters' else [''] * len(df))
+                            g_toi_sec.extend(df['Min'] if position == 'Goalies' else [''] * len(df))
+                            w.extend(df['W'] if position == 'Goalies' else [''] * len(df))
+                            sv.extend(df['SV'] if position == 'Goalies' else [''] * len(df))
+                            gaa.extend(df['GAA'] if position == 'Goalies' else [''] * len(df))
+                            sv_pc.extend(df['SV%'] if position == 'Goalies' else [''] * len(df))
+                            ga.extend(df['GA'] if position == 'Goalies' else [''] * len(df))
+                            sa.extend(df['SA'] if position == 'Goalies' else [''] * len(df))
+
+                        if period_number == 0:
+                            break
+
+                        period_number += 1
+
+                df_temp = pd.DataFrame(data = {'season': seasonID, 'pool_team': poolTeam, 'period': period, 'date':date, 'illegal_period': illegal_period, 'player_name': name, 'fantrax_id': id, 'nhl_team': nhl_team, 'pos': pos, 'status': status, 'gp': gp, 'pt_d': pt_d, 'g': g, 'a': a, 'pim': pim, 'sog': sog, 'ppp': ppp, 'hit': hit, 'blk': blk, 'tk': tk, 'w': w, 'gaa': gaa, 'sv': sv, 'sv_pc': sv_pc, 'g_toi_sec': g_toi_sec, 'ga': ga, 'sa': sa})
+                dfPoolTeamPeriodRoster = pd.concat([dfPoolTeamPeriodRoster, df_temp])
+
+        except Exception as e:
+            if dialog:
+                dialog.close()
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                raise e
+            else:
+                logger.error(repr(e))
+                raise e
+
+        return dfPoolTeamPeriodRoster
 
     def scrapePoolTeamRosters(self, pool_teams: List=[], dialog: sg.Window=None):
 
@@ -875,3 +1091,59 @@ class Fantrax:
                 return
 
         return
+
+def get_skip_rows(file_path, position):
+    skaters_start_line = goalies_start_line = None
+    totals_lines = []
+    skip_rows = []
+
+    with open(file_path, 'r') as file:
+        for line_number, line in enumerate(file, start=1):
+            if skaters_start_line is None and '"","Skaters"' in line:
+                skaters_start_line = line_number - 1
+            if goalies_start_line is None and '"","Goalies"' in line:
+                goalies_start_line = line_number - 1
+            if line.startswith('"","Totals"'):
+                totals_lines.append(line_number - 1)
+
+            if skaters_start_line is not None and goalies_start_line is not None and len(totals_lines) == 2:
+                break
+
+    if skaters_start_line is None or goalies_start_line is None or len(totals_lines) == 0:
+        return skip_rows
+
+    if position == 'Skaters':
+        skip_rows.extend([skaters_start_line, totals_lines[0]])
+        skip_rows.extend(range(goalies_start_line, totals_lines[1]))
+        skip_rows.append(totals_lines[1])
+    else: # position == 'Goalies
+        skip_rows.extend(range(skaters_start_line, totals_lines[0]))
+        skip_rows.extend([totals_lines[0], goalies_start_line, totals_lines[1]])
+
+    return skip_rows
+
+def get_date_info(period_and_date, period_number, season_id, month_mapping):
+    # Extract the month and day from the period
+    roster_period, _, month, day = period_and_date.text.split()
+    if period_number > int(roster_period):
+        return None
+    month = month.lower()  # Convert month to lowercase for consistency
+    day = day.replace(')', '') # Remove trailing bracket
+    # Get the numeric month value
+    numeric_month = month_mapping.get(month, None)
+    if numeric_month >= 10:
+        year = season_id // 10000
+    else:
+        year = season_id % 10000
+    # Construct the date in 'YYYY-MM-DD' format
+    formatted_date = f"{year}-{numeric_month:02d}-{day}"
+    return formatted_date
+
+def check_for_alerts(alert_section):
+    illegal_roster_alert = False
+    alerts = alert_section.find_elements(By.TAG_NAME, 'alert')
+    for alert in alerts:
+        if 'lineup period is illegal' in alert.text:
+            illegal_roster_alert = True
+            break
+    return illegal_roster_alert

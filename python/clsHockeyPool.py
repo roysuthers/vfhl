@@ -1160,6 +1160,74 @@ class HockeyPool:
 
         return self
 
+    def getPoolTeamRostersByPeriod(self, batch: bool=False, pool_teams: List=[]):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text(f'Get Pool Team Period Rosters for "{self.web_host}"...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window(f'Get Pool Team Period Rosters from "{self.web_host}"', layout, finalize=True, modal=True)
+
+            fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
+            dfPoolTeamPeriodRosters = fantrax.scrapePoolTeamPeriodRosters(season_id=self.season_id, pool_teams=pool_teams, dialog=dialog)
+            del fantrax
+
+            if len(dfPoolTeamPeriodRosters.index) == 0:
+                if batch:
+                    logger.debug('No pool team period rosters found. Returning...')
+                return
+
+            msg = f'Period rosters collected. Writing to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=10)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            if batch:
+                logger.debug(f'Writing pool team period rosters for "{self.web_host}" to database')
+
+            # Insert/update rosters
+            with get_db_connection() as connection:
+                if len(pool_teams) == 0:
+                    sql = f"delete from dfPoolTeamPeriodRosters where season={self.season_id}"
+                    connection.execute(sql)
+                else:
+                    for pool_team in pool_teams:
+                        sql = f'delete from dfPoolTeamPeriodRosters where season={self.season_id} and pool_team="{pool_team}"'
+                        connection.execute(sql)
+                dfPoolTeamPeriodRosters.to_sql('dfPoolTeamPeriodRosters', con=connection, index=False, if_exists='append')
+
+        except Exception as e:
+            if batch:
+                logger.error(repr(e))
+            else:
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+
+        finally:
+            msg = 'Update of pool team rosters completed...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
+
     def getPlayerStats(self):
 
         global df_player_stats
@@ -1844,7 +1912,7 @@ class HockeyPool:
         rows.append(
             sg.pin(sg.Column(layout=[
                 [
-                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, num_rows=26, justification='center', font=("Helvetica", 12), key='__FT_PT_MCLB__', vertical_scroll_only=False, alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Refresh Roster']]),
+                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, num_rows=26, justification='center', font=("Helvetica", 12), key='__FT_PT_MCLB__', vertical_scroll_only=False, alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Refresh Roster', '-', 'Get Period Rosters']]),
                 ]
             ], visible=True, key='__FT_PT_MCLB_CNTNR__')
         , vertical_alignment='top'))
@@ -1946,6 +2014,8 @@ class HockeyPool:
                                 'Import Draft Picks',
                                 '-',
                                 'Email NHL Team Transactions',
+                                '-',
+                                'Get Pool Team Rosters, by Period',
                                 '-',
                                 'Archive Keeper Lists',
                             ],
@@ -3042,6 +3112,19 @@ class HockeyPool:
                         self.getPlayerStats()
                         refresh_pool_team_roster_config = True
 
+                    elif event == 'Get Period Rosters':
+                        if self.web_host == 'Fantrax' and values['Tab'] == '__POOL_TEAMS_TAB__':
+                            mclb = window['__FT_PT_MCLB__']
+                        else:
+                            continue
+
+                        for selection in mclb.SelectedRows:
+                            sel_poolteam = pt_mclb.get()[selection]
+                            pt_idx = [i for i, x in enumerate(pool_team_config['columns']) if 'table column' in x and x['table column']=='name'][0]
+                            # kwargs = {'Criteria': [['id', '==', sel_poolteam[pt_idx]]]}
+                            # pool_team = PoolTeam().fetch(**kwargs)
+                            self.getPoolTeamRostersByPeriod(pool_teams=[sel_poolteam[pt_idx]])
+
                     elif event == 'Remove Player':
                         if self.web_host == 'Fantrax' and values['Tab'] == '__POOL_TEAMS_TAB__':
                             mclb = window['__FT_PTR_MCLB__']
@@ -3205,6 +3288,9 @@ class HockeyPool:
                         pool_teams_mclb_selected_row = 0
                         update_pool_teams_tab = True
                         refresh_pool_team_roster_config = True
+
+                    elif event == 'Get Pool Team Rosters, by Period':
+                        self.getPoolTeamRostersByPeriod()
 
                     elif event == 'Update Fantrax Player Info':
                         self.updateFantraxPlayerInfo()
