@@ -153,10 +153,18 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
 
             for row in table.findAll(name="div", attrs={"class": "border-b"}):
                 elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
+                # for some reason, elements do not identify a player; i.e. "['OUT | Upper Body', 'Expected Return: Sep 15, 2024']"
+                if len(elements) == 2:
+                    continue
                 inj_type = elements[0].split(' | ', 1)
                 player_name = elements[1]
-                inj_desc = elements[2]
-                exp_return = elements[3].replace('Expected Return', 'Expected Return ')
+                # for some reason, elements do not provide an injury description; i.e. "['DAY-TO-DAY | Upper Body', 'Spencer Stastney', 'Expected Return: Sep 15, 2024']"
+                if len(elements) == 3:
+                    inj_desc = ''
+                    exp_return = elements[2].replace('Expected Return', 'Expected Return ')
+                else:
+                    inj_desc = elements[2]
+                    exp_return = elements[3].replace('Expected Return', 'Expected Return ')
 
                 name.append(player_name)
                 nhl_team = row.find(name=["a"]).get('href').rsplit('/', 1)[1]
