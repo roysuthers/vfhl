@@ -527,50 +527,75 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_su
         df_d = df.loc[defense_mask & minimum_one_game_mask]
         df_g = df.loc[goalie_mask & minimum_one_game_mask]
 
+        sktr_games = df_sktr['games']
+        f_games = df_f['games']
+        d_games = df_d['games']
+        g_games = df_g['games']
+
+        sktr_max_games = sktr_games.max()
+        f_max_games = f_games.max()
+        d_max_games = d_games.max()
+        g_max_games = g_games.max()
+
+        # Calculate the multipliers
+        if statType == 'Cumulative':
+            # When the a=0 argument is passed to custom_decay, the multiplier will be 1.0
+            sktr_multipliers = custom_decay(sktr_games, sktr_max_games, a=0)
+            f_multipliers = custom_decay(f_games, f_max_games, a=0)
+            d_multipliers = custom_decay(d_games, d_max_games, a=0)
+            g_count_multipliers = custom_decay(g_games, g_max_games, a=0)
+            g_ratio_multipliers = custom_decay(g_games, g_max_games)
+        else:
+            sktr_multipliers = custom_decay(sktr_games, sktr_max_games)
+            f_multipliers = custom_decay(f_games, f_max_games)
+            d_multipliers = custom_decay(d_games, d_max_games)
+            g_count_multipliers = custom_decay(g_games, g_max_games)
+            g_ratio_multipliers = g_count_multipliers
+
         ##########################################################################
         # skaters
         ##########################################################################
         if positional_scoring is True:
-            z_goals = pd.concat([(df_f['goals'] - mean_cat['f goals']) / std_cat['f goals'], (df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']])
-            z_assists = pd.concat([(df_f['assists'] - mean_cat['f assists']) / std_cat['f assists'], (df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']])
-            z_pim = pd.concat([(df_f['pim'] - mean_cat['f pim']) / std_cat['f pim'], (df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']])
-            z_penalties = pd.concat([(df_f['penalties'] - mean_cat['f penalties']) / std_cat['f penalties'], (df_d['penalties'] - mean_cat['d penalties']) / std_cat['d penalties']])
-            z_shots = pd.concat([(df_f['shots'] - mean_cat['f shots']) / std_cat['f shots'], (df_d['shots'] - mean_cat['d shots']) / std_cat['d shots']])
-            z_points_pp = pd.concat([(df_f['points_pp'] - mean_cat['f points_pp']) / std_cat['f points_pp'], (df_d['points_pp'] - mean_cat['d points_pp']) / std_cat['d points_pp']])
-            z_hits = pd.concat([(df_f['hits'] - mean_cat['f hits']) / std_cat['f hits'], (df_d['hits'] - mean_cat['d hits']) / std_cat['d hits']])
-            z_blocked = pd.concat([(df_f['blocked'] - mean_cat['f blocked']) / std_cat['f blocked'], (df_d['blocked'] - mean_cat['d blocked']) / std_cat['d blocked']])
-            z_takeaways = pd.concat([(df_f['takeaways'] - mean_cat['f takeaways']) / std_cat['f takeaways'], (df_d['takeaways'] - mean_cat['d takeaways']) / std_cat['d takeaways']])
+            z_goals = pd.concat([((df_f['goals'] - mean_cat['f goals']) / std_cat['f goals']).multiply(f_multipliers, axis=0), ((df_d['goals'] - mean_cat['d goals']) / std_cat['d goals']).multiply(d_multipliers, axis=0)])
+            z_assists = pd.concat([((df_f['assists'] - mean_cat['f assists']) / std_cat['f assists']).multiply(f_multipliers, axis=0), ((df_d['assists'] - mean_cat['d assists']) / std_cat['d assists']).multiply(d_multipliers, axis=0)])
+            z_pim = pd.concat([((df_f['pim'] - mean_cat['f pim']) / std_cat['f pim']).multiply(f_multipliers, axis=0), ((df_d['pim'] - mean_cat['d pim']) / std_cat['d pim']).multiply(d_multipliers, axis=0)])
+            z_penalties = pd.concat([((df_f['penalties'] - mean_cat['f penalties']) / std_cat['f penalties']).multiply(f_multipliers, axis=0), ((df_d['penalties'] - mean_cat['d penalties']) / std_cat['d penalties']).multiply(d_multipliers, axis=0)])
+            z_shots = pd.concat([((df_f['shots'] - mean_cat['f shots']) / std_cat['f shots']).multiply(f_multipliers, axis=0), ((df_d['shots'] - mean_cat['d shots']) / std_cat['d shots']).multiply(d_multipliers, axis=0)])
+            z_points_pp = pd.concat([((df_f['points_pp'] - mean_cat['f points_pp']) / std_cat['f points_pp']).multiply(f_multipliers, axis=0), ((df_d['points_pp'] - mean_cat['d points_pp']) / std_cat['d points_pp']).multiply(d_multipliers, axis=0)])
+            z_hits = pd.concat([((df_f['hits'] - mean_cat['f hits']) / std_cat['f hits']).multiply(f_multipliers, axis=0), ((df_d['hits'] - mean_cat['d hits']) / std_cat['d hits']).multiply(d_multipliers, axis=0)])
+            z_blocked = pd.concat([((df_f['blocked'] - mean_cat['f blocked']) / std_cat['f blocked']).multiply(f_multipliers, axis=0), ((df_d['blocked'] - mean_cat['d blocked']) / std_cat['d blocked']).multiply(d_multipliers, axis=0)])
+            z_takeaways = pd.concat([((df_f['takeaways'] - mean_cat['f takeaways']) / std_cat['f takeaways']).multiply(f_multipliers, axis=0), ((df_d['takeaways'] - mean_cat['d takeaways']) / std_cat['d takeaways']).multiply(d_multipliers, axis=0)])
         else:
-            z_goals = (df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']
-            z_assists = (df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']
-            z_pim = (df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']
-            z_penalties = (df_sktr['penalties'] - mean_cat['sktr penalties']) / np.where(std_cat['sktr penalties'] != 0, std_cat['sktr penalties'], np.nan)
-            z_shots = (df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']
-            z_points_pp = (df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']
-            z_hits = (df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']
-            z_blocked = (df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']
-            z_takeaways = (df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']
+            z_goals = ((df_sktr['goals'] - mean_cat['sktr goals']) / std_cat['sktr goals']).multiply(sktr_multipliers, axis=0)
+            z_assists = ((df_sktr['assists'] - mean_cat['sktr assists']) / std_cat['sktr assists']).multiply(sktr_multipliers, axis=0)
+            z_pim = ((df_sktr['pim'] - mean_cat['sktr pim']) / std_cat['sktr pim']).multiply(sktr_multipliers, axis=0)
+            z_penalties = ((df_sktr['penalties'] - mean_cat['sktr penalties']) / np.where(std_cat['sktr penalties'] != 0, std_cat['sktr penalties'], np.nan)).multiply(sktr_multipliers, axis=0)
+            z_shots = ((df_sktr['shots'] - mean_cat['sktr shots']) / std_cat['sktr shots']).multiply(sktr_multipliers, axis=0)
+            z_points_pp = ((df_sktr['points_pp'] - mean_cat['sktr points_pp']) / std_cat['sktr points_pp']).multiply(sktr_multipliers, axis=0)
+            z_hits = ((df_sktr['hits'] - mean_cat['sktr hits']) / std_cat['sktr hits']).multiply(sktr_multipliers, axis=0)
+            z_blocked = ((df_sktr['blocked'] - mean_cat['sktr blocked']) / std_cat['sktr blocked']).multiply(sktr_multipliers, axis=0)
+            z_takeaways = ((df_sktr['takeaways'] - mean_cat['sktr takeaways']) / std_cat['sktr takeaways']).multiply(sktr_multipliers, axis=0)
 
         ##########################################################################
         # defense
         ##########################################################################
-        z_points = (df_d['points'] - mean_cat['d points']) / std_cat['d points']
+        z_points = ((df_d['points'] - mean_cat['d points']) / std_cat['d points']).multiply(d_multipliers, axis=0)
 
         ##########################################################################
         # goalies
         ##########################################################################
-        z_wins = (df_g['wins'] - mean_cat['wins']) / std_cat['wins']
-        z_saves = (df_g['saves'] - mean_cat['saves']) / std_cat['saves']
+        z_wins = ((df_g['wins'] - mean_cat['wins']) / std_cat['wins']).multiply(g_count_multipliers, axis=0)
+        z_saves = ((df_g['saves'] - mean_cat['saves']) / std_cat['saves']).multiply(g_count_multipliers, axis=0)
 
         # Remove outliers from 'gaa' column
         # df_filtered = df_g.dropna(subset=['gaa'])
         # z_gaa = -1 * (df_filtered['gaa'] - df_filtered['gaa'].mean()) / df_filtered['gaa'].std()
-        z_gaa = -1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']
+        z_gaa = (-1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']).multiply(g_ratio_multipliers, axis=0)
 
         # Remove outliers from 'save%' column
         # df_filtered = df_g.dropna(subset=['save%'])
         # z_save_pct = (df_filtered['save%'] - df_filtered['save%'].mean()) / df_filtered['save%'].std()
-        z_save_pct = (df_g['save%'] - mean_cat['save%']) / std_cat['save%']
+        z_save_pct = ((df_g['save%'] - mean_cat['save%']) / std_cat['save%']).multiply(g_ratio_multipliers, axis=0)
 
         df = df.assign(
             z_points = z_points,
@@ -597,7 +622,8 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_su
             ##########################################################################
             # Overall z-scores
             global z_scores
-            z_scores = calc_summary_scores(df=df)
+            # z_scores = calc_summary_scores(df=df)
+            z_scores = calc_summary_scores(df=df, positional_scoring=positional_scoring)
             # z_scores = pd.Series(z_scores)
 
             df = df.assign(
@@ -1322,45 +1348,42 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False) -> pd.
     df_d = df.loc[mask_d,:]
     df_g = df.loc[mask_g,:]
 
-    sktr_cat_scores = df_sktr[sktr_cats]
-    f_cat_scores = df_f[f_cats]
-    d_only_cat_scores = df_d[d_only_cats]
-    d_cat_scores = df_d[d_cats]
-    g_cat_scores = df_g[g_cats]
+    # Adjust scores to remove negative values
+    sktr_cat_scores_min = df_sktr[sktr_cats].min()
+    sktr_cat_scores = df_sktr[sktr_cats] + abs(sktr_cat_scores_min)
+    f_cat_scores_min = df_f[f_cats].min()
+    f_cat_scores = df_f[f_cats] + abs(f_cat_scores_min)
+    d_only_cat_scores_min = df_d[d_only_cats].min()
+    d_only_cat_scores = df_d[d_only_cats] + abs(d_only_cat_scores_min)
+    d_cat_scores_min = df_d[d_cats].min()
+    d_cat_scores = df_d[d_cats] + abs(d_cat_scores_min)
+    g_cat_scores_min = df_g[g_cats].min()
+    g_cat_scores = df_g[g_cats] + abs(g_cat_scores_min)
 
-    sktr_games = df_sktr['games']
-    f_games = df_f['games']
-    d_games = df_d['games']
-    g_games = df_g['games']
+    # sktr_games = df_sktr['games']
+    # f_games = df_f['games']
+    # d_games = df_d['games']
+    # g_games = df_g['games']
 
-    sktr_max_games = sktr_games.max()
-    f_max_games = f_games.max()
-    d_max_games = d_games.max()
-    g_max_games = g_games.max()
+    # sktr_max_games = sktr_games.max()
+    # f_max_games = f_games.max()
+    # d_max_games = d_games.max()
+    # g_max_games = g_games.max()
 
-    def custom_decay(n_games, max_games, a=1):
-        return (n_games / max_games) ** a
-
-    # Calculate the multipliers
-    if statType == 'Cumulative':
-        sktr_multipliers = custom_decay(sktr_games, sktr_max_games, a=0)
-        f_multipliers = custom_decay(f_games, f_max_games, a=0)
-        d_multipliers = custom_decay(d_games, d_max_games, a=0)
-        g_count_multipliers = custom_decay(g_games, g_max_games, a=0)
-        g_ratio_multipliers = custom_decay(g_games, g_max_games)
-    else:
-        sktr_multipliers = custom_decay(sktr_games, sktr_max_games)
-        f_multipliers = custom_decay(f_games, f_max_games)
-        d_multipliers = custom_decay(d_games, d_max_games)
-        g_count_multipliers = custom_decay(g_games, g_max_games)
-        g_ratio_multipliers = g_count_multipliers
-
-    def normalize_scores(series, new_min=0, new_max=100):
-        # It seems the Fantrax has a min = ~3 for skaters, and min = ~25
-        # I have no particular reason to replicate these minimums, but just gonnar run with them for now
-        old_min = series.min()
-        old_max = series.max()
-        return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
+    # # Calculate the multipliers
+    # if statType == 'Cumulative':
+    #     # When the a=0 argument is passed to custom_decay, the multiplier will be 1.0
+    #     sktr_multipliers = custom_decay(sktr_games, sktr_max_games, a=0)
+    #     f_multipliers = custom_decay(f_games, f_max_games, a=0)
+    #     d_multipliers = custom_decay(d_games, d_max_games, a=0)
+    #     g_count_multipliers = custom_decay(g_games, g_max_games, a=0)
+    #     g_ratio_multipliers = custom_decay(g_games, g_max_games)
+    # else:
+    #     sktr_multipliers = custom_decay(sktr_games, sktr_max_games)
+    #     f_multipliers = custom_decay(f_games, f_max_games)
+    #     d_multipliers = custom_decay(d_games, d_max_games)
+    #     g_count_multipliers = custom_decay(g_games, g_max_games)
+    #     g_ratio_multipliers = g_count_multipliers
 
     scores = {}
     scores['player_id'] = df['player_id']
@@ -1380,18 +1403,23 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False) -> pd.
             g_cats = g_ratio_cats
 
         if score_type in sktr_summary_score_types:
-            sktr_scores_sum = pd.concat([normalize_scores(d_only_cat_scores[d_only_cats].multiply(d_multipliers, axis=0)), normalize_scores(sktr_cat_scores[sktr_cats].multiply(sktr_multipliers, axis=0))], axis=1).sum(axis=1)
+            # sktr_scores_sum = pd.concat([d_only_cat_scores[d_only_cats].multiply(d_multipliers, axis=0), sktr_cat_scores[sktr_cats].multiply(sktr_multipliers, axis=0)], axis=1).sum(axis=1)
+            sktr_scores_sum = pd.concat([d_only_cat_scores[d_only_cats], sktr_cat_scores[sktr_cats]], axis=1).sum(axis=1)
             sktr_scores = round(normalize_scores(sktr_scores_sum, new_min=3), 2)
 
-            f_scores_sum = normalize_scores(f_cat_scores[f_cats].multiply(f_multipliers, axis=0)).sum(axis=1)
+            # f_scores_sum = f_cat_scores[f_cats].multiply(f_multipliers, axis=0).sum(axis=1)
+            f_scores_sum = f_cat_scores[f_cats].sum(axis=1)
             f_scores = round(normalize_scores(f_scores_sum, new_min=3), 2)
 
-            d_scores_sum = normalize_scores(d_cat_scores[f_cats].multiply(d_multipliers, axis=0)).sum(axis=1)
+            # d_scores_sum = d_cat_scores[d_cats].multiply(d_multipliers, axis=0).sum(axis=1)
+            d_scores_sum = d_cat_scores[d_cats].sum(axis=1)
             d_scores = round(normalize_scores(d_scores_sum, new_min=3), 2)
 
         if score_type in g_summary_score_types:
-            g_count_scores_sum = normalize_scores(g_cat_scores[g_count_cats].multiply(g_count_multipliers, axis=0)).sum(axis=1)
-            g_ratio_scores_sum = normalize_scores(g_cat_scores[g_ratio_cats].multiply(g_ratio_multipliers, axis=0)).sum(axis=1)
+            # g_count_scores_sum = g_cat_scores[g_count_cats].multiply(g_count_multipliers, axis=0).sum(axis=1)
+            g_count_scores_sum = g_cat_scores[g_count_cats].sum(axis=1)
+            # g_ratio_scores_sum = g_cat_scores[g_ratio_cats].multiply(g_ratio_multipliers, axis=0).sum(axis=1)
+            g_ratio_scores_sum = g_cat_scores[g_ratio_cats].sum(axis=1)
             if score_type == 'score':
                 g_scores = round(normalize_scores(g_count_scores_sum + g_ratio_scores_sum, new_min=25), 2)
             elif score_type == 'g_count':
@@ -1399,7 +1427,6 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False) -> pd.
             elif score_type == 'g_ratio':
                 g_scores = round(normalize_scores(g_ratio_scores_sum, new_min=25), 2)
 
-        # Rank as a percentage of the maximum value
         if score_type in sktr_summary_score_types:
             if score_type != 'score':
                 if positional_scoring is True:
@@ -1488,6 +1515,9 @@ def calc_z_combo(df: pd.DataFrame, score_types: List[str]=['score']) -> pd.Serie
             z_combos[score_type] = pd.concat([z_combos[score_type], format_z_combo(df_g[eval(g_categories_as_eval_str)])])
 
     return pd.Series(z_combos)
+
+def custom_decay(n_games, max_games, a=1):
+    return (n_games / max_games) ** a
 
 def format_z_combo(df: pd.DataFrame) -> pd.Series:
 
@@ -1979,6 +2009,13 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
     df_stats.reset_index(inplace=True)
 
     return df_stats
+
+def normalize_scores(series, new_min=0, new_max=100):
+    # It seems the Fantrax has a min = ~3 for skaters, and min = ~25
+    # I have no particular reason to replicate these minimums, but just gonnar run with them for now
+    old_min = series.min()
+    old_max = series.max()
+    return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
 
 def rankings_to_html(df: pd.DataFrame, config: Dict) -> dict:
 
