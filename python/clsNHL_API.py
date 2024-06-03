@@ -126,13 +126,13 @@ class NHL_API():
 
             else:
                 # Handle any errors
-                msg = f'Error: {response.status_code}'
+                msg = f'Error: {response.reason}. Response Status Code is {response.status_code}.'
                 if batch:
                     logger.debug(msg)
-                else:
-                    dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
-                    return
+                # else:
+                #     dialog['-PROG-'].update(msg)
+                #     event, values = dialog.read(timeout=10)
+                return msg
 
         return rows
 
@@ -770,8 +770,18 @@ class NHL_API():
             #   "teamAbbrev":"VAN",
             #   "timeOnIcePerGame":1039.00
             # }
-            for row in rows:
-                skater_game_stats[row['gameId']][row['playerId']].update(row)
+            # The skater miscellaneous report is failing (as of June/24) for playoffs.
+            # Other than `takeaways`, The stats collected here aren't used in Fantrax. They were for my PickupHockey league.
+            if isinstance(rows, str):
+                if not batch:
+                    # `rows` is a message string
+                    dialog['-PROG-'].update(rows)
+                    event, values = dialog.read(timeout=10)
+                    if event == 'Cancel' or event == sg.WIN_CLOSED:
+                        return
+            else:
+                for row in rows:
+                    skater_game_stats[row['gameId']][row['playerId']].update(row)
 
             ###################################################################################
             # skater scoringpergame report
@@ -1354,7 +1364,7 @@ class NHL_API():
                     player = skater_game_stats[gameId][playerId]
                     player_game_stat = {}
 
-                    player_game_stat['assists_en'] = player['emptyNetAssists']
+                    player_game_stat['assists_en'] = player['emptyNetAssists'] if 'emptyNetAssists' in player else 0
                     player_game_stat['assists_gw'] = player['assists_gw'] if 'assists_gw' in player else 0
                     player_game_stat['assists_ot'] = player['assists_ot'] if 'assists_ot' in player else 0
                     player_game_stat['assists_pp'] = player['ppAssists']
@@ -1380,7 +1390,7 @@ class NHL_API():
                     player_game_stat['gamePk'] = player['gameId']
                     player_game_stat['games_started'] = np.nan
                     player_game_stat['goals_against'] = np.nan
-                    player_game_stat['goals_en'] = player['emptyNetGoals']
+                    player_game_stat['goals_en'] = player['emptyNetGoals'] if 'emptyNetGoals' in player else 0
                     player_game_stat['goals_gw'] = player['gameWinningGoals']
                     player_game_stat['goals_ot'] = player['otGoals']
                     player_game_stat['goals_pp'] = player['ppGoals']
@@ -1395,9 +1405,9 @@ class NHL_API():
                     player_game_stat['match_penalties'] = player['matchPenalties']
                     player_game_stat['minor_penalties'] = player['minorPenalties']
                     player_game_stat['misconduct_penalties'] = player['misconductPenalties']
-                    player_game_stat['missed_shots'] = player['missedShots']
-                    player_game_stat['missed_shots_crossbar'] = player['missedShotCrossbar']
-                    player_game_stat['missed_shots_goalpost'] = player['missedShotGoalpost']
+                    player_game_stat['missed_shots'] = player['missedShots'] if 'missedShots' in player else 0
+                    player_game_stat['missed_shots_crossbar'] = player['missedShotCrossbar'] if 'missedShotCrossbar' in player else 0
+                    player_game_stat['missed_shots_goalpost'] = player['missedShotGoalpost'] if 'missedShotGoalpost' in player else 0
                     player_game_stat['name'] = player['skaterFullName']
                     player_game_stat['opp_abbr'] = player['opponentTeamAbbrev']
                     player_game_stat['opp_id'] = teams_dict[player['opponentTeamAbbrev']]['id']
@@ -1405,7 +1415,7 @@ class NHL_API():
                     player_game_stat['pim'] = player['penaltyMinutes']
                     player_game_stat['player_id'] = player['playerId']
                     player_game_stat['plus_minus'] = player['plusMinus']
-                    player_game_stat['points_en'] = player['emptyNetPoints']
+                    player_game_stat['points_en'] = player['emptyNetPoints'] if 'emptyNetPoints' in player else 0
                     player_game_stat['points_gw'] = player['points_gw'] if 'points_gw' in player else 0
                     player_game_stat['points_ot'] = player['points_ot'] if 'points_ot' in player else 0
                     player_game_stat['points_pp'] = player['ppPoints']
@@ -1433,7 +1443,7 @@ class NHL_API():
                     player_game_stat['shots_sh'] = np.nan
                     player_game_stat['shots'] = player['shots']
                     player_game_stat['shutouts'] = np.nan
-                    player_game_stat['takeaways'] = player['takeaways']
+                    player_game_stat['takeaways'] = player['takeaways'] if 'takeaways' in player else 0
                     player_game_stat['team_abbr'] = player['teamAbbrev']
                     player_game_stat['team_id'] = teams_dict[player['teamAbbrev']]['id']
                     player_game_stat['team_toi_pp'] = seconds_to_string_time(team_game_stats[player_game_stat['team_id']][player_game_stat['gamePk']]['toi_pp']) if player_game_stat['gamePk'] in team_game_stats[player_game_stat['team_id']] else '00:00'
