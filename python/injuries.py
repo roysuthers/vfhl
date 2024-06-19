@@ -1,7 +1,8 @@
 #import the libraries
 import logging
+import requests
 import traceback
-from urllib.request import urlopen
+# from urllib.request import urlopen
 
 import pandas as pd
 import PySimpleGUI as sg
@@ -40,7 +41,11 @@ def from_sports_reference(dialog: sg.Window=None) -> pd.DataFrame:
             logger.debug(msg)
 
         # query the website and return the html to the variable 'page'
-        page = urlopen(hockey_reference_com)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        response = requests.get(hockey_reference_com, headers=headers)
+
+        # page = urlopen(hockey_reference_com)
+        page = response.content
 
         # parse the html using beautiful soup and store in variable 'tableData'
         soup = BeautifulSoup(page, "html.parser")
@@ -119,7 +124,10 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
             logger.debug(msg)
 
         # query the website and return the html to the variable 'page'
-        page = urlopen(url)
+        # page = urlopen(url)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        response = requests.get(url, headers=headers)
+        page = response.content
 
         # parse the html using beautiful soup
         soup = BeautifulSoup(page, "html.parser")
@@ -146,7 +154,9 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         for page_number in range(pages_count):
 
             if page_number >= 1:
-                page = urlopen(f'{url}?page={page_number}')
+                # page = urlopen(f'{url}?page={page_number}')
+                response = requests.get(f'{url}?page={page_number}', headers=headers)
+                page = response.content
                 soup = BeautifulSoup(page, "html.parser")
 
             table = soup.find(name="div", attrs={"class": "pp_layout_main"})
