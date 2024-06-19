@@ -143,6 +143,20 @@ def inches_to_feet(inches):
     remaining_inches = inches % 12
     return f"{feet}' {remaining_inches}\""
 
+def process_dict(d):
+    for key in d.keys():
+        if isinstance(d[key], pd.Series):
+            d[key] = d[key].fillna(0).tolist()
+        elif isinstance(d[key], np.int64):
+            d[key] = int(d[key])
+        elif isinstance(d[key], list):
+            continue
+        elif isinstance(d[key], dict):
+            continue
+        elif d[key] is None or np.isnan(d[key]):
+            d[key] = 0
+    return dict(d)
+
 def seconds_to_string_time(seconds: int) -> str:
     """Convert seconds to a string time in MM:SS format."""
 
