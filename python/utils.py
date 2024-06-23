@@ -71,7 +71,7 @@ def get_player_id_from_name(name: str, team_id: int=0, pos: str='') -> Dict:
     def custom_compare(str1, str2):
         return str1.upper() == str2.upper()
 
-    # Take a look at NHL_API().get_player_by_name() function, which essentially does the same as this function
+    # Take a look at clsNHL_API's get_player_by_name() function, which essentially does the same as this function
     try:
 
         # default if player id cannot be found
@@ -142,6 +142,39 @@ def inches_to_feet(inches):
     feet = inches // 12
     remaining_inches = inches % 12
     return f"{feet}' {remaining_inches}\""
+
+def load_nhl_team_abbr_and_id_dict() -> Dict:
+
+    sql = 'SELECT id, abbr, id FROM Team'
+    with get_db_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        nhl_team_abbr_id_dict = {row['abbr']: row['id'] for row in rows}
+
+    return nhl_team_abbr_id_dict
+
+def load_player_name_and_id_dict() -> Dict:
+
+    sql = 'SELECT full_name, id FROM Player where id>0'
+    with get_db_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        player_id_dict = {row['full_name']: row['id'] for row in rows}
+
+    sql = 'select pan.nhl_name, pan.alt_names, p.id from PlayerAlternateNames pan join Player p on p.full_name=pan.nhl_name'
+    with get_db_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+
+    for row in rows:
+        alt_names = row['alt_names'].split(',')
+        for name in alt_names:
+            player_id_dict[name.strip()] = row['id']
+
+    return player_id_dict
 
 def process_dict(d):
     for key in d.keys():
