@@ -36,6 +36,7 @@ class Player:
         # self.rookie = False
         self.roster_status = ''
         self.current_team_id = 0
+        self.current_team_abbr = ''
         self.primary_position = ''
         self.games = 0
         self.injury_status = ''
