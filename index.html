@@ -49,13 +49,44 @@
                 margin-right: 20px;
             }
 
+            .stat_gen_args .form-group > div {
+                display: flex;
+                flex-wrap: wrap;
+            }
+
             .stat_gen_args .form-group label {
                 font-size: 1em;
                 margin-bottom: 5px;
             }
 
+            .single-element-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .multi-checkbox-container {
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .multi-checkbox-container > div {
+                margin-right: 10px;
+            }
+
+            /* .single-element-container > div {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            } */
+
             .stat_gen_args select {
                 min-width: 150px;
+                font-size: 1em;
+            }
+
+            #ewmaSpan {
+                width: 50px;
                 font-size: 1em;
             }
 
@@ -141,7 +172,7 @@
                 flex-wrap: wrap;
             }
 
-            #getStatsButton, #calcPlayerZScoresButton, #startDraftButton, #autoAssignDraftPicks, #manuallySelectMyPicks, #undoDraftPick {
+            #startDraftButton, #autoAssignDraftPicks, #manuallySelectMyPicks, #undoDraftPick {
                 display: inline-block!important;
                 font-size: 1em;
             }
@@ -164,10 +195,6 @@
                 font-size: 1em;
             }
 
-            #calcZScoresContainer {
-                font-size: 1.2em;
-            }
-
             .indented {
                 margin-left: 20px;
             }
@@ -177,104 +204,145 @@
         <div class="stat_gen_args">
             <div class="form-group">
                 <label for="poolID">FANTRAX POOL</label>
-                <select id="poolID">
-                    <option value=0>None</option>
-                    <option value=8>VFHL 2020-2021</option>
-                    <option value=4>VFHL 2021-2022</option>
-                    <option value=6>VFHL 2022-2023</option>
-                    <option value=7 selected>VFHL 2023-2024</option>
-                    <option value=11>VFHL 2024-2025</option>
-                </select>
+                <div>
+                    <select id="poolID" class="trigger_getRawData">
+                        <option value=0>None</option>
+                        <option value=8>VFHL 2020-2021</option>
+                        <option value=4>VFHL 2021-2022</option>
+                        <option value=6>VFHL 2022-2023</option>
+                        <option value=7 selected>VFHL 2023-2024</option>
+                        <option value=11>VFHL 2024-2025</option>
+                    </select>
+                </div>
             </div>
             <div class="form-group">
                 <label for="gameType">GAME TYPE</label>
-                <select id="gameType">
-                    <option value="Regular Season" selected>Regular Season</option>
-                    <option value="Playoffs">Playoffs</option>
-                    <option value="Projected Season">Projected Season</option>
-                </select>
+                <div>
+                    <select id="gameType" class="trigger_getRawData">
+                        <option value="Regular Season" selected>Regular Season</option>
+                        <option value="Playoffs">Playoffs</option>
+                        <option value="Projected Season">Projected Season</option>
+                    </select>
+                </div>
             </div>
             <div class="form-group" id="projectionSourceWrap">
                 <label for="projectionSource">PROJECTION SOURCE</label>
-                <select id="projectionSource">
-                    <option value="Averaged" selected>Averaged</option>
-                    <option value="Athletic">The Athletic</option>
-                    <option value="Dobber">Dobber</option>
-                    <option value="Fantrax">Fantrax</option>
-                </select>
+                <div>
+                    <select id="projectionSource" class="trigger_getRawData">
+                        <option value="Averaged" selected>Averaged</option>
+                        <option value="Athletic">The Athletic</option>
+                        <option value="Dobber">Dobber</option>
+                        <option value="Fantrax">Fantrax</option>
+                    </select>
+                </div>
             </div>
             <div class="form-group">
                 <div>
-                    <label class="radio-label"><input type="radio" name="seasonOrDate" value="season" checked>SEASON RANGE</label>
-                    <label class="radio-label"><input type="radio" name="seasonOrDate" value="date">DATE RANGE</label>
+                    <label class="radio-label"><input id="seasonRadioButton" type="radio" name="seasonOrDate" value="season" checked class="trigger_getRawData">SEASON RANGE</label>
+                    <label class="radio-label"><input id="dateRadioButton" type="radio" name="seasonOrDate" value="date" class="trigger_getRawData">DATE RANGE</label>
                 </div>
-                <div id="seasonControls">
-                    <select id="fromSeason"></select>
-                    <select id="toSeason"></select>
-                </div>
-                <div id="dateControls" style="display: none;">
-                    <input id="fromDate" type="date" style="display: none;">
-                    <input id="toDate" type="date" style="display: none;">
-                    <!-- <input id="dateRange" type="text"> -->
-                    <div id="dateRange" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; width: 100%">
-                        <i class="fa fa-calendar"></i>&nbsp;
-                        <span></span> <i class="fa fa-caret-down"></i>
+                <div>
+                    <div id="seasonControls">
+                        <select id="fromSeason" class="trigger_getRawData"></select>
+                        <select id="toSeason" class="trigger_getRawData"></select>
+                    </div>
+                    <div id="dateControls" style="display: none;">
+                        <input id="fromDate" type="date" style="display: none;" class="trigger_getRawData">
+                        <input id="toDate" type="date" style="display: none;" class="trigger_getRawData">
+                        <!-- <input id="dateRange" type="text"> -->
+                        <div id="dateRange" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; width: 100%">
+                            <i class="fa fa-calendar"></i>&nbsp;
+                            <span></span> <i class="fa fa-caret-down"></i>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="form-group">
-                <label for="statType">Statistic Type</label>
-                <select id="statType" style="margin-right: 20px;">
-                    <option value="Cumulative" selected>Cumulative</option>
-                    <option value="Per game">Per game</option>
-                    <option value="Per 60 minutes">Per 60 minutes</option>
-                    <option value="EWMA">EWMA</option>
-                </select>
+                <label for="statType">STATISTIC TYPE</label>
+                <div>
+                    <select id="statType" style="margin-right: 20px;" class="trigger_aggregateData">
+                        <option value="Cumulative" selected>Cumulative</option>
+                        <option value="Per game">Per game</option>
+                        <option value="Per 60 minutes">Per 60 minutes</option>
+                        <option value="EWMA">EWMA</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group ewma" style="display: none;">
+                <label for="ewmaSpan">EWMA Span</label>
+                <div class="single-element-container">
+                    <input type="number" id="ewmaSpan" value="10" min="1"  max="20" class="trigger_aggregateData">
+                </div>
             </div>
             <div class="form-group">
-                <label for="positionalScoringCheckbox">Calculate Scores by Positions</label>
-                <input type="checkbox" id="positionalScoringCheckbox">
+                <label for="positionalScoringCheckbox">SCORES BY POSITION</label>
+                <div class="single-element-container">
+                    <input type="checkbox" id="positionalScoringCheckbox" class="trigger_calculateScores">
+                </div>
+            </div>
+            <div class="form-group" id="calcZScoresContainer">
+                <label for="positionalScoringCheckbox">SCORES COMPOSITION</label>
+                <div class="multi-checkbox-container">
+                    <div>
+                        <label for="points">D-PTS:</label>
+                        <input type="checkbox" id="points" name="points" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="goals">GOALS:</label>
+                        <input type="checkbox" id="goals" name="goals" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="assists">ASSISTS:</label>
+                        <input type="checkbox" id="assists" name="assists" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="powerplayPoints">PPP:</label>
+                        <input type="checkbox" id="powerplayPoints" name="powerplayPoints" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="shotsOnGoal">SOG:</label>
+                        <input type="checkbox" id="shotsOnGoal" name="shotsOnGoal" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="blockedShots">BLK:</label>
+                        <input type="checkbox" id="blockedShots" name="blockedShots" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="hits">HITS:</label>
+                        <input type="checkbox" id="hits" name="hits" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="takeaways">TK:</label>
+                        <input type="checkbox" id="takeaways" name="takeaways" checked class="trigger_calculateScores">
+                    </div>
+                    <div>
+                        <label for="penaltyMinutes">PIM:</label>
+                        <input type="checkbox" id="penaltyMinutes" name="penaltyMinutes" checked class="trigger_calculateScores">
+                    </div>
+                    <!-- Don't show Goalie categories, but keep checkboxes so that they always get calculated -->
+                    <div>
+                        <label for="wins" style="display: none">WINS:</label>
+                        <input type="checkbox" id="wins" name="wins" checked class="trigger_calculateScores" style="display: none">
+                    </div>
+                    <div>
+                        <label for="saves" style="display: none">SAVES:</label>
+                        <input type="checkbox" id="saves" name="saves" checked class="trigger_calculateScores" style="display: none">
+                    </div>
+                    <div>
+                        <label for="gaa" style="display: none">GAA:</label>
+                        <input type="checkbox" id="gaa" name="gaa" checked class="trigger_calculateScores" style="display: none">
+                    </div>
+                    <div>
+                        <label for="savePercent" style="display: none">SAVE%:</label>
+                        <input type="checkbox" id="savePercent" name="savePercent" class="trigger_calculateScores" checked style="display: none">
+                    </div>
+                    <!-- -->
+                </div>
             </div>
             <div class="form-group">
-                <button id="getStatsButton" style="font-size: 1.5em;">Get Stats</button>
+                <button id="applyButton" style="font-size: 1.5em;">Apply</button>
             </div>
-        </div>
 
-        <!-- <div id="showAsVorpContainer" style="display: none;">
-            <label for="showAsVorpCheckbox">Show z-scores as VORP</label>
-            <input type="checkbox" id="showAsVorpCheckbox">
-        </div> -->
-
-        <div id="calcZScoresContainer" style="display: none; margin-top: 10px;">
-            <div>Calculate Z-Scores Using:
-                <input type="checkbox" id="points" name="points" checked>
-                <label for="points">d-pts</label>
-                <input type="checkbox" id="goals" name="goals" checked>
-                <label for="goals">g</label>
-                <input type="checkbox" id="assists" name="assists" checked>
-                <label for="assists">a</label>
-                <input type="checkbox" id="powerplayPoints" name="powerplayPoints" checked>
-                <label for="powerplayPoints">ppp</label>
-                <input type="checkbox" id="shotsOnGoal" name="shotsOnGoal" checked>
-                <label for="shotsOnGoal">sog</label>
-                <input type="checkbox" id="blockedShots" name="blockedShots" checked>
-                <label for="blockedShots">blk</label>
-                <input type="checkbox" id="hits" name="hits" checked>
-                <label for="hits">hits</label>
-                <input type="checkbox" id="takeaways" name="takeaways" checked>
-                <label for="takeaways">tk</label>
-                <input type="checkbox" id="penaltyMinutes" name="penaltyMinutes" checked>
-                <label for="penaltyMinutes">pim</label>
-                <input type="checkbox" id="wins" name="wins" checked>
-                <label for="wins">w</label>
-                <input type="checkbox" id="saves" name="saves" checked>
-                <label for="saves">sv</label>
-                <input type="checkbox" id="gaa" name="gaa" checked>
-                <label for="gaa">gaa</label>
-                <input type="checkbox" id="savePercent" name="savePercent" checked>
-                <label for="savePercent">sv%</label>
-                <button id="calcSummaryZScoresButton" style="font-size: 1.5em;">Calculate</button>
-            </div>
         </div>
 
         <div id="toggleCheckboxContainer" style="display: none;" class="indented">
@@ -354,6 +422,7 @@
             const projectionSource = document.querySelector('#projectionSource');
             const projectionSourceLabel = document.querySelector('#projectionSourceWrap label');
             const statType = document.querySelector("#statType");
+            const ewmaSpan = document.querySelector("#ewmaSpan");
 
             const upcomingSeason = '20242025';
 

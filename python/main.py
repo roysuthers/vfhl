@@ -1,10 +1,14 @@
+import json
+import os
+import pandas as pd
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import json
 from pathlib import Path
 
-from get_player_data import rank_players
+from get_player_data import rank_players, calc_z_scores, min_cat, max_cat, mean_cat
 from fantrax import scrape_draft_picks
+from utils import process_dict
 
 
 # Constant
@@ -19,6 +23,22 @@ def create_app():
     def player_data():
         """Return the player data as a JSON object based on the request arguments."""
 
+        generation_type = request.args.get('generationType')
+
+        z_points = True if request.args.get('points') == 'true' else False
+        z_goals = True if request.args.get('goals') == 'true' else False
+        z_assists = True if request.args.get('assists') == 'true' else False
+        z_points_pp = True if request.args.get('powerplayPoints') == 'true' else False
+        z_shots = True if request.args.get('shotsOnGoal') == 'true' else False
+        z_blocked = True if request.args.get('blockedShots') == 'true' else False
+        z_hits = True if request.args.get('hits') == 'true' else False
+        z_takeaways = True if request.args.get('takeaways') == 'true' else False
+        z_pim = True if request.args.get('penaltyMinutes') == 'true' else False
+        z_wins = True if request.args.get('wins') == 'true' else False
+        z_saves = True if request.args.get('saves') == 'true' else False
+        z_gaa = True if request.args.get('gaa') == 'true' else False
+        z_save_percent = True if request.args.get('savePercent') == 'true' else False
+
         season_or_date_radios = request.args.get('seasonOrDateRadios')
         from_season = request.args.get('fromSeason')
         to_season = request.args.get('toSeason')
@@ -26,11 +46,16 @@ def create_app():
         to_date = request.args.get('toDate')
         game_type = request.args.get('gameType')
         stat_type = request.args.get('statType')
+        ewma_span = int(request.args.get('ewmaSpan'))
         pool_id = request.args.get('poolID')
         projection_source = request.args.get('projectionSource')
         positional_scoring = True if request.args.get('positionalScoring') == 'true' else False
 
-        player_data = rank_players(season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, projection_source, positional_scoring)
+        # Create a list with the variable names that correspond to False values
+        categories_to_exclude = [var_name if var_name != 'z_save_percent' else 'z_save%' for var_name, var_value in locals().items() if isinstance(var_value, bool) and not var_value and var_name.startswith('z_')]
+
+
+        player_data = rank_players(generation_type, season_or_date_radios, from_season, to_season, from_date, to_date, pool_id, game_type, stat_type, ewma_span, projection_source, categories_to_exclude, positional_scoring)
         if player_data is None:
             return jsonify({})
 
@@ -40,20 +65,6 @@ def create_app():
         ##########################################################################################################
 
         return jsonify(player_data).get_json()
-
-    def generate_file_name(season_or_date_radios: str, from_season: str, to_season: str, from_date: str, to_date: str, game_type: str, projection_source: str) -> str:
-        """Generate a file name based on the arguments."""
-
-        if season_or_date_radios == 'date':
-            file_name = f"player_data_from_{from_date}_to_{to_date}_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons"
-
-        else:
-            if game_type == 'Prj':
-                file_name = f"player_data_for_{from_season}{game_type}_to_{to_season}{game_type}-{projection_source}_seasons"
-            else:
-                file_name = f"player_data_for_{from_season}{game_type}_to_{to_season}{game_type}_seasons"
-
-        return file_name
 
     @app.route('/draft-order')
     def draft_order():
