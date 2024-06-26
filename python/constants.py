@@ -10,7 +10,7 @@ NHL_API_BASE_URL: str = 'https://api-web.nhle.com'
 NHL_API_URL: str = 'https://api-web.nhle.com/v1'
 
 NHL_API_SEARCH_SUGGESTIONS_URL: str = 'https://search.d3.nhle.com/api/v1/search/player'
-NHL_API_SEARCH_SUGGESTIONS_PARAMS: dict = {'culture': 'en-us', 'limit': 20, 'q': '', 'active': True}
+NHL_API_SEARCH_SUGGESTIONS_PARAMS: dict = {'culture': 'en-us', 'limit': 100, 'q': '', 'active': True}
 
 calendar = './python/input/images/calendar.png'
 

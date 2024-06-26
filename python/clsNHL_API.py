@@ -3,6 +3,7 @@ import logging
 import re
 import sys
 import traceback
+import unidecode
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -136,85 +137,136 @@ class NHL_API():
 
         return rows
 
-    def get_player_by_name(self, name: str, team_id: int, team_abbr: str='') -> json:
+    def get_player_by_name(self, name: str, team_id: int, team_abbr: str='', pos: str='') -> json:
 
         try:
 
             params = deepcopy(NHL_API_SEARCH_SUGGESTIONS_PARAMS)
+            player_json:json = None
+            params['q'] = name
+            update_PlayerAlternateNames = False
 
-            player:json = None
-            idx = []
+            for iteration in range(2):
 
-            full_name = name
+                if iteration != 0:
+                    params['active'] = False
 
-            # if team_id > 0:
-            #     players = j.search('roster[*].person', requests.get(f'{NHL_API_URL}/teams/{team_id}/roster?rosterType=fullRoster&hydrate=person').json())
-
-            #     idx = [i for i, x in enumerate(players) if name == unidecode(players[i]['fullName'])]
-
-            if len(idx) == 0:
-                full_name = name.replace(' ', '%20')
-                params['q'] = full_name
                 suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+                idx = [i for i, x in enumerate(suggestions) if unidecode(name).lower() == unidecode(suggestions[i]['name']).lower()]
 
-                if len(suggestions) == 0:
-                    del params['active']
-                    suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+                if len(idx) != 1:
+                    update_PlayerAlternateNames = True
 
-                first_name, last_name = name.split(' ', 1)
+                if len(idx) == 0 and len(suggestions) > 0:
+                    first_name, last_name = name.split(' ', 1)
 
-                # try stripping spaces from last name
-                if len(suggestions) == 0 and ' ' in last_name:
-                    last_name_no_spaces = last_name.replace(" ", "")
-                    params['q'] = f"{first_name} {last_name_no_spaces}"
-                    suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
-                    if len(suggestions) > 0:
-                        last_name = last_name_no_spaces
-                        full_name = f'{first_name} {last_name}'
+                    # try using last name
+                    idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
 
-                if len(suggestions) == 0:
-                    # Looking for player "Vasili Podkolzin". Team roster has him as "Vasily Podkolzin"
-                    # try using last name "Podkolzin"
-                    params['q'] = last_name
-                    suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+                    if len(idx) > 1:
+                        # try name starting with first name & ending with last name
+                        idx_save = idx
+                        idx = [i for i in idx  if unidecode(suggestions[i]['name']).lower().startswith(unidecode(first_name).lower()) and unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
 
-                if len(suggestions) == 0:
-                    last_name = name.rsplit(' ', 1)[1]
-                    params['q'] = last_name
-                    suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+                        if len(idx) == 0:
+                            idx = idx_save
+                            idx = [i for i in idx if unidecode(first_name).lower().startswith(unidecode(suggestions[i]['name']).lower().split(' ', 1)[0]) and unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
+                            if len(idx) == 0:
+                                idx = idx_save
 
-                if len(suggestions) == 0:
-                    # raise RuntimeError(f'Exception: Player "{full_name}" not found at {NHL_API_SEARCH_SUGGESTIONS_URL}')
-                    return None
+                if len(idx) > 1:
+                    idx = [i for i in idx if str(team_id) == suggestions[i]['teamId']]
 
-                for suggestion in suggestions:
-                    if suggestion['name'].endswith(last_name):
-                        player_id = suggestion['playerId']
-                        player = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
-                        initials1 = ''.join([char for char in first_name if char.isupper()])
-                        initials2 = '.'.join([char for char in first_name if char.isupper()])
-                        player_first_name = j.search('firstName.default', player)
-                        if player_first_name != first_name and initials1 != player_first_name and initials2 != player_first_name:
-                            if len(first_name) > len(player_first_name):
-                                if player_first_name not in first_name:
-                                    continue
-                            elif len(player_first_name) > len(first_name):
-                                if first_name not in player_first_name:
-                                    continue
-                        # check that the team id is the same before accepting this player
-                        if 'current_team_id' in player:
-                            if team_id != player.get('current_team_id') and len(suggestions) > 1:
-                                player = None
-                                continue
-                        else:
-                            if team_id != Team().get_team_id_from_team_abbr(team_abbr=suggestion['teamId'], suppress_error=True) and len(suggestions) > 1:
-                                player = None
-                                continue
-                            player['current_team_id'] = team_id
-                        return player
+                if len(idx) > 1:
+                    # When scraping Fantrax player info, forwards have pos = 'F', rather than 'C", 'LW', or 'RW'
+                    if pos == 'F':
+                        idx = [i for i in idx if suggestions[i]['positionCode'] in ('C', 'LW', 'RW')]
+                    else:
+                        idx = [i for i in idx if pos == suggestions[i]['positionCode']]
 
-            # else: # len(idx) == 1:
-            #     return players[idx[0]]
+                if len(idx) == 1:
+
+                    player_json = suggestions[idx[0]]
+
+                    if update_PlayerAlternateNames is True:
+                        # Update PlayerAlternateNames
+                        with get_db_connection() as connection:
+                            nhl_name = player_json['name']
+                            cursor = connection.cursor()
+                            cursor.execute("SELECT * FROM PlayerAlternateNames WHERE nhl_name = ?", (nhl_name,))
+                            result = cursor.fetchone()
+                            if result:
+                                # Update existing record
+                                alt_names = result['alt_names'] + ', ' + name
+                                cursor.execute("UPDATE PlayerAlternateNames SET alt_names = ? WHERE nhl_name = ?", (alt_names, nhl_name))
+                                print(f'Updated PlayerAlternateNames table for "{nhl_name}". Set alt_names to "{alt_names}".')
+                            else:
+                                # Insert new record
+                                cursor.execute("INSERT INTO PlayerAlternateNames (nhl_name, alt_names) VALUES (?, ?)", (nhl_name, name))
+                                print(f'Added "{nhl_name}" to PlayerAlternateNames table. Set alt_names to "{name}".')
+                            connection.commit()
+
+                    return player_json
+
+            # params['active'] = True
+
+            # try stripping spaces from last name
+            # if ' ' in last_name:
+            #     last_name_no_spaces = last_name.replace(" ", "")
+            #     params['q'] = f"{first_name} {last_name_no_spaces}"
+            #     suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+                # if len(suggestions) > 0:
+                #     last_name = last_name_no_spaces
+                #     full_name = f'{first_name} {last_name}'
+
+            # if len(idx) == 0:
+            #     params['active'] = False
+            #     suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+            #     idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
+
+            # if len(idx) > 1:
+            #     idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower()) and str(team_id) == suggestions[i]['teamId']]
+
+            # if len(idx) > 1 and pos != '':
+            #     idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower()) and str(team_id) == suggestions[i]['teamId'] and pos == suggestions[i]['positionCode']]
+
+            # if len(suggestions) == 0:
+            #     last_name = name.rsplit(' ', 1)[1]
+            #     params['q'] = last_name
+            #     suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
+
+            # # if len(suggestions) == 0:
+            # #     # raise RuntimeError(f'Exception: Player "{full_name}" not found at {NHL_API_SEARCH_SUGGESTIONS_URL}')
+            # #     return None
+
+            # if len(idx) == 1:
+            #     return suggestions[idx[0]]
+
+            # for suggestion in suggestions:
+            #     if suggestion['name'].endswith(last_name):
+            #         player_id = suggestion['playerId']
+            #         player_json = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
+            #         initials1 = ''.join([char for char in first_name if char.isupper()])
+            #         initials2 = '.'.join([char for char in first_name if char.isupper()])
+            #         player_first_name = j.search('firstName.default', player_json)
+            #         if player_first_name != first_name and initials1 != player_first_name and initials2 != player_first_name:
+            #             if len(first_name) > len(player_first_name):
+            #                 if player_first_name not in first_name:
+            #                     continue
+            #             elif len(player_first_name) > len(first_name):
+            #                 if first_name not in player_first_name:
+            #                     continue
+            #         # check that the team id is the same before accepting this player
+            #         if 'currentTeamId' in player_json:
+            #             if team_id != player_json.get('currentTeamId') and len(suggestions) > 1:
+            #                 player_json = None
+            #                 continue
+            #         else:
+            #             if team_id != Team().get_team_id_from_team_abbr(team_abbr=suggestion['teamId'], suppress_error=True) and len(suggestions) > 1:
+            #                 player_json = None
+            #                 continue
+            #             # player['current_team_id'] = team_id
+            #         return player_json
 
         except requests.exceptions.ConnectionError as e:
             raise ConnectionError(f'ConnectionError: Player "{full_name}" not found at {NHL_API_SEARCH_SUGGESTIONS_URL} due to a connection error.')

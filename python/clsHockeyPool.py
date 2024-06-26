@@ -14,10 +14,11 @@ import traceback
 from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from inspect import isfunction
+from inspect import currentframe, isfunction
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Tuple, Union
+from unidecode import unidecode
 
 import keyring
 import numpy as np
@@ -43,7 +44,7 @@ from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
 from constants import DATABASE
-from utils import get_db_connection, get_db_cursor, get_player_id_from_name, split_seasonID_into_component_years
+from utils import assign_player_ids, get_db_connection, get_db_cursor, get_player_id, load_nhl_team_abbr_and_id_dict, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict, split_seasonID_into_component_years
 
 FONT = 'Consolas 12'
 sg.SetOptions(
@@ -1247,283 +1248,124 @@ class HockeyPool:
             # Drop the duplicate columns from the resulting DataFrame
             df_player_stats = df_player_stats.loc[:, ~df_player_stats.columns.duplicated(keep='first')]
             df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
-        else:
+        else: # season.SEASON_HAS_STARTED is True
             df_player_stats = ps.get_player_stats(season=season, pool=self)
-            if season.SEASON_HAS_STARTED is True and season.type == 'P':
-                next_season_id = season.getNextSeasonID()
-                next_season_pool = HockeyPool().fetch(**{'Criteria': [['season_id', '==', next_season_id]]})
-                df_player_stats = ps.merge_with_current_players_info(season=season, pool=next_season_pool, df_stats=df_player_stats)
-            else:
-                df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            # if season.SEASON_HAS_STARTED is True and season.type == 'P':
+            #     next_season_id = season.getNextSeasonID()
+            #     next_season_pool = HockeyPool().fetch(**{'Criteria': [['season_id', '==', next_season_id]]})
+            #     df_player_stats = ps.merge_with_current_players_info(season=season, pool=next_season_pool, df_stats=df_player_stats)
+            # else:
+            #     df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
 
         return
 
     def import_athletic_projected_stats(self, season: Season):
 
-        ##############################################################################
-        # Skaters
-        ##############################################################################
+        season_id = str(season.id)
 
-        dfDraftList = pd.read_excel(f'./python/input/Projections/20232024/Athletic/2023-24-Fantasy-Projections-Fantrax-3.xlsx', engine='openpyxl', sheet_name='The List', header=0)
+        excel_path = f'./python/input/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
+
+        excel_columns = ('NAME', 'POS', 'TEAM', 'ADP', 'GP', 'TOI', 'G', 'A', 'SOG','PPP', 'BLK', 'HIT', 'PIM', 'GP.1', 'W', 'SV', 'SV%', 'GAA')
+
+        dfDraftList = pd.read_excel(io=excel_path, sheet_name='The List', header=0, usecols=excel_columns, engine='openpyxl')
+
+        # rename columns
+        dfDraftList.rename(columns={'NAME': 'Player', 'TEAM': 'Team', 'POS': 'Pos', 'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'HIT': 'Hits', 'BLK': 'BLKS', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
 
         # drop empty rows
-        dfDraftList.dropna(subset=['NAME'], how='any', inplace=True)
+        dfDraftList.dropna(subset=['Player'], how='any', inplace=True)
 
-        # drop not needed columns
-        dfDraftList.drop(columns=['RK', 'KEEP?', 'Unnamed: 4', 'AGE', 'SALARY', 'FP', '/GP', 'VORP', '/$', 'ADP', 'DIFF.', 'Unnamed: 14', 'ADJ', 'PPG', '+/-', 'GWG', 'FOW', 'FOL', 'FO%', 'L', 'OTL', 'SO', 'GA'], inplace=True)
+        # some player names are suffixed with " (C)", " (D)", " (G)"
+        dfDraftList['Player'] = dfDraftList['Player'].apply(lambda x: x.replace(' (C)', '')
+                                                                       .replace(' (D)', '')
+                                                                       .replace(' (G)', '')
+                                                           )
+
+        # Convert ADP to float
+        dfDraftList['ADP'] = pd.to_numeric(dfDraftList['ADP'], errors='coerce')
 
         # add season column
         dfDraftList['season_id'] = season.id
 
-        dfDraftList_skaters = dfDraftList.query('POS!="G"').copy(deep=True)
+        # add player_id
+        dfDraftList['player_id'] = assign_player_ids(df=dfDraftList, player_name='Player', nhl_team='Team', pos_code='Pos')
+
+        ##############################################################################
+        # Skaters
+        ##############################################################################
+
+        dfDraftList_skaters = dfDraftList.query('Pos!="G"').copy(deep=True)
 
         # drop not needed columns
-        dfDraftList_skaters.drop(columns=['GP.1', 'W', 'SV', 'SV%', 'GAA'], inplace=True)
+        dfDraftList_skaters.drop(columns=['GP.1', 'Wins', 'Saves', 'Save%', 'GAA'], inplace=True)
 
         # set data types
-        dtypes = {'GP': np.int32, 'G': np.int32, 'A': np.int32, 'PTS': np.int32, 'PPP': np.int32, 'PIM': np.int32, 'HIT': np.int32, 'BLK': np.int32, 'SOG': np.int32}
+        dtypes = {'Games': np.int32, 'TOI': np.int32, 'Goals': np.int32, 'Assists': np.int32, 'PPP': np.int32, 'PIM': np.int32, 'Hits': np.int32, 'BLKS': np.int32, 'SOG': np.int32}
         dfDraftList_skaters = dfDraftList_skaters.astype(dtypes)
-
-        # some player names are suffixed with "(C), "(D"), etc.
-        dfDraftList_skaters['NAME'] = dfDraftList_skaters['NAME'].apply(lambda x: x.replace(' (C)','',).replace(' (D)', ''))
-
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['NAME']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['TEAM'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_athletic_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['playerId']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
 
         ##############################################################################
         # Goalies
         ##############################################################################
 
-        dfDraftList_goalies = dfDraftList.query('POS=="G"').copy(deep=True)
+        dfDraftList_goalies = dfDraftList.query('Pos=="G"').copy(deep=True)
 
         # drop not needed columns
-        dfDraftList_goalies.drop(columns=['GP', 'TOI', 'G', 'A', 'PTS', 'SOG', 'PPP', 'BLK', 'HIT', 'PIM'], inplace=True)
+        dfDraftList_goalies.drop(columns=['Games', 'TOI', 'Goals', 'Assists', 'SOG', 'PPP', 'BLKS', 'Hits', 'PIM'], inplace=True)
 
         # rename columns
-        dfDraftList_goalies.rename(columns={'GP.1': 'GP'}, inplace=True)
-
-        # # convert NaN
-        # cols = {'Games': '', 'Wins': '', 'SO': '', 'GAA': ''}
-        # dfDraftList_goalies.fillna(cols, inplace=True)
+        dfDraftList_goalies.rename(columns={'GP.1': 'Games'}, inplace=True)
 
         # set data types
-        dtypes = {'GP': np.int32, 'W': np.int32, 'SV': np.int32}
+        dtypes = {'Games': np.int32, 'Wins': np.int32, 'Saves': np.int32}
         dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
 
-        # some player names are suffixed with "(G)")
-        dfDraftList_goalies['NAME'] = dfDraftList_goalies['NAME'].apply(lambda x: x.replace(' (G)','',))
+        # GAA & Save%
+        dfDraftList_goalies['GAA'] = dfDraftList_goalies['GAA'].round(2)
+        dfDraftList_goalies['Save%'] = dfDraftList_goalies['Save%'].round(3)
 
-        for idx, row in dfDraftList_goalies.iterrows():
-            # get player
-            player_name = row['NAME']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['TEAM'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_athletic_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['playerId']
-            dfDraftList_goalies.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_goalies['player_id'] = dfDraftList_goalies['player_id'].astype(int)
-
-        # rename columns
-        dfDraftList_skaters.rename(columns={'NAME': 'Player', 'TEAM': 'Team', 'POS': 'Pos', 'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'HIT': 'Hits', 'BLK': 'BLKS'}, inplace=True)
-        dfDraftList_goalies.rename(columns={'NAME': 'Player', 'TEAM': 'Team', 'POS': 'Pos', 'GP': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
-
+        ##############################################################################
         # save to database
+        ##############################################################################
+
+        # remove duplicate player_id, if there are any. (i.e., Alex Vlasic)
+        dfDraftList_skaters = dfDraftList_skaters[~dfDraftList_skaters.duplicated(subset=['player_id'], keep='last')]
+        dfDraftList_goalies = dfDraftList_goalies[~dfDraftList_goalies.duplicated(subset=['player_id'], keep='last')]
+
         dfDraftList_skaters.to_sql('AthleticSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
         dfDraftList_goalies.to_sql('AthleticGoaliesDraftList', con=get_db_connection(), index=False, if_exists='replace')
 
         return
 
-    def import_bangers_projected_stats(self, season: Season):
+    def import_dobber_projected_stats(self, season: Season):
+
+        season_id = str(season.id)
+
+        excel_path = f'./python/input/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
 
         ##############################################################################
         # Skaters
         ##############################################################################
 
-        dfDraftList_skaters = pd.read_excel(f'./python/input/Projections/20232024/Bangers Hockey/2024 Fantasy projections and rankings for banger leagues.xlsx', engine='openpyxl', sheet_name='Rankings', header=1)
+        excel_columns = ('Player', 'Pos', '3YP', 'Upside', 'Team', 'Games', 'Goals', 'Assists', 'PP Unit', 'PIM', 'Hits', 'BLKS', 'SOG', 'Sleeper', 'Band-Aid Boy')
+
+        dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='EVERYTHING (Skaters)', header=5, usecols=excel_columns, engine='openpyxl')
 
         # drop empty rows
         dfDraftList_skaters.dropna(subset=['Player'], how='any', inplace=True)
 
-        # drop not needed columns
-        dfDraftList_skaters.drop(columns=['Rank', 'NREG', 'Unnamed: 5', 'Unnamed: 14', 'OFF', 'BANG', 'Unnamed: 17', 'Score'], inplace=True)
-
         # add season column
         dfDraftList_skaters['season_id'] = season.id
 
-        # projections based on 82 games played
-        dfDraftList_skaters['Games'] = 82
+        # Sebastian Aho (d)
+        dfDraftList_skaters['Player'] = dfDraftList_skaters['Player'].apply(lambda x: x.replace(' (d)', ''))
 
-        # set data types
-        dtypes = {'Games': np.int32, 'G': np.int32, 'A': np.int32, 'PTS': np.int32, 'STP': np.int32, 'PIM': np.int32, 'Hits': np.int32, 'Blks': np.int32, 'SOG': np.int32}
-        dfDraftList_skaters = dfDraftList_skaters.astype(dtypes)
+        # change 'MON' team abbr to 'MTL'
+        # NOTE: Dobber also has 'UFA' for unrestricted free agents.
+        dfDraftList_skaters['Team'] = dfDraftList_skaters['Team'].apply(lambda x: 'MTL' if x == 'MON' else x)
 
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_athletic_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
-
-        # Forwards can have multiple positions
-        dfDraftList_skaters['Pos'] = dfDraftList_skaters['Pos'].str.split(',').str[0]
-
-        # rename columns
-        dfDraftList_skaters.rename(columns={'G': 'Goals', 'A': 'Assists', 'STP': 'PPP', 'Blks': 'BLKS'}, inplace=True)
-
-        # save to database
-        dfDraftList_skaters.to_sql('BangersSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
-
-        return
-
-    def import_daily_faceoff_projected_stats(self, season: Season):
-
-        ##############################################################################
-        # Skaters
-        ##############################################################################
-
-        dfDraftList_skaters = pd.read_excel(f'./python/input/Projections/20222023/Daily Faceoff/2022-23 DFO Customizable Rankings.xlsx', engine='openpyxl', sheet_name='Skaters (Categories) ', header=13)
-
-        # drop empty rows
-        dfDraftList_skaters.dropna(subset=['Rank', 'Player'], how='any', inplace=True)
-
-        # drop not needed columns
-        dfDraftList_skaters.drop(columns=['Rank', 'ADP', 'Age', '(+/-)', 'EV', 'PPG', 'PPA', 'FOW', 'FOVR', 'SCORE'], inplace=True)
-        additional_cols_to_drop = [x for x in dfDraftList_skaters.columns if '.' in x ]
-        dfDraftList_skaters.drop(columns=additional_cols_to_drop, inplace=True)
-
-        # add season column
-        dfDraftList_skaters['season_id'] = season.id
-
-        # set data types
-        dtypes = {'GP': np.int32, 'G': np.int32, 'A': np.int32, 'PTS': np.int32, 'PPP': np.int32, 'PIM': np.int32, 'HIT': np.int32, 'BLK': np.int32, 'SOG': np.int32}
-        dfDraftList_skaters = dfDraftList_skaters.astype(dtypes)
-
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_daily_faceoff_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
-
-        ##############################################################################
-        # Goalies
-        ##############################################################################
-
-        dfDraftList_goalies = pd.read_excel(f'./python/input/Projections/20222023/Daily Faceoff/2022-23 DFO Customizable Rankings.xlsx', engine='openpyxl', sheet_name='G (Categories)', header=12)
-
-        # drop empty rows
-        dfDraftList_goalies.dropna(subset=['Rank', 'Players'], how='any', inplace=True)
-
-        # drop not needed columns
-        dfDraftList_goalies.drop(columns=['Rank', 'AGE', 'ADP', 'L', 'OTL', 'T/O', 'SO', 'GA', 'SA', 'FOVR', 'Score', 'VAR', 'CATS', 'OTL'], inplace=True)
-
-        # drop columns with ".1" or ".2"
-        additional_cols_to_drop = [x for x in dfDraftList_goalies.columns if '.' in x ]
-        dfDraftList_goalies.drop(columns=additional_cols_to_drop, inplace=True)
-
-        # set data types
-        dtypes = {'GS': np.int32, 'W': np.int32, 'SV': np.int32}
-        dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
-
-        for idx, row in dfDraftList_goalies.iterrows():
-            # get player
-            player_name = row['Players']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['TEAM'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_daily_faceoff_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_goalies.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_goalies['player_id'] = dfDraftList_goalies['player_id'].astype(int)
-
-        # rename columns
-        dfDraftList_skaters.rename(columns={'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'PTS': 'Points', 'BLK': 'BLKS', 'HIT': 'Hits'}, inplace=True)
-        dfDraftList_goalies.rename(columns={'Players': 'Player', 'TEAM': 'Team', 'GS': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
-
-        # save to database
-        dfDraftList_skaters.to_sql('DFOSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
-        dfDraftList_goalies.to_sql('DFOGoaliesDraftList', con=get_db_connection(), index=False, if_exists='replace')
-
-        return
-
-    def import_dobber_projected_stats(self, season: Season):
-
-        ##############################################################################
-        # Skaters
-        ##############################################################################
-
-        dfDraftList_skaters = pd.read_excel(f'./python/input/Projections/20232024/Dobber/dobberhockeydraftlist202324.xlsx', engine='openpyxl', sheet_name='EVERYTHING (Skaters)', header=5)
-
-        # drop not needed columns
-        dfDraftList_skaters.drop(columns=['Age', '+/-', 'Salary'], inplace=True)
-
-        # drop empty rows
-        dfDraftList_skaters.dropna(subset=['Rank', 'Player'], how='any', inplace=True)
-
-        # add season column
-        dfDraftList_skaters['season_id'] = season.id
+        # add player_id
+        dfDraftList_skaters['player_id'] = assign_player_ids(df=dfDraftList_skaters, player_name='Player', nhl_team='Team', pos_code='Pos')
 
         # convert NaN
         cols = {'Games': 0, 'Goals': 0, 'Assists': 0, 'Points': 0, 'PP Unit': 0, 'PIM': 0, 'Hits': 0, 'BLKS': 0, 'SOG': 0, 'Upside': 0, '3YP': 0}
@@ -1533,76 +1375,48 @@ class HockeyPool:
         dtypes = {'Games': np.int32, 'Goals': np.int32, 'Assists': np.int32, 'PP Unit': np.int32, 'PIM': np.int32, 'Hits': np.int32, 'BLKS': np.int32, 'SOG': np.int32, 'Upside': np.int32, '3YP': np.int32}
         dfDraftList_skaters = dfDraftList_skaters.astype(dtypes)
 
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_dobber_draft_list()')
-                    player.id = 0
-                    continue
-                else:
-                    player.id = player_json['playerId']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
-
         ##############################################################################
         # Goalies
         ##############################################################################
 
-        dfDraftList_goalies = pd.read_excel(f'./python/input/Projections/20232024/Dobber/dobberhockeydraftlist202324.xlsx', engine='openpyxl', sheet_name='Goaltenders', header=5)
+        excel_columns = ('Player', 'Team', 'Proj. Games', 'Wins', 'GAA', 'Band-Aid Boy', 'Notes')
 
-        # drop not needed columns
-        dfDraftList_goalies.drop(columns=['1W+2SO', '3W+5SO', 'AAV', 'SO'], inplace=True)
+        dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Goaltenders', header=5, usecols=excel_columns, engine='openpyxl')
 
         # drop empty rows
-        dfDraftList_goalies.dropna(subset=['Rank', 'Player'], how='any', inplace=True)
-
-        # add season column
-        dfDraftList_goalies['season_id'] = season.id
-
-        # convert NaN
-        cols = {'Proj. Games': '', 'Wins': '', 'SO': '', 'GAA': ''}
-        dfDraftList_goalies.fillna(cols, inplace=True)
-
-        # set data types
-        dtypes = {'Proj. Games': np.int32, 'Wins': np.int32}
-        dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
-
-        for idx, row in dfDraftList_goalies.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_dobber_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_goalies.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_goalies['player_id'] = dfDraftList_goalies['player_id'].astype(int)
+        dfDraftList_goalies.dropna(subset=['Player'], how='any', inplace=True)
 
         # rename columns
-        dfDraftList_skaters.rename(columns={'\'PP Unit': 'PP Unit'}, inplace=True)
         dfDraftList_goalies.rename(columns={'Proj. Games': 'Games'}, inplace=True)
 
         # Need to add 'Pos' column for goalies
         dfDraftList_goalies['Pos'] = 'G'
+
+       # add season column
+        dfDraftList_goalies['season_id'] = season.id
+
+        # change 'MON' team abbr to 'MTL'
+        # NOTE: Dobber also has 'UFA' for unrestricted free agents.
+        dfDraftList_goalies['Team'] = dfDraftList_goalies['Team'].apply(lambda x: 'MTL' if x == 'MON' else x)
+
+        # add player_id
+        dfDraftList_goalies['player_id'] = assign_player_ids(df=dfDraftList_goalies, player_name='Player', nhl_team='Team', pos_code='Pos')
+
+        # convert NaN
+        cols = {'Games': '', 'Wins': '', 'GAA': ''}
+        dfDraftList_goalies.fillna(cols, inplace=True)
+
+        # set data types
+        dtypes = {'Games': np.int32, 'Wins': np.int32}
+        dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
+
+        ##############################################################################
+        # save to database
+        ##############################################################################
+
+        # remove duplicate player_id, if there are any. (i.e., Alex Vlasic)
+        dfDraftList_skaters = dfDraftList_skaters[~dfDraftList_skaters.duplicated(subset=['player_id'], keep='last')]
+        dfDraftList_goalies = dfDraftList_goalies[~dfDraftList_goalies.duplicated(subset=['player_id'], keep='last')]
 
         dfDraftList_skaters.to_sql('DobberSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
 
@@ -1614,37 +1428,37 @@ class HockeyPool:
 
         dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
 
-        for idx, row in dfDraftResults.iterrows():
-            # get player
-            player_name = row['Player']
-            if row['Team'] != '(N/A)':
-                team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'])
-                # kwargs = {'full_name': player_name}
-                # player = Player().fetch(**kwargs)
-                # if player.id == 0:
-                #     player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                #     if player_json is None:
-                #         poolie = row['Fantasy Team']
-                #         msg = f'Player "{player_name}" not found for "{poolie}" pool team.'
-                #         sg.popup_error(msg, title='import_draft_picks()')
-                #         continue
-                #     else:
-                #         player.id = player_json['id']
+        # for idx, row in dfDraftResults.iterrows():
+        #     # get player
+        #     player_name = row['Player']
+        #     if row['Team'] != '(N/A)':
+        #         team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'])
+        #         # kwargs = {'full_name': player_name}
+        #         # player = Player().fetch(**kwargs)
+        #         # if player.id == 0:
+        #         #     player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
+        #         #     if player_json is None:
+        #         #         poolie = row['Fantasy Team']
+        #         #         msg = f'Player "{player_name}" not found for "{poolie}" pool team.'
+        #         #         sg.popup_error(msg, title='import_draft_picks()')
+        #         #         continue
+        #         #     else:
+        #         #         player.id = player_json['id']
 
-            else:
-                # In the 20232024 season, Patrick Kane is the only drafted player with team_abbr = '(N/A)'
-                team_id = 0
+        #     else:
+        #         # In the 20232024 season, Patrick Kane is the only drafted player with team_abbr = '(N/A)'
+        #         team_id = 0
 
-            # get player id
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id, pos='')
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json:
-                    player.id = player_json['id']
-                    player.full_name = player_json['fullName']
+        #     # get player id
+        #     kwargs = get_player_id_from_name(name=player_name, team_id=team_id, pos='')
+        #     player = Player().fetch(**kwargs)
+        #     if player.id == 0:
+        #         player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
+        #         if player_json:
+        #             player.id = player_json['id']
+        #             player.full_name = player_json['fullName']
 
-            dfDraftResults.loc[idx, 'player_id'] = player.id
+        #     dfDraftResults.loc[idx, 'player_id'] = player.id
 
         # drop not needed columns
         columns_to_drop = ['Player ID']
@@ -1656,6 +1470,9 @@ class HockeyPool:
 
         # add season column
         dfDraftResults['season_id'] = season.id
+
+        # add player_id
+        dfDraftResults['player_id'] = assign_player_ids(df=dfDraftResults, player_name='Player', nhl_team='Team', pos_code='Pos')
 
         # rename columns
         dfDraftResults.rename(columns={'Round': 'round', 'Pick': 'pick', 'Ov Pick': 'overall', 'Player': 'player', 'Pos': 'pos', 'Team': 'team_abbr', 'Fantasy Team': 'pool_team'}, inplace=True)
@@ -1670,157 +1487,51 @@ class HockeyPool:
 
         return
 
-    def import_dtz_projected_stats(self, season: Season):
-
-        ##############################################################################
-        # Skaters
-        ##############################################################################
-
-        dfDraftList_skaters = pd.read_excel(f'./python/input/Projections/20232024/DtZ/2023-2024 NHL Fantasy Projections.xlsm', engine='openpyxl', sheet_name='Skater Projections', header=0)
-
-        # drop empty rows
-        dfDraftList_skaters.dropna(subset=['Player'], how='any', inplace=True)
-
-        # drop not needed columns
-        dfDraftList_skaters.drop(columns=['Age', 'TOI Org ES', 'TOI Org PP', 'TOI Org PK', 'TOI ES', 'TOI PK', 'PPG', 'PPA', 'SHP', 'FOW', 'FOL', 'VOR', 'Pts', 'Fantasy Team', 'GP Org'], inplace=True)
-        additional_cols_to_drop = [x for x in dfDraftList_skaters.columns if 'Unnamed:' in x ]
-        dfDraftList_skaters.drop(columns=additional_cols_to_drop, inplace=True)
-
-        # add season column
-        dfDraftList_skaters['season_id'] = season.id
-
-        # set data types
-        dtypes = {'GP': np.int32, 'Goals': np.int32, 'Assists': np.int32, 'Points': np.int32, 'PP Points': np.int32, 'PIM': np.int32, 'Hits': np.int32, 'BLK': np.int32, 'SOG': np.int32}
-        dfDraftList_skaters = dfDraftList_skaters.astype(dtypes)
-
-        # some player names are suffixed with "(C), "(D"), etc.
-        dfDraftList_skaters['Player'] = dfDraftList_skaters['Player'].apply(lambda x: x.replace(' (C)','',).replace(' (D)', '').replace(' (92)', ''))
-
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_dtz_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
-
-        ##############################################################################
-        # Goalies
-        ##############################################################################
-
-        dfDraftList_goalies = pd.read_excel(f'./python/input/Projections/20232024/DtZ/2023-2024 NHL Fantasy Projections.xlsm', engine='openpyxl', sheet_name='Goalie Projections', header=0)
-
-        # drop empty rows
-        dfDraftList_goalies.dropna(subset=['player'], how='any', inplace=True)
-
-        # drop not needed columns
-        dfDraftList_goalies.drop(columns=['age', 'L', 'OTL', 'GA', 'SA', 'SO', 'QS', 'RBS', 'VOR', 'Pts', 'Fantasy Team', 'GP Org'], inplace=True)
-        additional_cols_to_drop = [x for x in dfDraftList_goalies.columns if 'Unnamed:' in x ]
-        dfDraftList_goalies.drop(columns=additional_cols_to_drop, inplace=True)
-
-        # set data types
-        dtypes = {'GP': np.int32, 'W': np.int32, 'SV': np.int32}
-        dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
-
-        for idx, row in dfDraftList_goalies.iterrows():
-            # get player
-            player_name = row['player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_dtz_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_goalies.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_goalies['player_id'] = dfDraftList_goalies['player_id'].astype(int)
-
-        # rename columns
-        dfDraftList_skaters.rename(columns={'GP': 'Games', 'PP Points': 'PPP', 'BLK': 'BLKS'}, inplace=True)
-        dfDraftList_goalies.rename(columns={'player': 'Player', 'team': 'Team', 'pos': 'Pos', 'GP': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
-
-        # save to database
-        dfDraftList_skaters.to_sql('DtZSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
-        dfDraftList_goalies.to_sql('DtZGoaliesDraftList', con=get_db_connection(), index=False, if_exists='replace')
-
-        return
-
     def import_fantrax_projected_stats(self, season: Season):
 
         ##############################################################################
         # Skaters
         ##############################################################################
 
-        dfDraftList_skaters = pd.read_excel(f'./python/input/Projections/20232024/Fantrax/Fantrax-Skaters.xls', engine='xlrd', sheet_name='Fantrax-Players-Vikings Fantasy', header=0)
+        excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
+
+        excel_columns = ('Player', 'Team', 'Position', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
+
+        dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
 
         # remove players with 0 projected games
         dfDraftList_skaters.query('GP>0', inplace=True)
 
-        # drop not needed columns
-        dfDraftList_skaters.drop(columns=['Age', 'Opponent', 'Status', 'RkOv', 'Ros %', '+/-'], inplace=True, errors='ignore')
-
         # rename columns
-        dfDraftList_skaters.rename(columns={'Position': 'Pos', 'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'Pt-D': 'Points', 'Hit': 'Hits', 'Blk': 'BLKS'}, inplace=True)
+        dfDraftList_skaters.rename(columns={'Position': 'Pos', 'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'Hit': 'Hits', 'Blk': 'BLKS'}, inplace=True)
 
         # add season column
         dfDraftList_skaters['season_id'] = season.id
 
-        for idx, row in dfDraftList_skaters.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_fantrax_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_skaters.loc[idx, 'player_id'] = player.id
-
-        # player_id dtype to int
-        dfDraftList_skaters['player_id'] = dfDraftList_skaters['player_id'].astype(int)
+        # add player_id
+        dfDraftList_skaters['player_id'] = assign_player_ids(df=dfDraftList_skaters, player_name='Player', nhl_team='Team', pos_code='Pos')
 
         ##############################################################################
         # Goalies
         ##############################################################################
 
-        dfDraftList_goalies = pd.read_excel(f'./python/input/Projections/20232024/Fantrax/Fantrax-Goalies.xls', engine='xlrd', sheet_name='Fantrax-Players-Vikings Fantasy', header=0)
+        excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
+
+        excel_columns = ('Player', 'Team', 'Position', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
+
+        dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
 
         # remove players with 0 projected games
         dfDraftList_goalies.query('GP>0', inplace=True)
 
-        # drop not needed columns
-        dfDraftList_goalies.drop(columns=['Position', 'Age', 'Opponent', 'Status', 'RkOv', 'Ros %', '+/-', 'Pt-D', 'PIM', 'G', 'A', 'PPP'], inplace=True, errors='ignore')
-
         # rename columns
-        dfDraftList_goalies.rename(columns={'GP': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
+        dfDraftList_goalies.rename(columns={'Position': 'Pos', 'GP': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
 
         # add season column
         dfDraftList_goalies['season_id'] = season.id
+
+        # add player_id
+        dfDraftList_goalies['player_id'] = assign_player_ids(df=dfDraftList_goalies, player_name='Player', nhl_team='Team', pos_code='Pos')
 
         # convert NaN
         cols = {'Wins': 0}
@@ -1830,28 +1541,13 @@ class HockeyPool:
         dtypes = {'Wins': np.int32}
         dfDraftList_goalies = dfDraftList_goalies.astype(dtypes)
 
-        for idx, row in dfDraftList_goalies.iterrows():
-            # get player
-            player_name = row['Player']
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=row['Team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=player_name, team_id=team_id)
-            player = Player().fetch(**kwargs)
-            if player.id == 0:
-                player_json = NHL_API().get_player_by_name(name=player_name, team_id=team_id)
-                if player_json is None:
-                    msg = f'Player "{player_name}" not found.'
-                    sg.popup_error(msg, title='import_fantrax_draft_list()')
-                    continue
-                else:
-                    player.id = player_json['id']
-            dfDraftList_goalies.loc[idx, 'player_id'] = player.id
+        ##############################################################################
+        # save to database
+        ##############################################################################
 
-        # player_id dtype to int
-        dfDraftList_goalies['player_id'] = dfDraftList_goalies['player_id'].astype(int)
-
-        # Need to add 'Pos' column for goalies
-        dfDraftList_goalies['Pos'] = 'G'
+        # remove duplicate player_id, if there are any. (i.e., Alex Vlasic)
+        dfDraftList_skaters = dfDraftList_skaters[~dfDraftList_skaters.duplicated(subset=['player_id'], keep='last')]
+        dfDraftList_goalies = dfDraftList_goalies[~dfDraftList_goalies.duplicated(subset=['player_id'], keep='last')]
 
         dfDraftList_skaters.to_sql('FantraxSkatersDraftList', con=get_db_connection(), index=False, if_exists='replace')
 
@@ -2388,6 +2084,11 @@ class HockeyPool:
                 cursor.execute(sql)
                 connection.commit()
 
+            # Get team IDs, player names & id dictionary, and NHL_API
+            team_ids = load_nhl_team_abbr_and_id_dict()
+            player_ids = load_player_name_and_id_dict()
+            nhl_api = NHL_API()
+
             for idx in dfPlayerInjuries.index:
 
                 # Update Player
@@ -2399,18 +2100,32 @@ class HockeyPool:
 
                 # Get NHL Player
                 # get team_id from team_abbr
-                team_id = Team().get_team_id_from_team_abbr(team_abbr=playerTeam, suppress_error=True)
-                kwargs = get_player_id_from_name(name=playerName, team_id=team_id)
+                # team_id = Team().get_team_id_from_team_abbr(team_abbr=playerTeam, suppress_error=True)
+                # kwargs = get_player_id_from_name(name=playerName, team_id=team_id)
+                # nhlPlayer = Player().fetch(**kwargs)
+                # if nhlPlayer.id == 0:
+                #     player_json = NHL_API().get_player_by_name(name=playerName, team_id=team_id)
+                #     if player_json is None:
+                #         msg = f'There are no NHL players with name "{playerName}".'
+                #         if batch:
+                #             logger.error(msg)
+                #         else:
+                #             sg.popup_ok(msg)
+                #         continue
+
+                team_id = team_ids[playerTeam]
+                player_id = get_player_id(team_ids, player_ids, nhl_api, playerName, playerTeam)
+                if player_id == 0:
+                    msg = f'updatePlayerInjuries(): There are no NHL players with name "{playerName}".'
+                    if batch:
+                        logger.error(msg)
+                    else:
+                        sg.popup_ok(msg)
+                    continue
+
+                kwargs = {'id': player_id}
                 nhlPlayer = Player().fetch(**kwargs)
-                if nhlPlayer.id == 0:
-                    player_json = NHL_API().get_player_by_name(name=playerName, team_id=team_id)
-                    if player_json is None:
-                        msg = f'There are no NHL players with name "{playerName}".'
-                        if batch:
-                            logger.error(msg)
-                        else:
-                            sg.popup_ok(msg)
-                        continue
+
                 nhlPlayer.injury_status = injuryStatus
                 nhlPlayer.injury_note = injuryNote
                 if nhlPlayer.persist() is False:
@@ -2488,6 +2203,10 @@ class HockeyPool:
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
+            # add player_id
+            dfPlayerLines['player_id'] = assign_player_ids(df=dfPlayerLines, player_name='name', nhl_team='team', pos_code='pos')
+
+            # write to database
             dfPlayerLines.to_sql('dfPlayerLines', sqlite3.connect(DATABASE), index=False, if_exists='replace')
 
             # sort by team
@@ -2504,6 +2223,7 @@ class HockeyPool:
                 #     continue
 
                 # Update Player
+                player_id = dfPlayerLines['player_id'][idx]
                 name = dfPlayerLines['name'][idx]
                 # if name == 'Tim Stuetzle':
                 #     name = 'Tim Stutzle'
@@ -2511,27 +2231,28 @@ class HockeyPool:
                 line = dfPlayerLines['line'][idx]
                 pp_line = dfPlayerLines['pp_line'][idx]
 
-                # Get NHL Player
-                # get team_id from team_abbr
-                team_id = Team().get_team_id_from_team_abbr(team_abbr=team, suppress_error=True)
-                kwargs = get_player_id_from_name(name=name, team_id=team_id)
-                nhlPlayer = Player().fetch(**kwargs)
-                if nhlPlayer.id == 0:
-                    player_json = NHL_API().get_player_by_name(name=name, team_id=team_id)
-                    if player_json is None:
-                        msg = f'There are no NHL players with name "{name}".'
-                    else:
-                        msg = f'NHL player "{name}" (id={player_json["playerId"]}) not found in Player table.'
-                    if batch:
-                        logger.error(msg)
-                    else:
-                        sg.popup_ok(msg)
-                    continue
-                # else:
-                #     nhlPlayer = nhlPlayers[0]
+                # # Get NHL Player
+                # # get team_id from team_abbr
+                # team_id = Team().get_team_id_from_team_abbr(team_abbr=team, suppress_error=True)
+                # kwargs = get_player_id_from_name(name=name, team_id=team_id)
+                # nhlPlayer = Player().fetch(**kwargs)
+                # if nhlPlayer.id == 0:
+                #     player_json = NHL_API().get_player_by_name(name=name, team_id=team_id)
+                #     if player_json is None:
+                #         msg = f'There are no NHL players with name "{name}".'
+                #     else:
+                #         msg = f'NHL player "{name}" (id={player_json["playerId"]}) not found in Player table.'
+                #     if batch:
+                #         logger.error(msg)
+                #     else:
+                #         sg.popup_ok(msg)
+                #     continue
+                # # else:
+                # #     nhlPlayer = nhlPlayers[0]
 
                 # update team roster player
-                sql = f'update TeamRosters set line="{line}", pp_line="{pp_line}" where seasonID={season.id} and player_id={nhlPlayer.id}'
+                # sql = f'update TeamRosters set line="{line}", pp_line="{pp_line}" where seasonID={season.id} and player_id={nhlPlayer.id}'
+                sql = f'update TeamRosters set line="{line}", pp_line="{pp_line}" where seasonID={season.id} and player_id={player_id}'
                 with get_db_connection() as connection:
                     try:
                         connection.execute(sql)
@@ -3311,17 +3032,8 @@ class HockeyPool:
                     elif event == 'Athletic Import':
                         self.import_athletic_projected_stats(season=season)
 
-                    elif event == 'Bangers Import':
-                        self.import_bangers_projected_stats(season=season)
-
-                    elif event == 'Daily Faceoff Import':
-                        self.import_daily_faceoff_projected_stats(season=season)
-
                     elif event == 'Dobber Import':
                         self.import_dobber_projected_stats(season=season)
-
-                    elif event == 'DtZ Import':
-                        self.import_dtz_projected_stats(season=season)
 
                     elif event == 'Fantrax Import':
                         self.import_fantrax_projected_stats(season=season)

@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from numpy import int32, int64
 from time import strftime, strptime
 from typing import Dict, Tuple
+from unidecode import unidecode
 
 import pandas as pd
 import PySimpleGUI as sg
@@ -19,6 +20,22 @@ pd.set_option('max_colwidth', None)
 pd.set_option('display.colheader_justify','left')
 
 sg.ChangeLookAndFeel('Black')
+
+def assign_player_ids(df: pd.DataFrame, player_name: str, nhl_team: str, pos_code: str) -> pd.Series:
+
+    from clsNHL_API import NHL_API
+    nhl_api = NHL_API()
+
+    # Get team IDs
+    team_ids = load_nhl_team_abbr_and_id_dict()
+
+    # Get player names & id dictionary
+    player_ids = load_player_name_and_id_dict()
+
+    # Get player IDs
+    playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code]), axis=1)
+
+    return playerIds
 
 def calculate_age(birth_date: str) -> int:
     """Calculate the age in years given a birth date in YYYY-MM-DD format."""
@@ -65,78 +82,104 @@ def get_iso_week_start_end_dates(nhl_week: int, season) -> tuple:
 
     return (start_date, end_date)
 
-def get_player_id_from_name(name: str, team_id: int=0, pos: str='') -> Dict:
+def get_player_id(team_ids: Dict, player_ids: Dict, nhl_api: 'NHL_API', name: str, team_abbr: str, pos: str=''):
+    player_id = 0
+    key_name = unidecode(name).lower()
+    if key_name in player_ids:
+        if len(player_ids[key_name]) == 1:
+            player_id = player_ids[key_name][0]['id']
 
-    # Define a custom Python function for case-insensitive and accented character-insensitive comparison
-    def custom_compare(str1, str2):
-        return str1.upper() == str2.upper()
+        else: # multiple players on different teams with same name (e.g., Sebastian Aho)
+            idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr]
+            if len(idx) == 1:
+                player_id = player_ids[key_name][idx[0]]['id']
+            else: # multiple players on same team with same name (e.g., Elias Pettersson)
+                if pos == 'F':
+                    idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and player_ids[key_name][i]['pos'] in ('C', 'LW', 'RW')]
+                else:
+                    idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and pos in player_ids[key_name][i]['pos']]
+                if len(idx) == 1:
+                    player_id = player_ids[key_name][idx[0]]['id']
+    else:
+        team_id = team_ids[team_abbr] if team_abbr in team_ids else 0
+        player_json = nhl_api.get_player_by_name(name=name, team_id=team_id, pos=pos)
+        if player_json is not None:
+            player_id = int(player_json['playerId'])
 
-    # Take a look at clsNHL_API's get_player_by_name() function, which essentially does the same as this function
-    try:
+    return player_id
 
-        # default if player id cannot be found
-        kwargs = {'full_name': name, 'current_team_id': team_id}
+# def get_player_id_from_name(name: str, team_id: int=0, pos: str='') -> Dict:
 
-        # some Fantrax & Dobber player names are different
-        player_name = name
-        # sql = f'select nhl_name from PlayerAlternateNames where alt_name=="{name}"'
-        sql = 'select nhl_name, alt_names from PlayerAlternateNames'
-        with get_db_connection() as connection:
+#     # Define a custom Python function for case-insensitive and accented character-insensitive comparison
+#     def custom_compare(str1, str2):
+#         return str1.upper() == str2.upper()
 
-            # Register the custom function with SQLite
-            connection.create_function("custom_compare", 2, custom_compare)
+#     # Take a look at clsNHL_API's get_player_by_name() function, which essentially does the same as this function
+#     try:
 
-            cursor = connection.cursor()
-            cursor.execute(sql)
-            # row = cursor.fetchone()
-            # if row:
-            #     player_name = row['nhl_name']
-            # kwargs = {'full_name': player_name}
-            rows = cursor.fetchall()
-            indexes = [i for i, row in enumerate(rows) if player_name.lower() in row['alt_names'].lower()]
-            if len(indexes) == 1:
-                player_name = rows[indexes[0]]['nhl_name']
-            elif len(indexes) > 1:
-                ...
+#         # default if player id cannot be found
+#         kwargs = {'full_name': name, 'current_team_id': team_id}
 
-            kwargs = {'full_name': player_name}
+#         # some Fantrax & Dobber player names are different
+#         player_name = name
+#         # sql = f'select nhl_name from PlayerAlternateNames where alt_name=="{name}"'
+#         sql = 'select nhl_name, alt_names from PlayerAlternateNames'
+#         with get_db_connection() as connection:
 
-            # # in most cases, there will be only one player returned when fetching using the player's name
-            # sql = f'select count(*) as count from Player where full_name=="{player_name}"'
-            # cursor.execute(sql)
-            # row = cursor.fetchone()
-            # if row is None or row['count'] != 1:
-            #     sql = f'select count(*) as count from Player where full_name=="{player_name}" and primary_position=="{pos}"'
-            #     cursor.execute(sql)
-            #     row = cursor.fetchone()
-            #     if pos != '' and row and row['count'] == 1:
-            #         kwargs = {'full_name': player_name, 'primary_position': pos}
-            #     else: # use player name and team id to find player
-            #         sql = f'select count(*) as count from Player where full_name=="{player_name}" and current_team_id=={team_id}'
-            #         cursor.execute(sql)
-            #         row = cursor.fetchone()
-            #         if row and row['count'] == 1:
-            #             kwargs = {'full_name': player_name, 'current_team_id': team_id}
+#             # Register the custom function with SQLite
+#             connection.create_function("custom_compare", 2, custom_compare)
 
-            # in most cases, there will be only one player returned when fetching using the player's name
-            sql = 'SELECT id FROM Player WHERE custom_compare(full_name, ?)'
-            cursor.execute(sql, (player_name,))
-            rows = cursor.fetchall()
-            if len(rows) == 1:
-                kwargs = {'id': rows[0]['id']}
-            else:
-                # use player name and team id to find player
-                sql = f'SELECT id FROM Player WHERE custom_compare(full_name, ?) and current_team_id=={team_id}'
-                cursor.execute(sql, (player_name,))
-                rows = cursor.fetchall()
-                if len(rows) == 1:
-                    kwargs = {'id': rows[0]['id']}
+#             cursor = connection.cursor()
+#             cursor.execute(sql)
+#             # row = cursor.fetchone()
+#             # if row:
+#             #     player_name = row['nhl_name']
+#             # kwargs = {'full_name': player_name}
+#             rows = cursor.fetchall()
+#             indexes = [i for i, row in enumerate(rows) if player_name.lower() in row['alt_names'].lower()]
+#             if len(indexes) == 1:
+#                 player_name = rows[indexes[0]]['nhl_name']
+#             elif len(indexes) > 1:
+#                 ...
 
-    except Exception:
-        # logging.exception('Exception')
-        raise
+#             kwargs = {'full_name': player_name}
 
-    return kwargs
+#             # # in most cases, there will be only one player returned when fetching using the player's name
+#             # sql = f'select count(*) as count from Player where full_name=="{player_name}"'
+#             # cursor.execute(sql)
+#             # row = cursor.fetchone()
+#             # if row is None or row['count'] != 1:
+#             #     sql = f'select count(*) as count from Player where full_name=="{player_name}" and primary_position=="{pos}"'
+#             #     cursor.execute(sql)
+#             #     row = cursor.fetchone()
+#             #     if pos != '' and row and row['count'] == 1:
+#             #         kwargs = {'full_name': player_name, 'primary_position': pos}
+#             #     else: # use player name and team id to find player
+#             #         sql = f'select count(*) as count from Player where full_name=="{player_name}" and current_team_id=={team_id}'
+#             #         cursor.execute(sql)
+#             #         row = cursor.fetchone()
+#             #         if row and row['count'] == 1:
+#             #             kwargs = {'full_name': player_name, 'current_team_id': team_id}
+
+#             # in most cases, there will be only one player returned when fetching using the player's name
+#             sql = 'SELECT id FROM Player WHERE custom_compare(full_name, ?)'
+#             cursor.execute(sql, (player_name,))
+#             rows = cursor.fetchall()
+#             if len(rows) == 1:
+#                 kwargs = {'id': rows[0]['id']}
+#             else:
+#                 # use player name and team id to find player
+#                 sql = f'SELECT id FROM Player WHERE custom_compare(full_name, ?) and current_team_id=={team_id}'
+#                 cursor.execute(sql, (player_name,))
+#                 rows = cursor.fetchall()
+#                 if len(rows) == 1:
+#                     kwargs = {'id': rows[0]['id']}
+
+#     except Exception:
+#         # logging.exception('Exception')
+#         raise
+
+#     return kwargs
 
 def inches_to_feet(inches):
     feet = inches // 12
@@ -156,12 +199,17 @@ def load_nhl_team_abbr_and_id_dict() -> Dict:
 
 def load_player_name_and_id_dict() -> Dict:
 
-    sql = 'SELECT full_name, id FROM Player where id>0'
+    sql = 'SELECT full_name, id, current_team_abbr as team_abbr, primary_position as pos FROM Player where id > 0'
     with get_db_connection() as connection:
         cursor = connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
-        player_id_dict = {row['full_name']: row['id'] for row in rows}
+        player_id_dict = {}
+        for row in rows:
+            name = unidecode(row['full_name']).lower()
+            if name not in player_id_dict:
+                player_id_dict[name] = []
+            player_id_dict[name].append({'id': row['id'], 'team_abbr': row['team_abbr'], 'pos': row['Pos']})
 
     sql = 'select pan.nhl_name, pan.alt_names, p.id from PlayerAlternateNames pan join Player p on p.full_name=pan.nhl_name'
     with get_db_connection() as connection:
@@ -170,9 +218,15 @@ def load_player_name_and_id_dict() -> Dict:
         rows = cursor.fetchall()
 
     for row in rows:
+        nhl_name = unidecode(row['nhl_name']).lower()
         alt_names = row['alt_names'].split(',')
         for name in alt_names:
-            player_id_dict[name.strip()] = row['id']
+            # player_id_dict[name.strip()] = row['id']
+            name = name = unidecode(name.strip()).lower()
+            if nhl_name != name and name not in player_id_dict:
+                player_id_dict[name] = []
+                for dict_name in player_id_dict[nhl_name]:
+                    player_id_dict[name].append({'id': dict_name['id'], 'team_abbr': dict_name['team_abbr'], 'pos': dict_name['pos']})
 
     return player_id_dict
 

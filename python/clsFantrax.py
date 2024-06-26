@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import requests
 import sys
 import time
 import traceback
@@ -19,6 +20,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from unidecode import unidecode
 
 # Hockey Pool classes
+from constants import NHL_API_URL
 from clsBrowser import Browser
 from clsNHL_API import NHL_API
 from clsPlayer import Player
@@ -26,7 +28,7 @@ from clsPoolTeam import PoolTeam
 from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
-from utils import get_db_connection, get_player_id_from_name
+from utils import assign_player_ids, get_db_connection, get_player_id, inches_to_feet, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict
 
 
 # # Dataframe for player stats
@@ -225,6 +227,11 @@ class Fantrax:
             else:
                 logger.debug(msg)
 
+            # Get team IDs, player names & id dictionary, and NHL_API
+            team_ids = load_nhl_team_abbr_and_id_dict()
+            player_ids = load_player_name_and_id_dict()
+            nhl_api = NHL_API()
+
             with Browser() as browser:
 
                 if watchlist is True:
@@ -333,13 +340,15 @@ class Fantrax:
 
                                 name = text_parts[i]
                                 nhl_team = text_parts[-1].lstrip('-').lstrip('(').rstrip(')')
+                                team_id = 0
                                 if 'N/A' not in nhl_team:
                                     if '/' in nhl_team:
                                         nhl_team = nhl_team.split('/')[-1]
                                     # get nhl team
-                                    kwargs = {'Criteria': [['abbr', '==', nhl_team]]}
-                                    team = Team().fetch(**kwargs)
-                                    if team.id == 0 and nhl_team != 'N/A':
+                                    # kwargs = {'Criteria': [['abbr', '==', nhl_team]]}
+                                    # team = Team().fetch(**kwargs)
+                                    team_id = team_ids[nhl_team]
+                                    if team_id == 0 and nhl_team != 'N/A':
                                         msg = f'NHL team "{nhl_team}" not found for "{name}".'
                                         if dialog:
                                             sg.popup_error(msg, title='scrapePlayerInfo()')
@@ -357,13 +366,44 @@ class Fantrax:
                                     fantrax_id = match.group(1)
 
                                 # get player id
-                                kwargs = get_player_id_from_name(name=name, team_id=team.id, pos=pos)
+                                # kwargs = get_player_id_from_name(name=name, team_id=team.id, pos=pos)
+                                player_id = get_player_id(team_ids, player_ids, nhl_api, name, nhl_team, pos)
+
+                                kwargs = {'id': player_id}
                                 player = Player().fetch(**kwargs)
-                                if player.id == 0:
-                                    player_json = NHL_API().get_player_by_name(name=name, team_id=team.id)
-                                    if player_json:
-                                        player.id = player_json['playerId']
-                                        player.full_name = player_json.get('firstName').get('default') + ' ' + player_json.get('lastName').get('default')
+                                if player.id == 0 and player_id != 0:
+                                    player_json = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
+                                    player.id = player_id
+                                    player.first_name = player_json['firstName']['default']
+                                    player.last_name = player_json['lastName']['default']
+                                    player.full_name = f'{player.first_name} {player.full_name}'
+                                    player.birth_date = player_json['birthDate']
+                                    player.height = inches_to_feet(player_json.get('heightInInches')) if 'heightInInches' in player_json else ''
+                                    player.weight = player_json['weightInPounds']
+                                    player.active = player_json['isActive']
+                                    player.roster_status = 'Y' if 'currentTeamId' in player_json else 'N'
+                                    player.current_team_id = player_json['currentTeamId']
+                                    player.current_team_abbr = player_json['currentTeamAbbrev']
+                                    position_code = player_json['position']
+                                    player.primary_position = 'LW' if position_code == 'L' else ('RW' if position_code == 'R' else position_code)
+                                    player.games = player_json['careerTotals']['regularSeason']['gamesPlayed'] if 'careerTotals' in player_json else 0
+
+                                    if player.persist() is False:
+                                        msg = f'Pesist failed for player "{name}"'
+                                        if dialog:
+                                            sg.popup_error(msg, title='scrapePlayerInfo()')
+                                        else:
+                                            logger.error(msg)
+
+                                    else:
+                                        with get_db_connection() as connection:
+                                            sql = dedent(f'''\
+                                            insert into TeamRosters
+                                                (seasonID, player_id, team_abbr, name, pos)
+                                                values ({pool.season_id}, {player.id}, "{team.abbr}", "{player.full_name}", "{player.primary_position}")
+                                            ''')
+                                            connection.execute(sql)
+                                            connection.commit()
 
                                 # don't add to players if already in list
                                 if any(p.get('player_id') == player.id for p in players):
@@ -422,8 +462,9 @@ class Fantrax:
                             # idx += 1
 
                     except Exception as e:
+                        tb = traceback.format_exc()
                         if dialog:
-                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}\n{tb}')
                         else:
                             logger.error(repr(e))
                         return dfPlayers
@@ -434,8 +475,9 @@ class Fantrax:
                 dfPlayers = dfPlayers[dfPlayers.player_id != 0]
 
         except Exception as e:
+            tb = traceback.format_exc()
             if dialog:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}\n{tb}')
             else:
                 logger.error(repr(e))
 
@@ -690,6 +732,7 @@ class Fantrax:
 
                 status = []
                 name = []
+                pos = []
                 rookie = []
                 nhl_team = []
                 pool_team = []
@@ -767,14 +810,16 @@ class Fantrax:
                             name.append(player_name)
 
                             text_parts = player.text.splitlines()
+                            player_pos = text_parts[2]
                             nhlteam = text_parts[-1].lstrip('-').lstrip('(').rstrip(')')
                             if '/' in nhlteam and nhlteam != 'N/A':
                                 nhlteam = nhlteam.split('/')[-1]
                             nhl_team.append(nhlteam)
+                            pos.append(player_pos)
                             rookie.append(1 if '(R)' in text_parts else 0)
                             status.append(text_parts[0])
 
-            dfPoolTeamPlayers = pd.DataFrame(data = {'pool_team': pool_team, 'player_name': name, 'nhl_team': nhl_team, 'rookie': rookie, 'status': status})
+            dfPoolTeamPlayers = pd.DataFrame(data = {'pool_team': pool_team, 'player_name': name, 'pos': pos, 'nhl_team': nhl_team, 'rookie': rookie, 'status': status})
 
         except Exception as e:
             if dialog:
@@ -907,13 +952,16 @@ class Fantrax:
         if batch:
             logger.debug('Get current rosters, and remove players not in new rosters')
 
-        # add player ids to pool team rosters scraped from Fantrax
-        for idx, roster_player in df.iterrows():
-            # get team_id from team_abbr
-            team_id = Team().get_team_id_from_team_abbr(team_abbr=roster_player['nhl_team'], suppress_error=True)
-            kwargs = get_player_id_from_name(name=roster_player['player_name'], team_id=team_id)
-            player = Player().fetch(**kwargs)
-            df.loc[idx, 'player_id'] = player.id
+        # # add player ids to pool team rosters scraped from Fantrax
+        # for idx, roster_player in df.iterrows():
+        #     # get team_id from team_abbr
+        #     team_id = Team().get_team_id_from_team_abbr(team_abbr=roster_player['nhl_team'], suppress_error=True)
+        #     kwargs = get_player_id_from_name(name=roster_player['player_name'], team_id=team_id)
+        #     player = Player().fetch(**kwargs)
+        #     df.loc[idx, 'player_id'] = player.id
+
+        # add player_id
+        df['player_id'] = assign_player_ids(df=df, player_name='player_name', nhl_team='nhl_team', pos_code='pos')
 
         # Get current rosters, and remove players not in new rosters
         kwargs = {'Criteria': [['pool_id', '==', pool.id]]}
@@ -949,6 +997,7 @@ class Fantrax:
                 poolie = df.loc[idx, 'pool_team']
                 nhl_team = df.loc[idx, 'nhl_team']
                 player_name = df.loc[idx, 'player_name']
+                player_id = df.loc[idx, 'player_id']
                 # headshot_url = df.loc[idx, 'headshot_url']
                 status = df.loc[idx, 'status']
                 rookie = df.loc[idx, 'rookie']
@@ -975,38 +1024,35 @@ class Fantrax:
                         sg.popup_error(msg, title='updatePoolTeamRosters()')
                     # continue
 
-                # get player id
-                kwargs = get_player_id_from_name(name=player_name, team_id=team.id)
+                # # get player id
+                # kwargs = get_player_id_from_name(name=player_name, team_id=team.id)
+                # Add new NHL Player if it wasn't set earlier. Not even sure that this is possible!!!
+                kwargs = {'id': player_id}
                 player = Player().fetch(**kwargs)
-                if player.id == 0:
-                    player_json = NHL_API().get_player_by_name(name=player_name, team_id=team.id, team_abbr=nhl_team)
-                    if player_json is None:
-                        msg = f'Player "{player_name}" not found for "{poolie}" pool team.'
+                if player.id == 0 and player_id != 0:
+                    player_json = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
+                    player.id = player_id
+                    player.first_name = player_json['firstName']['default']
+                    player.last_name = player_json['lastName']['default']
+                    player.full_name = f'{player.first_name} {player.full_name}'
+                    player.birth_date = player_json['birthDate']
+                    player.height = inches_to_feet(player_json.get('heightInInches')) if 'heightInInches' in player_json else ''
+                    player.weight = player_json['weightInPounds']
+                    player.active = player_json['isActive']
+                    player.roster_status = 'Y' if 'currentTeamId' in player_json else 'N'
+                    player.current_team_id = player_json['currentTeamId']
+                    player.current_team_abbr = player_json['currentTeamAbbrev']
+                    position_code = player_json['position']
+                    player.primary_position = 'LW' if position_code == 'L' else ('RW' if position_code == 'R' else position_code)
+                    player.games = player_json['careerTotals']['regularSeason']['gamesPlayed'] if 'careerTotals' in player_json else 0
+
+                    if player.persist() is False:
+                        msg = 'Pesist failed for player "{1}"'.format(df.loc[idx, 'player_name'])
                         if batch:
                             logger.error(msg)
                         else:
                             sg.popup_error(msg, title='updatePoolTeamRosters()')
-                        # continue
                     else:
-                        player.id = player_json['id']
-                        player.full_name = player_name
-                        player.last_name = player_json['lastName']
-                        player.first_name = player_json['firstName']
-                        player.current_team_id = team.id
-                        player.active = 1
-                        player.birth_date = player_json['birthDate']
-                        player.height = player_json['height']
-                        player.weight = player_json['weight']
-                        # player.rookie = player_json['rookie']
-                        player.rookie = rookie
-                        player.primary_position = player_json['primaryPosition']['abbreviation']
-                        if player.persist() is False:
-                            msg = 'Pesist failed for pool team "{0}" player "{1}"'.format(df.loc[idx, 'pool_team'], df.loc[idx, 'player_name'])
-                            if batch:
-                                logger.error(msg)
-                            else:
-                                sg.popup_error(msg, title='updatePoolTeamRosters()')
-
                         with get_db_connection() as connection:
                             sql = dedent(f'''\
                             insert into TeamRosters
@@ -1016,7 +1062,7 @@ class Fantrax:
                             connection.execute(sql)
                             connection.commit()
 
-                kwargs = {'poolteam_id': pool_team.id, 'player_id': player.id}
+                kwargs = {'poolteam_id': pool_team.id, 'player_id': player_id}
                 roster_player = PoolTeamRoster().fetch(**kwargs)
                 roster_player.poolteam_id = pool_team.id
                 roster_player.player_id = player.id
