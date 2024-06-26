@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 # Hockey Pool classes
 from clsBrowser import Browser
 from clsSeason import Season
-from utils import get_db_connection, get_player_id_from_name, unzip_file
+from utils import get_db_connection, unzip_file
 
 
 class MoneyPuck:
