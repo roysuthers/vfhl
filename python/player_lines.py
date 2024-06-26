@@ -274,6 +274,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                 for section in sections:
                     start_index = lines.index(section)
                     if section == 'Forwards':
+                        pos = 'F'
                         start_index += 4  # Skip the positions
                         end_index = lines.index('Defensive Pairings')
                         names = [lines[i:i+3] for i in range(start_index, end_index, 3)]
@@ -285,6 +286,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                                 if player not in player_data:
                                     player_data[player] = {'Line': f'{i+1}'}
                     elif section == 'Defensive Pairings':
+                        pos = 'D'
                         end_index = lines.index('1st Powerplay Unit')
                         names = [lines[i:i+2] for i in range(start_index+1, end_index, 2)]
                         for i, pair in enumerate(names):
@@ -317,7 +319,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                             'name': player_name,
                             # 'first_name': '',
                             # 'last_name': '',
-                            # 'pos': '',
+                            'pos': pos,
                             # 'rest': np.nan,
                             'team': team_abbr,
                             'line': data['Line'],
