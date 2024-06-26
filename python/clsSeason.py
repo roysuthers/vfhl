@@ -313,5 +313,3 @@ class Season:
             self.CURRENT_WEEK = self.ISOWEEK_TO_NHL_WEEK[0].week
 
         return
-
-        return df
