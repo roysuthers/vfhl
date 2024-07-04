@@ -1428,6 +1428,9 @@ class HockeyPool:
 
         dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
 
+        # drop rows with no player name
+        dfDraftResults = dfDraftResults.dropna(subset=['Player'])
+
         # for idx, row in dfDraftResults.iterrows():
         #     # get player
         #     player_name = row['Player']
@@ -1482,6 +1485,11 @@ class HockeyPool:
 
         # reindex columns
         dfDraftResults = dfDraftResults.reindex(columns=['season_id', 'round', 'pick', 'overall', 'player_id', 'player', 'pos', 'team_abbr', 'pool_team'])
+
+        # delete season rows
+        with get_db_connection() as connection:
+            sql = f"delete from dfDraftResults where season_id={self.season_id}"
+            connection.execute(sql)
 
         dfDraftResults.to_sql('dfDraftResults', con=get_db_connection(), index=False, if_exists='append')
 
