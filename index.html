@@ -207,6 +207,8 @@
                 <div>
                     <select id="poolID" class="trigger_getRawData">
                         <option value=0>None</option>
+                        <option value=9>VFHL 2018-2019</option>
+                        <option value=10>VFHL 2019-2020</option>
                         <option value=8>VFHL 2020-2021</option>
                         <option value=4>VFHL 2021-2022</option>
                         <option value=6>VFHL 2022-2023</option>
@@ -478,6 +480,14 @@
                     }
                 }
 
+            });
+
+            // Add event listeners to the pool selector to listen for changes
+            poolID.addEventListener('change', () => {
+                setSeasons();
+                setDateValues();
+                setProjectionSourceVisibility();
+                updateStatTypeOptions();
             });
 
             // Add event listeners to the gameType selector to listen for changes
