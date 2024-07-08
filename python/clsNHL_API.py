@@ -144,12 +144,13 @@ class NHL_API():
             params = deepcopy(NHL_API_SEARCH_SUGGESTIONS_PARAMS)
             player_json:json = None
             params['q'] = name
-            update_PlayerAlternateNames = False
 
             for iteration in range(2):
 
                 if iteration != 0:
                     params['active'] = False
+
+                update_PlayerAlternateNames = False
 
                 suggestions = requests.get(NHL_API_SEARCH_SUGGESTIONS_URL, params).json()
                 idx = [i for i, x in enumerate(suggestions) if unidecode(name).lower() == unidecode(suggestions[i]['name']).lower()]
@@ -299,7 +300,7 @@ class NHL_API():
         position = player.get('position')
         return {
             'id': player_id,
-            'alt_id': 0,
+            'fantrax_id': '',
             'first_name': first_name,
             'last_name': last_name,
             'full_name': first_name + ' ' + last_name,
@@ -342,8 +343,12 @@ class NHL_API():
                 # As of May 15, 2024, getting standings by date returns an empty list
                 # https://api-web.nhle.com/v1/standings/{date}
                 # standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
-                # https://api-web.nhle.com/v1/standings/now
-                standings = self.fetch_data(f'{NHL_API_URL}/standings/now')
+                # # https://api-web.nhle.com/v1/standings/now
+                # standings = self.fetch_data(f'{NHL_API_URL}/standings/now')
+
+                # standings by date works now
+                standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
+
                 if standings == 404:
                     error_msg = standings['text']
                     msg = f'API request failed: Error message "{error_msg}"...'

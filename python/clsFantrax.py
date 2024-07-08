@@ -74,13 +74,13 @@ class Fantrax:
 
         # self.playersPage = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL;maxResultsPerPage=1500'
 
-        # self.all_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL_TAKEN;maxResultsPerPage=1500'
-        self.active_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ACTIVE_TAKEN;maxResultsPerPage=1500'
-        self.minors_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=MINOR_INACTIVE_TAKEN;maxResultsPerPage=1500'
+        self.all_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL_TAKEN;positionOrGroup=ALL;maxResultsPerPage=1500'
+        # self.active_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ACTIVE_TAKEN;positionOrGroup=ALL;maxResultsPerPage=1500'
+        # self.minors_taken_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=MINOR_INACTIVE_TAKEN;positionOrGroup=ALL;maxResultsPerPage=1500'
 
-        # self.all_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL_AVAILABLE;maxResultsPerPage=1500'
-        self.active_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ACTIVE_AVAILABLE;maxResultsPerPage=1500'
-        self.minors_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=MINOR_INACTIVE_AVAILABLE;maxResultsPerPage=1500'
+        self.all_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL_AVAILABLE;positionOrGroup=ALL;maxResultsPerPage=1500'
+        # self.active_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ACTIVE_AVAILABLE;positionOrGroup=ALL;maxResultsPerPage=1500'
+        # self.minors_available_players = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=MINOR_INACTIVE_AVAILABLE;positionOrGroup=ALL;maxResultsPerPage=1500'
 
         self.watch_list = f'https://www.fantrax.com/fantasy/league/{league_id}/players;reload=3;statusOrTeamFilter=WATCH_LIST;maxResultsPerPage=500'
 
@@ -238,13 +238,18 @@ class Fantrax:
                     urls_for_player_lists = {'Watch List': self.watch_list}
                 else:
                     # need to process minor league lists first to get collection of player ids for those in the minors
-                    # for some reason, I was getting the :self.all_taken_players" list rather than the "self.active_taken_players", which
+                    # for some reason, I was getting the "self.all_taken_players" list rather than the "self.active_taken_players", which
                     # seems to be an overlap of lists; otherwise, why wouldn't just get all available & all taken players, using 2 lists rather than 4
+                    # urls_for_player_lists = {
+                    #     'Active - Available': self.active_available_players,
+                    #     'Minors - Availiable': self.minors_available_players,
+                    #     'Active - Taken': self.active_taken_players,
+                    #     'Minors - Taken': self.minors_taken_players,
+                    # }
+                    # Need these lists for lookikng back at previous years info
                     urls_for_player_lists = {
-                        'Active - Available': self.active_available_players,
-                        'Minors - Availiable': self.minors_available_players,
-                        'Active - Taken': self.active_taken_players,
-                        'Minors - Taken': self.minors_taken_players,
+                        'All - Available': self.all_available_players,
+                        'All - Taken': self.all_taken_players,
                     }
 
                 # Set default wait time
@@ -328,8 +333,9 @@ class Fantrax:
 
                                 score = row2.find_element(By.CLASS_NAME, 'cell--accent').text
                                 # if url == self.minors_available_players and score == '0':
-                                if list_type in ('Active - Available', 'Minors - Availiable') and score == '0':
+                                # if list_type in ('Active - Available', 'Minors - Availiable') and score == '0':
                                 # if list_type in ('Minors - Availiable') and score == '0':
+                                if list_type == 'All - Available' and score == '0':
                                     break
 
                                 text_parts = row1.text.splitlines()
@@ -367,13 +373,14 @@ class Fantrax:
 
                                 # get player id
                                 # kwargs = get_player_id_from_name(name=name, team_id=team.id, pos=pos)
-                                player_id = get_player_id(team_ids, player_ids, nhl_api, name, nhl_team, pos)
+                                player_id = get_player_id(team_ids, player_ids, nhl_api, name, nhl_team, pos, fantrax_id)
 
                                 kwargs = {'id': player_id}
                                 player = Player().fetch(**kwargs)
                                 if player.id == 0 and player_id != 0:
                                     player_json = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
                                     player.id = player_id
+                                    player.fantrax_id = fantrax_id
                                     player.first_name = player_json['firstName']['default']
                                     player.last_name = player_json['lastName']['default']
                                     player.full_name = f'{player.first_name} {player.full_name}'
@@ -382,8 +389,8 @@ class Fantrax:
                                     player.weight = player_json['weightInPounds']
                                     player.active = player_json['isActive']
                                     player.roster_status = 'Y' if 'currentTeamId' in player_json else 'N'
-                                    player.current_team_id = player_json['currentTeamId']
-                                    player.current_team_abbr = player_json['currentTeamAbbrev']
+                                    player.current_team_id = player_json['currentTeamId'] if 'currentTeamId' in player_json else 0
+                                    player.current_team_abbr = player_json['currentTeamAbbrev'] if 'currentTeamAbbrev' in player_json else ''
                                     position_code = player_json['position']
                                     player.primary_position = 'LW' if position_code == 'L' else ('RW' if position_code == 'R' else position_code)
                                     player.games = player_json['careerTotals']['regularSeason']['gamesPlayed'] if 'careerTotals' in player_json else 0
@@ -400,8 +407,16 @@ class Fantrax:
                                             sql = dedent(f'''\
                                             insert into TeamRosters
                                                 (seasonID, player_id, team_abbr, name, pos)
-                                                values ({pool.season_id}, {player.id}, "{team.abbr}", "{player.full_name}", "{player.primary_position}")
+                                                values ({self.season.id}, {player.id}, "{team.abbr}", "{player.full_name}", "{player.primary_position}")
                                             ''')
+                                            connection.execute(sql)
+                                            connection.commit()
+                                else:
+                                    # I would usually persist the player, but trying something new.
+                                    # persist only the new data to change
+                                    if player.fantrax_id == '' and fantrax_id != '':
+                                        with get_db_connection() as connection:
+                                            sql = f'UPDATE Player SET fantrax_id = "{fantrax_id}" WHERE id == {player.id}'
                                             connection.execute(sql)
                                             connection.commit()
 
@@ -1061,6 +1076,14 @@ class Fantrax:
                             ''')
                             connection.execute(sql)
                             connection.commit()
+                # else:
+                #     # I would usually persist the player, but trying something new.
+                #     # persist only the new data to change
+                #     if player.fantrax_id == '' and fantrax_id != '':
+                #         with get_db_connection() as connection:
+                #             sql = f'UPDATE Player SET fantrax_id = "{fantrax_id}") WHERE id == {player.id}'
+                #             connection.execute(sql)
+                #             connection.commit()
 
                 kwargs = {'poolteam_id': pool_team.id, 'player_id': player_id}
                 roster_player = PoolTeamRoster().fetch(**kwargs)

@@ -25,7 +25,7 @@ class Player:
 
     def __init__(self):
         self.id = 0
-        self.alt_id = 0
+        self.fantrax_id = 0
         self.first_name = ''
         self.last_name = ''
         self.full_name = ''

@@ -430,6 +430,7 @@ def get_player_stats(season: Season, pool: 'HockeyPool', historical: bool=False,
 
 def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats: pd.DataFrame) -> pd.DataFrame:
 
+    # get players on nhl team rosters
     columns = [
         'tr.seasonID',
         'tr.player_id',
@@ -469,9 +470,9 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
     # exclude players with p.roster_status!="N" (e.g., include p.roster_status=="Y" or p.roster_status=="I")
     where_clause = f'where tr.seasonID={season.id} and (p.roster_status!="N" or pool_team>=1)'
 
-    # get players on nhl team rosters
     df = pd.read_sql(f'{select_sql} {from_tables} {where_clause}', con=get_db_connection())
 
+    # get inactive nhl players on pool team rosters
     columns = [
         f'{season.id} as seasonID',
         'ptr.player_id',
@@ -513,7 +514,6 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
         {where_clause}
     ''')
 
-    # get inactive nhl players on pool team rosters
     df_temp = pd.read_sql(sql, con=get_db_connection())
 
     # iterate to get player's primary position

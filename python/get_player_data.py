@@ -1811,11 +1811,11 @@ def get_z_score_summary_columns(config: Dict, position: str='skater') -> List[st
 
     return z_score_category_columns
 
-def insert_fantrax_columns(df: pd.DataFrame, game_type: str='R'):
+def insert_fantrax_columns(df: pd.DataFrame, season_id: Season, game_type: str='R'):
 
     try:
 
-        dfFantraxPlayerInfo = pd.read_sql(sql='select * from FantraxPlayerInfo', con=get_db_connection())
+        dfFantraxPlayerInfo = pd.read_sql(sql=f'select * from FantraxPlayerInfo where season_id={season_id}', con=get_db_connection())
 
         # set indexes to player_id
         df.set_index('player_id', inplace=True)
@@ -2262,7 +2262,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
         df_player_stats = merge_with_current_players_info(season_id=to_season_id, pool_id=pool_id, df_stats=df_player_stats, game_type=game_type)
 
         # add fantrax "score" & "minors" columns
-        df_player_stats = insert_fantrax_columns(df=df_player_stats, game_type=game_type)
+        df_player_stats = insert_fantrax_columns(df=df_player_stats, season_id=to_season_id, game_type=game_type)
 
         # save to json file
         ###################################################################

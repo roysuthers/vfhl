@@ -1463,6 +1463,9 @@ class HockeyPool:
 
         #     dfDraftResults.loc[idx, 'player_id'] = player.id
 
+        # add fantrax_id column
+        dfDraftResults['fantrax_id'] = dfDraftResults['Player ID'].str.strip('*')
+
         # drop not needed columns
         columns_to_drop = ['Player ID']
         if 'Time (EDT)' in dfDraftResults.columns:
@@ -1474,8 +1477,11 @@ class HockeyPool:
         # add season column
         dfDraftResults['season_id'] = season.id
 
+        # rename Player ID'
+        dfDraftResults.rename(columns={'Player ID': 'fantrax_id'}, inplace=True)
+
         # add player_id
-        dfDraftResults['player_id'] = assign_player_ids(df=dfDraftResults, player_name='Player', nhl_team='Team', pos_code='Pos')
+        dfDraftResults['player_id'] = assign_player_ids(df=dfDraftResults, player_name='Player', nhl_team='Team', pos_code='Pos', fantrax_id='fantrax_id')
 
         # rename columns
         dfDraftResults.rename(columns={'Round': 'round', 'Pick': 'pick', 'Ov Pick': 'overall', 'Player': 'player', 'Pos': 'pos', 'Team': 'team_abbr', 'Fantasy Team': 'pool_team'}, inplace=True)
@@ -2330,8 +2336,11 @@ class HockeyPool:
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
+            # add season_id column (NOTE: season is global)
+            dfFantraxPlayerInfo.insert(0, 'season_id', season.id)
+
             if watchlist is True:
-                sql = 'update FantraxPlayerInfo set watch_list = 0'
+                sql = f'update FantraxPlayerInfo set watch_list = 0 where season_id = {season.id}'
                 with get_db_connection() as connection:
                     connection.execute(sql)
                     for row in dfFantraxPlayerInfo.itertuples():
@@ -2339,15 +2348,15 @@ class HockeyPool:
                             # minors = 1 if row.minors is True else 0
                             sql = dedent(f'''\
                                 insert or replace into FantraxPlayerInfo
-                                (player_id, fantrax_id, player_name, nhl_team, pos, minors, rookie, watch_list, score, next_opp)
-                                values ({row.player_id}, "{row.fantrax_id}", "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
+                                (season_id, player_id, fantrax_id, player_name, nhl_team, pos, minors, rookie, watch_list, score, next_opp)
+                                values ({season.id}, {row.player_id}, "{row.fantrax_id}", "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
                                 ''')
                             connection.execute(sql)
                     connection.commit()
             else:
                 # I tried dropping the table, but pandas to_sql creates the table without a primary key on the player_id,
                 # which I need for watchlist processing (see above)
-                sql = 'delete from FantraxPlayerInfo'
+                sql = f'delete from FantraxPlayerInfo where season_id = {season.id}'
                 with get_db_connection() as connection:
                     connection.execute(sql)
                     connection.commit()
