@@ -174,10 +174,12 @@ class Fantrax:
                         comment = data[1].text
                         transactions.append({'player_name': player_name, 'team_abbr': team_abbr, 'comment': comment})
                 except Exception as e:
+                    msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                     if dialog:
-                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                        dialog.close()
+                        sg.popup_error(msg)
                     else:
-                        logger.error(repr(e))
+                        logger.error(msg)
                     return
 
             msg = 'Scraping NHL team transactions completed...'
@@ -192,10 +194,12 @@ class Fantrax:
             dfNHLTeamTransactions = pd.DataFrame.from_dict(data=transactions)
 
         except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if dialog:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                dialog.close()
+                sg.popup_error(msg)
             else:
-                logger.error(repr(e))
+                logger.error(msg)
 
         return dfNHLTeamTransactions
 
@@ -477,11 +481,12 @@ class Fantrax:
                             # idx += 1
 
                     except Exception as e:
-                        tb = traceback.format_exc()
+                        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                         if dialog:
-                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}\n{tb}')
+                            dialog.close()
+                            sg.popup_error(msg)
                         else:
-                            logger.error(repr(e))
+                            logger.error(msg)
                         return dfPlayers
 
             if len(players) > 0:
@@ -490,11 +495,12 @@ class Fantrax:
                 dfPlayers = dfPlayers[dfPlayers.player_id != 0]
 
         except Exception as e:
-            tb = traceback.format_exc()
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if dialog:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}\n{tb}')
+                dialog.close()
+                sg.popup_error(msg)
             else:
-                logger.error(repr(e))
+                logger.error(msg)
 
         return dfPlayers
 
@@ -699,13 +705,12 @@ class Fantrax:
                 dfPoolTeamPeriodRoster = pd.concat([dfPoolTeamPeriodRoster, df_temp])
 
         except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if dialog:
                 dialog.close()
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
-                raise e
+                sg.popup_error(msg)
             else:
-                logger.error(repr(e))
-                raise e
+                logger.error(msg)
 
         return dfPoolTeamPeriodRoster
 
@@ -719,7 +724,7 @@ class Fantrax:
                 league_id = connection.cursor().execute(f'select * from HockeyPool hp where id={self.pool_id}').fetchone()['league_id']
 
             # Dataframe for pool team roster entry
-            dfPoolTeamPlayers = pd.DataFrame(columns=['pool_team', 'nhl_team', 'player_name', 'rookie', 'status'])
+            dfPoolTeamPlayers = pd.DataFrame(columns=['pool_team', 'nhl_team', 'player_name', 'rookie', 'status', 'fantrax_id'])
 
             msg = 'Waiting for web driver...'
             if dialog:
@@ -751,6 +756,7 @@ class Fantrax:
                 rookie = []
                 nhl_team = []
                 pool_team = []
+                fantrax_id = []
                 for team in teams:
 
                     # The first pool team's roster will display (e.g. )
@@ -834,15 +840,23 @@ class Fantrax:
                             rookie.append(1 if '(R)' in text_parts else 0)
                             status.append(text_parts[0])
 
-            dfPoolTeamPlayers = pd.DataFrame(data = {'pool_team': pool_team, 'player_name': name, 'pos': pos, 'nhl_team': nhl_team, 'rookie': rookie, 'status': status})
+                            id = ''
+                            s = player.find_element(By.CLASS_NAME, 'scorer__image').get_attribute('style')
+                            match = re.search(r'hs(.*?)_', s)
+                            if match:
+                                id = match.group(1)
+                            fantrax_id.append(id)
+
+            dfPoolTeamPlayers = pd.DataFrame(data = {'pool_team': pool_team, 'player_name': name, 'pos': pos, 'nhl_team': nhl_team, 'rookie': rookie, 'status': status, 'fantrax_id': fantrax_id})
 
         except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if dialog:
                 dialog.close()
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                sg.popup_error(msg)
                 raise e
             else:
-                logger.error(repr(e))
+                logger.error(msg)
                 raise e
 
         return dfPoolTeamPlayers
@@ -899,10 +913,12 @@ class Fantrax:
                         teams.append({'name': team, 'points': points, 'fantrax_id': fantrax_id})
 
                 except Exception as e:
+                    msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                     if dialog:
-                        sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                        dialog.close()
+                        sg.popup_error(msg)
                     else:
-                        logger.error(repr(e))
+                        logger.error(msg)
                     return
 
                 # iterate through pool teams & get games played by position
@@ -942,20 +958,24 @@ class Fantrax:
                                 team[f'{pos_abbr}_minimum_starts'] = unidecode(min_games_cell.text)
 
                     except Exception as e:
+                        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                         if dialog:
-                            sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                            dialog.close()
+                            sg.popup_error(msg)
                         else:
-                            logger.error(repr(e))
+                            logger.error(msg)
                         return
 
             # save to dataframe & return
             dfPoolTeams = pd.DataFrame.from_dict(data=teams)
 
         except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if dialog:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                dialog.close()
+                sg.popup_error(msg)
             else:
-                logger.error(repr(e))
+                logger.error(msg)
 
         return dfPoolTeams
 
@@ -976,7 +996,7 @@ class Fantrax:
         #     df.loc[idx, 'player_id'] = player.id
 
         # add player_id
-        df['player_id'] = assign_player_ids(df=df, player_name='player_name', nhl_team='nhl_team', pos_code='pos')
+        df['player_id'] = assign_player_ids(df=df, player_name='player_name', nhl_team='nhl_team', pos_code='pos', fantrax_id='fantrax_id')
 
         # Get current rosters, and remove players not in new rosters
         kwargs = {'Criteria': [['pool_id', '==', pool.id]]}
@@ -1016,6 +1036,7 @@ class Fantrax:
                 # headshot_url = df.loc[idx, 'headshot_url']
                 status = df.loc[idx, 'status']
                 rookie = df.loc[idx, 'rookie']
+                fantrax_id = df.loc[idx, 'fantrax_id']
 
                 # get pool team
                 kwargs = {'Criteria': [['pool_id', '==', self.pool_id], ['name', '==', unidecode(poolie)]]}
@@ -1047,6 +1068,7 @@ class Fantrax:
                 if player.id == 0 and player_id != 0:
                     player_json = requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json()
                     player.id = player_id
+                    player.fantrax_id = fantrax_id
                     player.first_name = player_json['firstName']['default']
                     player.last_name = player_json['lastName']['default']
                     player.full_name = f'{player.first_name} {player.full_name}'
@@ -1099,11 +1121,11 @@ class Fantrax:
                         sg.popup_error(msg, title='updatePoolTeamRosters()')
 
             except Exception as e:
-                if batch:
-                    logger.error(repr(e))
-                    raise
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                if not batch:
+                    sg.popup_error(msg)
                 else:
-                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                    logger.error(msg)
                 return
 
         return
@@ -1152,11 +1174,11 @@ class Fantrax:
                         sg.popup_error(msg, title='updatePoolTeams()')
 
             except Exception as e:
-                if batch:
-                    logger.error(repr(e))
-                    raise
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                if not batch:
+                    sg.popup_error(msg)
                 else:
-                    sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                    logger.error(msg)
                 return
 
         return
