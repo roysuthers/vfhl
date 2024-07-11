@@ -18,7 +18,6 @@ def setBrowserOptions():
         driver = Firefox(executable_path=str(driver_path) , options=options)
 
     except Exception as e:
-        print(f'{traceback.format_exception(type(e))} in setBrowserOptions()')
-        return None
+        raise
 
     return driver
