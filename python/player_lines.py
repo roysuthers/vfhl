@@ -229,7 +229,8 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                 'vancouver-canucks': 'VAN',
                 'vegas-golden-knights': 'VGK',
                 'washington-capitals': 'WSH',
-                'winnipeg-jets': 'WPG'
+                'winnipeg-jets': 'WPG',
+                'utah-hockey-club': 'UTA'
             }
 
         # with Browser() as browser:
@@ -331,10 +332,11 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
             time.sleep(10)
 
     except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
         if dialog:
-            sg.PopupScrolled(''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)), modal=True)
+            sg.PopupScrolled(msg, modal=True)
         else:
-            logger.error(repr(e))
+            logger.error(msg)
         return pd.DataFrame.from_dict([])
 
     return pd.DataFrame.from_dict(players)
