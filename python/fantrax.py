@@ -1,5 +1,7 @@
 import traceback
 
+import PySimpleGUI as sg
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,6 +12,10 @@ import browser
 
 def scrape_draft_picks():
     """Scrapes the draft picks data from Fantrax and returns a list of dictionaries."""
+
+    # init driver & draft_picks to None
+    driver = None
+    draft_picks = []
 
     try:
 
@@ -62,7 +68,7 @@ def scrape_draft_picks():
             item['drafted_player'] = ''
 
     except Exception as e:
-        print(f"An exception occurred in scrape_draft_picks(): {e}\n{traceback.format_exc()}")
+        sg.popup_error(f"An exception occurred in scrape_draft_picks(): {e}\n{traceback.format_exc()}")
 
     finally:
         # Delete the driver object
