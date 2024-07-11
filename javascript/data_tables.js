@@ -1233,6 +1233,13 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
     getDraftPicks(draft_order => {
 
+        if (draft_order.error) {
+            // Hide pulsing bar
+            document.getElementById('pulsing-bar').style.display  = 'none';
+            alert(draft_order.error)
+            return
+        }
+
         remaining_draft_picks = draft_order;
         draft_manager = remaining_draft_picks[0].manager;
 
@@ -2816,8 +2823,13 @@ function getDraftPicks(callback) {
     $.get(baseUrl + queryParams, function(draft_order) {
         // Call the callback function with the draft order
         callback(draft_order);
+    })
+    .fail(function(jqXHR, textStatus, errorThrown) {
+        // // Handle the error here
+        // console.error("Error occurred: ", textStatus, errorThrown);
+        // You can also call the callback function with an error message
+        callback({ error: "An error occurred while fetching the draft order: " + errorThrown });
     });
-
 }
 
 function getMyCategoryNeeds() {
