@@ -177,8 +177,14 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
                     exp_return = elements[3].replace('Expected Return', 'Expected Return ')
 
                 name.append(player_name)
-                nhl_team = row.find(name=["a"]).get('href').rsplit('/', 1)[1]
-                team.append(nhl_teams[nhl_team])
+
+                player_info = row.find(name=["a"]).get('href').rsplit('/')
+                if player_info[1] == 'team':
+                    nhl_team = player_info[2]
+                    team.append(nhl_teams[nhl_team])
+                else:
+                    team.append('N/A')
+
                 date_of_injury.append(exp_return)
                 injury_type.append(inj_type[0])
                 injury_note.append(inj_desc)
