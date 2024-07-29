@@ -129,47 +129,48 @@ class HockeyPool:
 
         return
 
-    def apiGetSeason(self):
+    # def apiGetSeason(self):
 
-        try:
+    #     try:
 
-            with get_db_connection() as connection:
+    #         with get_db_connection() as connection:
 
-                ####################################################
-                # TOTO: Target season should use season.id, not name
-                ####################################################
-                target_season = f'{season.name[0:4]}{season.name[5:9]}'
-                season_info = NHL_API().get_season(season=target_season)
-                if len(season_info) != 1:
-                    sg.Popup('Failed to return season information.', title='Error')
-                    return
-                row = season_info[0]
-                season.start_date = row['startDate']
-                season.end_date = row['endDate']
-                season.number_of_games = row['numberOfGames']
+    #             ####################################################
+    #             # TOTO: Target season should use season.id, not name
+    #             ####################################################
+    #             target_season = f'{season.name[0:4]}{season.name[5:9]}'
+    #             season_info = NHL_API().get_season(season=target_season)
+    #             if len(season_info) != 1:
+    #                 sg.Popup('Failed to return season information.', title='Error')
+    #                 return
+    #             row = season_info[0]
+    #             season.start_date = row['startDate']
+    #             season.end_date = row['endDate']
+    #             season.number_of_games = row['numberOfGames']
 
-                # Calculated weeks in season
-                start_date = datetime.strptime(season.start_date, '%Y-%m-%d')
-                end_date = datetime.strptime(season.end_date, '%Y-%m-%d')
-                start_week = Week.withdate(start_date)
-                end_week = Week.withdate(end_date)
-                if start_date.year < end_date.year:
-                    last_week_of_start_year = Week.last_week_of_year(int(season.start_date[0:4]))
-                    season.weeks = last_week_of_start_year.week - start_week.week + end_week.week + 1
-                else: # in same year, such as 20202021 Covid-19 schedule
-                    season.weeks = end_week.week  - start_week.week+ 1
+    #             # Calculated weeks in season
+    #             start_date = datetime.strptime(season.start_date, '%Y-%m-%d')
+    #             end_date = datetime.strptime(season.end_date, '%Y-%m-%d')
+    #             start_week = Week.withdate(start_date)
+    #             end_week = Week.withdate(end_date)
+    #             if start_date.year < end_date.year:
+    #                 last_week_of_start_year = Week.last_week_of_year(int(season.start_date[0:4]))
+    #                 season.weeks = last_week_of_start_year.week - start_week.week + end_week.week + 1
+    #             else: # in same year, such as 20202021 Covid-19 schedule
+    #                 season.weeks = end_week.week  - start_week.week+ 1
 
-                ret = season.persist(connection)
-                if ret == False:
-                    sg.Popup('Failed to persist NHL season information.', title='Error')
-                    return
+    #             ret = season.persist(connection)
+    #             if ret == False:
+    #                 sg.Popup('Failed to persist NHL season information.', title='Error')
+    #                 return
 
-        except Exception as e:
-            print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+    #     except Exception as e:
+    #         msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+    #         sg.popup_error(msg)
 
-        connection.close()
+    #     connection.close()
 
-        return
+    #     return
 
     def apiGetTeams(self):
 
@@ -190,7 +191,8 @@ class HockeyPool:
                         return
 
         except Exception as e:
-            print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
         connection.close()
 
@@ -286,7 +288,8 @@ class HockeyPool:
                     break
                 continue
             except ValueError as e:
-                print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                sg.popup_error(msg)
                 continue
             else:
                 #we're ready to exit the loop.
@@ -296,43 +299,43 @@ class HockeyPool:
 
         return option
 
-    def askToUseNHL_RestService(self):
+    # def askToUseNHL_RestService(self):
 
-        layout = [
-            [sg.Text(f'Do you want to read data from the NHL Rest Service or extract from database?')],
-            [sg.Text('   1. Scrape from Rest Service')],
-            [sg.Text('   2. Extract raw data from database table')],
-            [
-                sg.Text('Select option:', size=(15, 1)),
-                sg.Input(justification='right', key='_OPTION_', size=(5,1), pad=(1,0), do_not_clear=False, focus=True),
-            ],
-            [sg.OK(), sg.Cancel()],
-        ]
+    #     layout = [
+    #         [sg.Text(f'Do you want to read data from the NHL Rest Service or extract from database?')],
+    #         [sg.Text('   1. Scrape from Rest Service')],
+    #         [sg.Text('   2. Extract raw data from database table')],
+    #         [
+    #             sg.Text('Select option:', size=(15, 1)),
+    #             sg.Input(justification='right', key='_OPTION_', size=(5,1), pad=(1,0), do_not_clear=False, focus=True),
+    #         ],
+    #         [sg.OK(), sg.Cancel()],
+    #     ]
 
-        dialog = sg.Window('NHL Pool', layout, font=("arial", 12), button_color=('black', 'deep sky blue'), margins=(10, 10))
+    #     dialog = sg.Window('NHL Pool', layout, font=("arial", 12), button_color=('black', 'deep sky blue'), margins=(10, 10))
 
-        while True:
-            try:
-                option = ''
-                event, values = dialog.Read()
-                if event in (None, 'Cancel'):
-                    break
-                if event == 'OK':
-                    option = int(values['_OPTION_'])
-                    if option not in (1, 2):
-                        raise ValueError('Response not valid.')
-                    break
-                continue
-            except ValueError as e:
-                print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
-                continue
-            else:
-                #we're ready to exit the loop.
-                break
+    #     while True:
+    #         try:
+    #             option = ''
+    #             event, values = dialog.Read()
+    #             if event in (None, 'Cancel'):
+    #                 break
+    #             if event == 'OK':
+    #                 option = int(values['_OPTION_'])
+    #                 if option not in (1, 2):
+    #                     raise ValueError('Response not valid.')
+    #                 break
+    #             continue
+    #         except ValueError as e:
+    #             print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+    #             continue
+    #         else:
+    #             #we're ready to exit the loop.
+    #             break
 
-        dialog.Close()
+    #     dialog.Close()
 
-        return option
+    #     return option
 
     def config_pool_team(self, web_host: Tuple[str, None]=None):
 
@@ -603,9 +606,11 @@ class HockeyPool:
                 self.league_id = row['league_id']
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -635,9 +640,11 @@ class HockeyPool:
             rows = cursor.fetchall()
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -1509,7 +1516,7 @@ class HockeyPool:
 
         excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
 
-        excel_columns = ('Player', 'Team', 'Position', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
+        excel_columns = ('Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
 
         dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
 
@@ -1531,7 +1538,7 @@ class HockeyPool:
 
         excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
 
-        excel_columns = ('Player', 'Team', 'Position', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
+        excel_columns = ('Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
 
         dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
 
@@ -1631,7 +1638,7 @@ class HockeyPool:
         rows.append(
             sg.pin(sg.Column(layout=[
                 [
-                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', '!Unmark as Keeper', '-','Remove Player']]),
+                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', '!Unmark as Keeper', '-', 'Player Bio', '-','Remove Player']]),
                 ]
             ], visible=True, key='__FT_PTR_MCLB_CNTNR__')
         , vertical_alignment='top'))
@@ -1702,7 +1709,7 @@ class HockeyPool:
                             'Update Players',
                             'Get Player Stats',
                             '-',
-                            'Get Season Info',
+                            # 'Get Season Info',
                             'Get Teams',
                             ],
                         '-',
@@ -1763,7 +1770,8 @@ class HockeyPool:
                 connection.execute(sql, tuple(values))
 
         except Exception as e:
-            print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
         connection.close()
 
@@ -1884,7 +1892,7 @@ class HockeyPool:
         # df_teams = pd.read_sql(f'select team_id, games from TeamStats where seasonID={season.id} and game_type="R"', con=get_db_connection())
         # teams_dict = {x.team_id: {'games': x.games} for x in df_teams.itertuples()}
 
-        df_game_stats = get_player_data.get_game_stats(season_or_date_radios='season', from_season_id=season.id, to_season_id=season.id, from_date='', to_date='', pool_id='', game_type='R')
+        df_game_stats = get_player_data.get_game_stats(season_or_date_radios='season', from_season_id=season.id, to_season_id=season.id, from_date='', to_date='', pool_id='', game_type='R', ewma_span=10)
 
         if df_player_stats is None or df_player_stats.empty:
             return
@@ -1897,7 +1905,7 @@ class HockeyPool:
         get_player_data.calc_scoring_category_minimums(df=df_cumulative)
         get_player_data.calc_scoring_category_means(df=df_cumulative)
         get_player_data.calc_scoring_category_std_deviations(df=df_cumulative)
-        df_cumulative = get_player_data.calc_z_scores(df=df_cumulative, positional_scoring=True, calculate_summary_scores=False)
+        df_cumulative = get_player_data.calc_z_scores(df=df_cumulative, positional_scoring=True, stat_type='Cumulative')
 
         cumulative_max_cat = get_player_data.max_cat.copy()
         cumulative_min_cat = get_player_data.min_cat.copy()
@@ -1912,7 +1920,7 @@ class HockeyPool:
         get_player_data.calc_scoring_category_minimums(df=df_per_game)
         get_player_data.calc_scoring_category_means(df=df_per_game)
         get_player_data.calc_scoring_category_std_deviations(df=df_per_game)
-        df_per_game = get_player_data.calc_z_scores(df=df_per_game, positional_scoring=True, calculate_summary_scores=False)
+        df_per_game = get_player_data.calc_z_scores(df=df_per_game, positional_scoring=True, stat_type='Per game')
 
         per_game_max_cat = get_player_data.max_cat.copy()
         per_game_min_cat = get_player_data.min_cat.copy()
@@ -2013,7 +2021,8 @@ class HockeyPool:
                             inner_list.append('' if (int(value)==0 and format_str in ('{:,}', '{:}')) else format_str.format(int(value)))
                 outer_list.append(inner_list)
         except Exception as e:
-            print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         # transpose data back
         data = list(map(list, zip(*outer_list)))
 
@@ -2127,7 +2136,7 @@ class HockeyPool:
                 #             sg.popup_ok(msg)
                 #         continue
 
-                team_id = team_ids[playerTeam]
+                team_id = team_ids[playerTeam] if playerTeam != 'N/A' else 0
                 player_id = get_player_id(team_ids, player_ids, nhl_api, playerName, playerTeam)
                 if player_id == 0:
                     msg = f'updatePlayerInjuries(): There are no NHL players with name "{playerName}".'
@@ -2337,10 +2346,10 @@ class HockeyPool:
                     return
 
             # add season_id column (NOTE: season is global)
-            dfFantraxPlayerInfo.insert(0, 'season_id', season.id)
+            dfFantraxPlayerInfo.insert(0, 'season_id', self.season_id)
 
             if watchlist is True:
-                sql = f'update FantraxPlayerInfo set watch_list = 0 where season_id = {season.id}'
+                sql = f'update FantraxPlayerInfo set watch_list = 0 where season_id = {self.season_id}'
                 with get_db_connection() as connection:
                     connection.execute(sql)
                     for row in dfFantraxPlayerInfo.itertuples():
@@ -2349,14 +2358,14 @@ class HockeyPool:
                             sql = dedent(f'''\
                                 insert or replace into FantraxPlayerInfo
                                 (season_id, player_id, fantrax_id, player_name, nhl_team, pos, minors, rookie, watch_list, score, next_opp)
-                                values ({season.id}, {row.player_id}, "{row.fantrax_id}", "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
+                                values ({self.season_id}, {row.player_id}, "{row.fantrax_id}", "{row.player_name}", "{row.nhl_team}", "{row.pos}", {row.minors}, "{row.rookie}", 1, {row.score}, "{row.next_opp}")
                                 ''')
                             connection.execute(sql)
                     connection.commit()
             else:
                 # I tried dropping the table, but pandas to_sql creates the table without a primary key on the player_id,
                 # which I need for watchlist processing (see above)
-                sql = f'delete from FantraxPlayerInfo where season_id = {season.id}'
+                sql = f'delete from FantraxPlayerInfo where season_id = {self.season_id}'
                 with get_db_connection() as connection:
                     connection.execute(sql)
                     connection.commit()
@@ -2365,11 +2374,12 @@ class HockeyPool:
                 dfFantraxPlayerInfo.to_sql('FantraxPlayerInfo', con=get_db_connection(), index=False, if_exists='append')
 
         except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
             if batch:
-                logger.error(repr(e))
+                logger.error(msg)
                 raise
             else:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                sg.popup_error(msg)
 
         finally:
             msg = 'Update of Fantrax player info completed...'
@@ -2756,36 +2766,37 @@ class HockeyPool:
                         refresh_pool_team_config = True
                         refresh_pool_team_roster_config = True
 
-                    elif (type(event) == tuple and event[0] == '__FT_PTR_MCLB__') or event == '__FT_PTR_MCLB__':
-                        selections = []
-                        mclb = ft_ptr_mclb
-                        if type(event) == tuple:
-                            (selected_row, selected_column) = event[2]
-                            if selected_row == -1:
-                                idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'visible' not in x or x['visible']==True]
-                                column: Dict = pool_team_roster_config['columns'][idx[selected_column]]
-                                config_sort_column_name = column['table column'] if 'table column' in column else column['runtime column']
-                                update_pool_teams_tab = True
-                                # refresh_pool_team_config = True
-                                refresh_pool_team_roster_config = True
-                                continue
-                            else:
-                                selections = [selected_row]
+                    # # elif (type(event) == tuple and event[0] == '__FT_PTR_MCLB__') or event == '__FT_PTR_MCLB__':
+                    # elif type(event) == tuple and event[0] == '__FT_PTR_MCLB__':
+                    #     selections = []
+                    #     mclb = ft_ptr_mclb
+                    #     if type(event) == tuple:
+                    #         (selected_row, selected_column) = event[2]
+                    #         if selected_row == -1:
+                    #             idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'visible' not in x or x['visible']==True]
+                    #             column: Dict = pool_team_roster_config['columns'][idx[selected_column]]
+                    #             config_sort_column_name = column['table column'] if 'table column' in column else column['runtime column']
+                    #             update_pool_teams_tab = True
+                    #             # refresh_pool_team_config = True
+                    #             refresh_pool_team_roster_config = True
+                    #             continue
+                    #         else:
+                    #             selections = [selected_row]
 
-                        for selection in selections:
-                            sel_player = mclb.get()[selection]
-                            idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'table column' in x and x['table column']=='player_id'][0]
-                            kwargs = {f'id': sel_player[idx]}
-                            player = Player().fetch(**kwargs)
-                            # player.window()
+                    #     for selection in selections:
+                    #         sel_player = mclb.get()[selection]
+                    #         idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'table column' in x and x['table column']=='player_id'][0]
+                    #         kwargs = {f'id': sel_player[idx]}
+                    #         player = Player().fetch(**kwargs)
+                    #         player.window(self.season_id)
 
                     elif event == 'Player Bio':
-                        for selection in mclb.SelectedRows:
-                            sel_player = mclb.get()[selection]
+                        for selection in ft_ptr_mclb.SelectedRows:
+                            sel_player = ft_ptr_mclb.get()[selection]
                             idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'table column' in x and x['table column']=='player_id'][0]
                             kwargs = {f'id': sel_player[idx]}
                             player = Player().fetch(**kwargs)
-                            player.window()
+                            player.window(self.season_id)
 
                     elif event == 'Update Player':
                         for selection in mclb.SelectedRows:
@@ -2988,8 +2999,8 @@ class HockeyPool:
                         window['Save_Hockey_Pool_Button'].update(visible=False)
                         window['Cancel_Hockey_Pool_Button'].update(visible=False)
 
-                    elif event == 'Get Season Info':
-                        self.apiGetSeason()
+                    # elif event == 'Get Season Info':
+                    #     self.apiGetSeason()
                     elif event == 'Get Teams':
                         self.apiGetTeams()
                     elif event == 'Update Players':
