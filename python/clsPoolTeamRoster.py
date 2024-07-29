@@ -67,10 +67,12 @@ class PoolTeamRoster:
 
         except sqlite3.Error as e:
             ret = False
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
             ret = False
-            print('Exception in destroy: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             if outer_connection is False:
                 connection.close()
@@ -138,11 +140,13 @@ class PoolTeamRoster:
                 self.date_removed = row['date_removed']
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         finally:
             cursor.close()
 
@@ -194,9 +198,11 @@ class PoolTeamRoster:
                 player.date_removed = row['date_removed']
                 roster.append(player)
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -314,11 +320,13 @@ class PoolTeamRoster:
             connection.execute(sql, tuple(values))
             connection.commit()
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             returnCode = False
             connection.rollback()
         except Exception as e:
-            print('Exception in fetch: {)}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
         finally:
