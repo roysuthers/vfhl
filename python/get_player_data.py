@@ -133,7 +133,7 @@ def add_pre_draft_keeper_list_column_to_df(pool_id: str, df: pd.DataFrame):
 
     return
 
-def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.DataFrame:
+def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', ewma_span: int=10) -> pd.DataFrame:
 
     def average_used_for_trending(x):
         try:
@@ -153,7 +153,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
     max_games_sktr = df.query(skaters_filter).sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(games = ('player_id', 'count'))['games'].max()
     max_games_g = df.query(goalie_filter).sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(games = ('player_id', 'count'))['games'].max()
 
-    calculate_ewm_args(max_games_sktr, max_games_g)
+    calculate_ewm_args(ewma_span, max_games_sktr, max_games_g)
 
     df_agg_stats = df.sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(
         assists = ('assists', stat_type_agg_method),
@@ -174,7 +174,7 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative') -> pd.Da
         games_started = ('games_started', 'sum'),
         goals = ('goals', stat_type_agg_method),
         goals_against = ('goals_against', stat_type_agg_method),
-        goals_against_sum = ('goals_against', 'sum'),
+        # goals_against_sum = ('goals_against', 'sum'),
         goals_gw = ('goals_gw', 'sum'),
         goals_ot = ('goals_ot', 'sum'),
         goals_pp = ('goals_pp', 'sum'),
@@ -485,7 +485,7 @@ def calc_breakout_threshold(name: str, height: str, weight: int, career_games: i
 
     return breakout_threshold
 
-def calculate_ewm_args(max_games_sktr, max_games_g):
+def calculate_ewm_args(ewma_span, max_games_sktr, max_games_g):
 
     global ewm_span_sktr, ewm_span_g
 
@@ -502,12 +502,12 @@ def calculate_ewm_args(max_games_sktr, max_games_g):
     # ewm_span_g = max(1, ewm_span_g_max, int(max_games_g // (100 / ewm_span_g_percent_of_games)))
     # ewm_span_sktr = max(1, min(ewm_span_sktr_max, max_games_sktr))
     # ewm_span_g = max(1, min(ewm_span_g_max, max_games_g))
-    ewm_span_sktr = max(1, min(ewmaSpan, max_games_sktr))
-    ewm_span_g = max(1, min(ewmaSpan, max_games_g))
+    ewm_span_sktr = max(1, min(ewma_span, max_games_sktr))
+    ewm_span_g = max(1, min(ewma_span, max_games_g))
 
     return
 
-def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_summary_scores: bool=True, categories_to_exclude: List=[]):
+def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, stat_type: str='Cumulative'):
 
     try:
 
@@ -538,13 +538,13 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_su
         g_max_games = g_games.max()
 
         # Calculate the multipliers
-        if statType == 'Cumulative':
+        if stat_type == 'Cumulative':
             sktr_multipliers = 1
             f_multipliers = 1
             d_multipliers = 1
             g_count_multipliers = 1
             g_ratio_multipliers = custom_decay(g_games, g_max_games)
-        # elif statType == 'EWMA':
+        # elif stat_type == 'EWMA':
         #     # ewm_span_sktr & ewm_span_g are global, calculated in calculate_ewm_args()
         #     sktr_multipliers = custom_decay(sktr_games, ewm_span_sktr)
         #     f_multipliers = custom_decay(f_games, ewm_span_sktr)
@@ -615,13 +615,9 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, calculate_su
         df['z_save%'] = df['z_save_pct']
         df.drop('z_save_pct', axis=1, inplace=True)
 
-        if calculate_summary_scores is True:
-
-            ##########################################################################
-            df = calc_summary_scores(df=df, positional_scoring=positional_scoring, categories_to_exclude=categories_to_exclude)
-
-    except:
-        print(f'{traceback.format_exc()} in calc_z_scores()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return df
 
@@ -806,8 +802,9 @@ def calc_scoring_category_maximums(df: pd.DataFrame):
             else:
                 max_cat[f'g {cat}'] = None
 
-    except:
-        print(f'{traceback.format_exc()} in calc_scoring_category_maximums()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return
 
@@ -906,8 +903,9 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
             else:
                 min_cat[f'g {cat}'] = None
 
-    except:
-        print(f'{traceback.format_exc()} in calc_scoring_category_minimums()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return
 
@@ -984,10 +982,126 @@ def calc_scoring_category_means(df: pd.DataFrame):
             else:
                 mean_cat[cat] = None
 
-    except:
-        print(f'{traceback.format_exc()} in calc_scoring_category_means()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return
+
+def calc_scoring_category_scores(df: pd.DataFrame, positional_scoring: bool=False,):
+
+    try:
+
+        skaters_mask = df.eval(skaters_filter)
+        forward_mask = df.eval(forwards_filter)
+        defense_mask = df.eval(defense_filter)
+        goalie_mask = df.eval(goalie_filter)
+        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
+
+        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df.loc[forward_mask & minimum_one_game_mask]
+        df_d = df.loc[defense_mask & minimum_one_game_mask]
+        df_g = df.loc[goalie_mask & minimum_one_game_mask]
+
+        sktr_games = df_sktr['games']
+        f_games = df_f['games']
+        d_games = df_d['games']
+        g_games = df_g['games']
+
+        sktr_max_games = sktr_games.max()
+        f_max_games = f_games.max()
+        d_max_games = d_games.max()
+        g_max_games = g_games.max()
+
+        # Calculate the multipliers
+        if statType == 'Cumulative':
+            sktr_multipliers = 1
+            f_multipliers = 1
+            d_multipliers = 1
+            g_count_multipliers = 1
+            g_ratio_multipliers = custom_decay(g_games, g_max_games)
+        # elif statType == 'EWMA':
+        #     # ewm_span_sktr & ewm_span_g are global, calculated in calculate_ewm_args()
+        #     sktr_multipliers = custom_decay(sktr_games, ewm_span_sktr)
+        #     f_multipliers = custom_decay(f_games, ewm_span_sktr)
+        #     d_multipliers = custom_decay(d_games, ewm_span_sktr)
+        #     g_count_multipliers = custom_decay(g_games, ewm_span_g)
+        #     g_ratio_multipliers = g_count_multipliers
+        else:
+            sktr_multipliers = custom_decay(sktr_games, sktr_max_games)
+            f_multipliers = custom_decay(f_games, f_max_games)
+            d_multipliers = custom_decay(d_games, d_max_games)
+            g_count_multipliers = custom_decay(g_games, g_max_games)
+            g_ratio_multipliers = g_count_multipliers
+
+        ##########################################################################
+        # skaters
+        ##########################################################################
+        if positional_scoring is True:
+            goals = pd.concat([(df_f['goals'] / df_f['goals'].max()).multiply(f_multipliers, axis=0), (df_d['goals'] / df_d['goals'].max()).multiply(d_multipliers, axis=0)])
+            assists = pd.concat([(df_f['assists'] / df_f['assists'].max()).multiply(f_multipliers, axis=0), (df_d['assists'] / df_d['assists'].max()).multiply(d_multipliers, axis=0)])
+            pim = pd.concat([(df_f['pim'] / df_f['pim'].max()).multiply(f_multipliers, axis=0), (df_d['pim'] / df_d['pim'].max()).multiply(d_multipliers, axis=0)])
+            penalties = pd.concat([(df_f['penalties'] / df_f['penalties'].max()).multiply(f_multipliers, axis=0), (df_d['penalties'] / df_d['penalties'].max()).multiply(d_multipliers, axis=0)])
+            shots = pd.concat([(df_f['shots'] / df_f['shots'].max()).multiply(f_multipliers, axis=0), (df_d['shots'] / df_d['shots'].max()).multiply(d_multipliers, axis=0)])
+            points_pp = pd.concat([(df_f['points_pp'] / df_f['points_pp'].max()).multiply(f_multipliers, axis=0), (df_d['points_pp'] / df_d['points_pp'].max()).multiply(d_multipliers, axis=0)])
+            hits = pd.concat([(df_f['hits'] / df_f['hits'].max()).multiply(f_multipliers, axis=0), (df_d['hits'] / df_d['hits'].max()).multiply(d_multipliers, axis=0)])
+            blocked = pd.concat([(df_f['blocked'] / df_f['blocked'].max()).multiply(f_multipliers, axis=0), (df_d['blocked'] / df_d['blocked'].max()).multiply(d_multipliers, axis=0)])
+            takeaways = pd.concat([(df_f['takeaways'] / df_f['takeaways'].max()).multiply(f_multipliers, axis=0), (df_d['takeaways'] / df_d['takeaways'].max()).multiply(d_multipliers, axis=0)])
+
+        else:
+            goals = (df_sktr['goals'] / df_sktr['goals'].max()).multiply(sktr_multipliers, axis=0)
+            assists = (df_sktr['assists'] / df_sktr['assists'].max()).multiply(sktr_multipliers, axis=0)
+            pim = (df_sktr['pim'] / df_sktr['pim'].max()).multiply(sktr_multipliers, axis=0)
+            penalties = (df_sktr['penalties'] / df_sktr['penalties'].max()).multiply(sktr_multipliers, axis=0)
+            shots = (df_sktr['shots'] / df_sktr['shots'].max()).multiply(sktr_multipliers, axis=0)
+            points_pp = (df_sktr['points_pp'] / df_sktr['points_pp'].max()).multiply(sktr_multipliers, axis=0)
+            hits = (df_sktr['hits'] / df_sktr['hits'].max()).multiply(sktr_multipliers, axis=0)
+            blocked = (df_sktr['blocked'] / df_sktr['blocked'].max()).multiply(sktr_multipliers, axis=0)
+            takeaways = (df_sktr['takeaways'] / df_sktr['takeaways'].max()).multiply(sktr_multipliers, axis=0)
+
+        ##########################################################################
+        # defense
+        ##########################################################################
+        points = (df_d['points'] / df_d['points'].max()).multiply(d_multipliers, axis=0)
+
+        ##########################################################################
+        # goalies
+        ##########################################################################
+        wins = (df_g['wins'] / df_g['wins'].max()).multiply(g_count_multipliers, axis=0)
+        saves = (df_g['saves'] / df_g['saves'].max()).multiply(g_count_multipliers, axis=0)
+        gaa_delta_from_max = (df_g['gaa'].max() - df_g['gaa'])
+        max_gaa_delta_from_max = gaa_delta_from_max.max()
+        gaa = (gaa_delta_from_max / max_gaa_delta_from_max).multiply(g_ratio_multipliers, axis=0)
+        # gaa = (-1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']).multiply(g_ratio_multipliers, axis=0)
+        save_pct = (df_g['save%'] / df_g['save%'].max()).multiply(g_ratio_multipliers, axis=0)
+
+        df = df.assign(
+            d_points_score = round(points * 100, 0),
+            goals_score = round(goals * 100, 0),
+            assists_score = round(assists * 100, 0),
+            pim_score = round(pim * 100, 0),
+            penalties_score = round(penalties * 100, 0),
+            shots_score = round(shots * 100, 0),
+            points_pp_score = round(points_pp * 100, 0),
+            hits_score = round(hits * 100, 0),
+            blocked_score = round(blocked * 100, 0),
+            takeaways_score = round(takeaways * 100, 0),
+            wins_score = round(wins * 100, 0),
+            saves_score = round(saves * 100, 0),
+            gaa_score = round(gaa * 100, 0),
+            save_pct_score = round(save_pct * 100, 0),
+        )
+
+        df['save%_score'] = df['save_pct_score']
+        df.drop('save_pct_score', axis=1, inplace=True)
+
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
+
+    return df
 
 def calc_scoring_category_std_deviations(df: pd.DataFrame):
 
@@ -1054,10 +1168,12 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
                 std_cat[cat] = None
 
         # also need goals_against, used when calculating gaa z-scores
-        std_cat['goals_against'] = df_g['goals_against_sum'].std()
+        # std_cat['goals_against'] = df_g['goals_against_sum'].std()
+        std_cat['goals_against'] = df_g['goals_against'].std()
 
-    except:
-        print(f'{traceback.format_exc()} in calc_scoring_category_std_deviations()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return
 
@@ -1279,7 +1395,8 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         df.reset_index(inplace=True)
 
     except Exception as e:
-        print(''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)))
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return df
 
@@ -1291,22 +1408,41 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False, catego
     # use a set to remove duplicates and convert it back to a list while preserving order
     summary_score_types = list(dict.fromkeys(sktr_summary_score_types + g_summary_score_types))
 
-    sktr_offense_cats = [cat for cat in ['z_goals', 'z_assists', 'z_shots', 'z_points_pp'] if cat not in categories_to_exclude]
-    sktr_periph_cats = [cat for cat in ['z_hits', 'z_blocked', 'z_pim', 'z_takeaways'] if cat not in categories_to_exclude]
-    sktr_cats = sktr_offense_cats + sktr_periph_cats
+    # z cats
+    sktr_offense_z_cats = [cat for cat in ['z_goals', 'z_assists', 'z_shots', 'z_points_pp'] if cat not in categories_to_exclude]
+    sktr_periph_z_cats = [cat for cat in ['z_hits', 'z_blocked', 'z_pim', 'z_takeaways'] if cat not in categories_to_exclude]
+    sktr_z_cats = sktr_offense_z_cats + sktr_periph_z_cats
 
-    f_offense_cats = sktr_offense_cats
-    f_periph_cats = sktr_periph_cats
-    f_cats = f_offense_cats + sktr_periph_cats
+    f_offense_z_cats = sktr_offense_z_cats
+    f_periph_z_cats = sktr_periph_z_cats
+    f_z_cats = f_offense_z_cats + f_periph_z_cats
 
-    d_only_cats = [cat for cat in ['z_points'] if cat not in categories_to_exclude]
-    d_offense_cats = d_only_cats + sktr_offense_cats
-    d_periph_cats = sktr_periph_cats
-    d_cats = d_offense_cats + d_periph_cats
+    d_only_z_cats = [cat for cat in ['z_points'] if cat not in categories_to_exclude]
+    d_offense_z_cats = d_only_z_cats + sktr_offense_z_cats
+    d_periph_z_cats = sktr_periph_z_cats
+    d_z_cats = d_offense_z_cats + d_periph_z_cats
 
-    g_count_cats = [cat for cat in ['z_wins', 'z_saves'] if cat not in categories_to_exclude]
-    g_ratio_cats = [cat for cat in ['z_gaa', 'z_save%'] if cat not in categories_to_exclude]
-    g_cats = g_count_cats + g_ratio_cats
+    g_count_z_cats = [cat for cat in ['z_wins', 'z_saves'] if cat not in categories_to_exclude]
+    g_ratio_z_cats = [cat for cat in ['z_gaa', 'z_save%'] if cat not in categories_to_exclude]
+    g_z_cats = g_count_z_cats + g_ratio_z_cats
+
+    # score cats
+    sktr_offense_score_cats = [cat.replace('z_', '') + '_score' for cat in sktr_offense_z_cats]
+    sktr_periph_score_cats = [cat.replace('z_', '') + '_score' for cat in sktr_periph_z_cats]
+    sktr_score_cats = sktr_offense_score_cats + sktr_periph_score_cats
+
+    f_offense_score_cats = sktr_offense_score_cats
+    f_periph_score_cats = sktr_periph_score_cats
+    f_score_cats = f_offense_score_cats + f_periph_score_cats
+
+    d_only_score_cats = [cat.replace('z_', 'd_') + '_score' if cat == 'z_points' else cat.replace('z_', '') + '_score' for cat in d_only_z_cats]
+    d_offense_score_cats = d_only_score_cats + sktr_offense_score_cats
+    d_periph_score_cats = sktr_periph_score_cats
+    d_score_cats = d_offense_score_cats + d_periph_score_cats
+
+    g_count_score_cats = [cat.replace('z_', '') + '_score' for cat in g_count_z_cats]
+    g_ratio_score_cats = [cat.replace('z_', '') + '_score' for cat in g_ratio_z_cats]
+    g_score_cats = g_count_score_cats + g_ratio_score_cats
 
     mask_sktr = df.eval(f"{skaters_filter} and {minimum_one_game_filter}")
     mask_f = df.eval(f"{forwards_filter} and {minimum_one_game_filter}")
@@ -1319,29 +1455,35 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False, catego
     df_g = df.loc[mask_g,:]
 
     # Adjust scores to remove negative values
-    sktr_cat_scores = df_sktr[sktr_cats]
-    sktr_cat_scores_min = sktr_cat_scores.min()
-    sktr_cat_scores_adj = sktr_cat_scores + abs(sktr_cat_scores_min)
+    sktr_cat_z_scores = df_sktr[sktr_z_cats]
+    # sktr_cat_scores_min = sktr_cat_z_scores.min()
+    # sktr_cat_scores = sktr_cat_z_scores + abs(sktr_cat_scores_min)
+    sktr_cat_scores = df_sktr[sktr_score_cats]
 
-    f_cat_scores = df_f[f_cats]
-    f_cat_scores_min = f_cat_scores.min()
-    f_cat_scores_adj = f_cat_scores + abs(f_cat_scores_min)
+    f_cat_z_scores = df_f[f_z_cats]
+    # f_cat_scores_min = f_cat_z_scores.min()
+    # f_cat_scores = f_cat_z_scores + abs(f_cat_scores_min)
+    f_cat_scores = df_f[f_score_cats]
 
-    d_only_cat_scores = df_d[d_only_cats]
-    d_only_cat_scores_min = d_only_cat_scores.min()
-    d_only_cat_scores_adj = d_only_cat_scores + abs(d_only_cat_scores_min)
+    d_only_cat_z_scores = df_d[d_only_z_cats]
+    # d_only_cat_scores_min = d_only_cat_z_scores.min()
+    # d_only_cat_scores = d_only_cat_z_scores + abs(d_only_cat_scores_min)
+    d_only_cat_scores = df_d[d_only_score_cats]
 
-    d_cat_scores = df_d[d_cats]
-    d_cat_scores_min = d_cat_scores.min()
-    d_cat_scores_adj = d_cat_scores + abs(d_cat_scores_min)
+    d_cat_z_scores = df_d[d_z_cats]
+    # d_cat_scores_min = d_cat_z_scores.min()
+    # d_cat_scores = d_cat_z_scores + abs(d_cat_scores_min)
+    d_cat_scores = df_d[d_score_cats]
 
-    g_count_cat_scores = df_g[g_count_cats]
-    g_count_cat_scores_min = g_count_cat_scores.min()
-    g_count_cat_scores_adj = g_count_cat_scores + abs(g_count_cat_scores_min)
+    g_count_cat_z_scores = df_g[g_count_z_cats]
+    # g_count_cat_scores_min = g_count_cat_z_scores.min()
+    # g_count_cat_scores = g_count_cat_z_scores + abs(g_count_cat_scores_min)
+    g_count_cat_scores = df_g[g_count_score_cats]
 
-    g_ratio_cat_scores = df_g[g_ratio_cats]
-    g_ratio_cat_scores_min = g_ratio_cat_scores.min()
-    g_ratio_cat_scores_adj = g_ratio_cat_scores + abs(g_ratio_cat_scores_min)
+    g_ratio_cat_z_scores = df_g[g_ratio_z_cats]
+    # g_ratio_cat_scores_min = g_ratio_cat_z_scores.min()
+    # g_ratio_cat_scores = g_ratio_cat_z_scores + abs(g_ratio_cat_scores_min)
+    g_ratio_cat_scores = df_g[g_ratio_score_cats]
 
     # Overall scores
     global scores
@@ -1349,47 +1491,62 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False, catego
     scores['player_id'] = df['player_id']
     for score_type in summary_score_types:
         if score_type == 'peripheral':
-            d_only_cats = []
-            sktr_cats = sktr_periph_cats
-            f_cats = f_periph_cats
-            d_cats = d_periph_cats
+            d_only_z_cats = []
+            sktr_z_cats = sktr_periph_z_cats
+            f_z_cats = f_periph_z_cats
+            d_z_cats = d_periph_z_cats
+            d_only_score_cats = []
+            sktr_score_cats = sktr_periph_score_cats
+            f_score_cats = f_periph_score_cats
+            d_score_cats = d_periph_score_cats
         elif score_type == 'offense':
-            sktr_cats = sktr_offense_cats
-            f_cats = f_offense_cats
-            d_cats = d_offense_cats
+            sktr_z_cats = sktr_offense_z_cats
+            f_z_cats = f_offense_z_cats
+            d_z_cats = d_offense_z_cats
+            sktr_score_cats = sktr_offense_score_cats
+            f_score_cats = f_offense_score_cats
+            d_score_cats = d_offense_score_cats
         elif score_type == 'g_count':
-            g_cats = g_count_cats
+            g_z_cats = g_count_z_cats
+            g_score_cats = g_count_score_cats
         elif score_type == 'g_ratio':
-            g_cats = g_ratio_cats
+            g_z_cats = g_ratio_z_cats
+            g_score_cats = g_ratio_score_cats
 
         if score_type in sktr_summary_score_types:
-            sktr_scores_sum = pd.concat([d_only_cat_scores_adj[d_only_cats], sktr_cat_scores_adj[sktr_cats]], axis=1).sum(axis=1)
-            sktr_scores = round(normalize_scores(sktr_scores_sum, new_min=3), 2)
-            sktr_z_scores = pd.concat([d_only_cat_scores[d_only_cat_scores > 0][d_only_cats], sktr_cat_scores[sktr_cat_scores > 0][sktr_cats]], axis=1).sum(axis=1)
+            sktr_scores_sum = pd.concat([d_only_cat_scores[d_only_score_cats], sktr_cat_scores[sktr_score_cats]], axis=1).sum(axis=1)
+            # sktr_scores = round(normalize_scores(sktr_scores_sum, new_min=3), 2)
+            sktr_scores = normalize_scores(sktr_scores_sum)
+            sktr_z_scores = pd.concat([d_only_cat_z_scores[d_only_cat_z_scores > 0][d_only_z_cats], sktr_cat_z_scores[sktr_cat_z_scores > 0][sktr_z_cats]], axis=1).sum(axis=1)
 
-            f_scores_sum = f_cat_scores_adj[f_cats].sum(axis=1)
-            f_scores = round(normalize_scores(f_scores_sum, new_min=3), 2)
-            f_z_scores = f_cat_scores[f_cat_scores > 0][f_cats].sum(axis=1)
+            f_scores_sum = f_cat_scores[f_score_cats].sum(axis=1)
+            # f_scores = round(normalize_scores(f_scores_sum, new_min=3), 2)
+            f_scores = normalize_scores(f_scores_sum)
+            f_z_scores = f_cat_z_scores[f_cat_z_scores > 0][f_z_cats].sum(axis=1)
 
-            d_scores_sum = d_cat_scores_adj[d_cats].sum(axis=1)
-            d_scores = round(normalize_scores(d_scores_sum, new_min=3), 2)
-            d_z_scores = d_cat_scores[d_cat_scores > 0][d_cats].sum(axis=1)
+            d_scores_sum = d_cat_scores[d_score_cats].sum(axis=1)
+            # d_scores = round(normalize_scores(d_scores_sum, new_min=3), 2)
+            d_scores = normalize_scores(d_scores_sum)
+            d_z_scores = d_cat_z_scores[d_cat_z_scores > 0][d_z_cats].sum(axis=1)
 
         if score_type in g_summary_score_types:
-            g_count_scores_sum = g_count_cat_scores_adj[g_count_cats].sum(axis=1)
-            g_count_z_scores = g_count_cat_scores[g_count_cat_scores > 0][g_count_cats].sum(axis=1)
+            g_count_scores_sum = g_count_cat_scores[g_count_score_cats].sum(axis=1)
+            g_count_z_scores = g_count_cat_z_scores[g_count_cat_z_scores > 0][g_count_z_cats].sum(axis=1)
 
-            g_ratio_scores_sum = g_ratio_cat_scores_adj[g_ratio_cats].sum(axis=1)
-            g_ratio_z_scores = g_ratio_cat_scores[g_ratio_cats].sum(axis=1)
+            g_ratio_scores_sum = g_ratio_cat_scores[g_ratio_score_cats].sum(axis=1)
+            g_ratio_z_scores = g_ratio_cat_z_scores[g_ratio_z_cats].sum(axis=1)
 
             if score_type == 'score':
-                g_scores = round(normalize_scores(g_count_scores_sum + g_ratio_scores_sum, new_min=25), 2)
+                # g_scores = round(normalize_scores(g_count_scores_sum + g_ratio_scores_sum, new_min=25), 2)
+                g_scores = normalize_scores(g_count_scores_sum + g_ratio_scores_sum)
                 g_z_scores = g_count_z_scores + g_ratio_z_scores
             elif score_type == 'g_count':
-                g_scores = round(normalize_scores(g_count_scores_sum, new_min=25), 2)
+                # g_scores = round(normalize_scores(g_count_scores_sum, new_min=25), 2)
+                g_scores = normalize_scores(g_count_scores_sum)
                 g_z_scores = g_count_z_scores
             elif score_type == 'g_ratio':
-                g_scores = round(normalize_scores(g_ratio_scores_sum, new_min=25), 2)
+                # g_scores = round(normalize_scores(g_ratio_scores_sum, new_min=25), 2)
+                g_scores = normalize_scores(g_ratio_scores_sum)
                 g_z_scores = g_ratio_z_scores
 
         if score_type in sktr_summary_score_types:
@@ -1411,8 +1568,14 @@ def calc_summary_scores(df: pd.DataFrame, positional_scoring: bool=False, catego
                 scores[score_type] = pd.concat([f_scores, d_scores, g_scores])
                 scores[f'z_{score_type}'] = pd.concat([f_z_scores, d_z_scores, g_z_scores])
             else:
-                scores[score_type] = pd.concat([sktr_scores, g_scores])
-                scores[f'z_{score_type}'] = pd.concat([sktr_z_scores, g_z_scores])
+                # scores[score_type] = pd.concat([sktr_scores, g_scores])
+                # scores[f'z_{score_type}'] = pd.concat([sktr_z_scores, g_z_scores])
+                all_pos_scores_sum = pd.concat([d_only_cat_scores[d_only_score_cats], sktr_cat_scores[sktr_score_cats], g_count_scores_sum + g_ratio_scores_sum], axis=1).sum(axis=1)
+                all_pos_scores = normalize_scores(all_pos_scores_sum)
+                all_pos_z_scores = pd.concat([d_only_cat_z_scores[d_only_cat_z_scores > 0][d_only_z_cats], sktr_cat_z_scores[sktr_cat_z_scores > 0][sktr_z_cats], g_count_z_scores + g_ratio_z_scores], axis=1).sum(axis=1)
+                scores[score_type] = all_pos_scores
+                scores[f'z_{score_type}'] = all_pos_z_scores
+
 
         if score_type == 'score':
             prefix = ''
@@ -1567,7 +1730,7 @@ def format_z_combo(df: pd.DataFrame) -> pd.Series:
 
     return z_combos
 
-def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R') -> pd.DataFrame:
+def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', ewma_span: int=10) -> pd.DataFrame:
 
     try:
 
@@ -1626,7 +1789,7 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
 
         max_games_sktr = df_game_stats.query(skaters_filter).sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(games = ('player_id', 'count'))['games'].max()
         max_games_g = df_game_stats.query(goalie_filter).sort_values(['player_id', 'date']).groupby(['player_id'], as_index=False).agg(games = ('player_id', 'count'))['games'].max()
-        calculate_ewm_args(max_games_sktr, max_games_g)
+        calculate_ewm_args(ewma_span, max_games_sktr, max_games_g)
 
         # Sort and group your DataFrame once
         df_sorted_grouped = df_game_stats.sort_values(['player_id','seasonID', 'date']).groupby('player_id')
@@ -1658,8 +1821,9 @@ def get_game_stats(season_or_date_radios: str, from_season_id: str, to_season_id
             really_bad_starts = really_bad_starts,
         )
 
-    except:
-        print(f'{traceback.format_exc()}')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return df_game_stats
 
@@ -1855,8 +2019,9 @@ def insert_fantrax_columns(df: pd.DataFrame, season_id: Season, game_type: str='
         # reset index to indexes being list of row integers
         df.reset_index(inplace=True)
 
-    except:
-        print(f'{traceback.format_exc()} in insert_fantrax_columns()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     return df
 
@@ -2043,12 +2208,16 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
     return df_stats
 
-def normalize_scores(series, new_min=0, new_max=100):
-    # It seems the Fantrax has a min = ~3 for skaters, and min = ~25
-    # I have no particular reason to replicate these minimums, but just gonnar run with them for now
-    old_min = series.min()
-    old_max = series.max()
-    return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
+# def normalize_scores(series, new_min=0, new_max=100):
+#     # It seems the Fantrax has a min = ~3 for skaters, and min = ~25
+#     # I have no particular reason to replicate these minimums, but just gonnar run with them for now
+#     old_min = series.min()
+#     old_max = series.max()
+#     return ((series - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
+
+def normalize_scores(series):
+    max = series.max()
+    return round((series / max) * 100, 0)
 
 def rankings_to_html(df: pd.DataFrame, config: Dict) -> dict:
 
@@ -2128,17 +2297,17 @@ def rankings_to_html(df: pd.DataFrame, config: Dict) -> dict:
             'scores_dict': scores_dict,
         }
 
-    except:
-        print(f'{traceback.format_exc()} in rankings_to_html()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     # return the JSON object as a response to the frontend
     return data_dict
 
 def rank_players(generation_type: str, season_or_date_radios: str, from_season_id: str, to_season_id: str, from_date: str, to_date: str, pool_id: str, game_type: str='R', stat_type: str='Cumulative', ewma_span: int=10, projection_source: str='', categories_to_exclude: List=[], positional_scoring: bool=False) -> dict:
 
-    global statType, ewmaSpan
+    global statType
     statType = stat_type
-    ewmaSpan = ewma_span
 
     if game_type == 'R':
         season_type = 'Regular Season'
@@ -2165,7 +2334,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
         if generation_type == 'full':
 
-            df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type)
+            df_game_stats = get_game_stats(season_or_date_radios=season_or_date_radios, from_season_id=from_season_id, to_season_id=to_season_id, from_date=from_date, to_date=to_date, pool_id=pool_id, game_type=game_type, ewma_span=ewma_span)
 
             # save to json file
             ###################################################################
@@ -2194,7 +2363,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
         if generation_type in ('full', 'aggregateData'):
             #######################################################################################
             # aggregate per game stats per player
-            df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type)
+            df_player_stats = aggregate_game_stats(df=df_game_stats, stat_type=stat_type, ewma_span=ewma_span)
 
             if df_player_stats is None or df_player_stats.empty:
                 return None
@@ -2258,12 +2427,6 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
     if generation_type != 'calculateScores':
 
-        # merge with current player info
-        df_player_stats = merge_with_current_players_info(season_id=to_season_id, pool_id=pool_id, df_stats=df_player_stats, game_type=game_type)
-
-        # add fantrax "score" & "minors" columns
-        df_player_stats = insert_fantrax_columns(df=df_player_stats, season_id=to_season_id, game_type=game_type)
-
         # save to json file
         ###################################################################
         # Create the absolute path to the parent directory
@@ -2291,16 +2454,28 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     ###################################################################
     # at this point, generation_type in ('full', 'aggregateData', 'calculateScores')
 
+    # merge with current player info
+    df_player_stats = merge_with_current_players_info(season_id=to_season_id, pool_id=pool_id, df_stats=df_player_stats, game_type=game_type)
+
+    # add fantrax "score" & "minors" columns
+    df_player_stats = insert_fantrax_columns(df=df_player_stats, season_id=to_season_id, game_type=game_type)
+
     # calc global mean and std dev for z-score calculations
     calc_scoring_category_means(df=df_player_stats)
     calc_scoring_category_std_deviations(df=df_player_stats)
 
     # z-scores
-    df_player_stats = calc_z_scores(df=df_player_stats, positional_scoring=positional_scoring, categories_to_exclude=categories_to_exclude)
+    df_player_stats = calc_z_scores(df=df_player_stats, positional_scoring=positional_scoring, stat_type=statType)
 
     # calc global minumums & maximums
     calc_scoring_category_minimums(df=df_player_stats)
     calc_scoring_category_maximums(df=df_player_stats)
+
+    # scoring category scores
+    df_player_stats = calc_scoring_category_scores(df=df_player_stats, positional_scoring=positional_scoring)
+
+    # summary scores
+    df_player_stats = calc_summary_scores(df=df_player_stats, positional_scoring=positional_scoring, categories_to_exclude=categories_to_exclude)
 
     # add draft list info
     df_player_stats = add_draft_list_columns_to_df(season_id=to_season_id, df=df_player_stats)
@@ -2333,8 +2508,9 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
         df_stats = df_player_stats.copy(deep=True)
 
-    except:
-        print(f'{traceback.format_exc()} in rank_players()')
+    except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+        sg.popup_error(msg)
 
     if len(df_stats.index) == 0:
         print('There are no players to list.')
@@ -2488,20 +2664,20 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
     score_summary_columns = {
         'columns': [
             {'title': 'z-score', 'runtime column': 'z_score', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
-            {'title': 'score', 'runtime column': 'score', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
+            {'title': 'score', 'runtime column': 'score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum'), 'search_builder': True},
             {'title': 'z-combo', 'runtime column': 'z_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': ('skater_z_score_sum', 'goalie_z_score_sum')},
             {'title': 'z-offense', 'runtime column': 'z_offense', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
-            {'title': 'offense score', 'runtime column': 'offense', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'offense score', 'runtime column': 'offense', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-offense combo', 'runtime column': 'z_offense_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
             {'title': 'z-peripheral', 'runtime column': 'z_peripheral', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
-            {'title': 'peripheral score', 'runtime column': 'peripheral', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
+            {'title': 'peripheral score', 'runtime column': 'peripheral', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_sum', 'search_builder': True},
             {'title': 'z-peripheral combo', 'runtime column': 'z_peripheral_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'skater_z_score_sum'},
 
             {'title': 'z-count', 'runtime column': 'z_count', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
-            {'title': 'count score', 'runtime column': 'g_count', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'count score', 'runtime column': 'g_count', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-count combo', 'runtime column': 'z_g_count_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
             {'title': 'z-ratio', 'runtime column': 'z_ratio', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
-            {'title': 'ratio score', 'runtime column': 'g_ratio', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
+            {'title': 'ratio score', 'runtime column': 'g_ratio', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_sum', 'search_builder': True},
             {'title': 'z-ratio combo', 'runtime column': 'z_g_ratio_combo', 'format': eval(f_str), 'default order': 'desc', 'data_group': 'goalie_z_score_sum'},
 
         ],
@@ -2622,6 +2798,23 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     config['columns'].extend(skater_zscore_columns['columns'])
 
+    skater_category_score_columns = {
+        'columns': [
+            {'title': 'pts score', 'runtime column': 'd_points_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'g score', 'runtime column': 'goals_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'a score', 'runtime column': 'assists_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'ppp score', 'runtime column': 'points_pp_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'sog score', 'runtime column': 'shots_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'tk score', 'runtime column': 'takeaways_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'hits score', 'runtime column': 'hits_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'blk score', 'runtime column': 'blocked_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'pim score', 'runtime column': 'pim_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'penalties score', 'runtime column': 'penalties_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'skater_z_score_cat', 'hide': True, 'search_builder': True},
+        ],
+    }
+
+    config['columns'].extend(skater_category_score_columns['columns'])
+
     goalie_columns = {
         'columns': [
             {'title': 'tier', 'runtime column': 'tier', 'data_group': 'draft', 'hide': True},
@@ -2660,5 +2853,16 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
     }
 
     config['columns'].extend(goalie_zscore_columns['columns'])
+
+    goalie_category_score_columns = {
+        'columns': [
+            {'title': 'w score', 'runtime column': 'wins_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'sv score', 'runtime column': 'saves_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'gaa score', 'runtime column': 'gaa_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_cat', 'hide': True, 'search_builder': True},
+            {'title': 'sv% score', 'runtime column': 'save%_score', 'format': eval(f_0_decimals_show_0), 'default order': 'desc', 'data_group': 'goalie_z_score_cat', 'hide': True, 'search_builder': True},
+        ],
+    }
+
+    config['columns'].extend(goalie_category_score_columns['columns'])
 
     return deepcopy(config)
