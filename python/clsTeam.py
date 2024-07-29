@@ -81,17 +81,21 @@ class Team:
 
             except sqlite3.Error as e:
                 ret = False
-                print('Database error: {0}'.format(e.args[0]))
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                sg.popup_error(msg)
             except Exception as e:
                 ret = False
-                print('Exception in destroy: {0}'.format(e.args[0]))
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                sg.popup_error(msg)
 
         except sqlite3.Error as e:
             ret = False
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
             ret = False
-            print('Exception in destroy: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
         return ret
 
@@ -119,9 +123,11 @@ class Team:
                 self.name = row[1]
                 self.abbr = row[2]
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -159,9 +165,11 @@ class Team:
                 teams.append(team)
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -221,11 +229,13 @@ class Team:
             connection.execute(sql2, tuple(values2))
             connection.commit()
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
         except Exception as e:
-            print('Exception in persist: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
 
