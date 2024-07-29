@@ -66,9 +66,11 @@ class PoolTeam:
                 count = row[0]
             # lastRowID = connection.lastrowid
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -157,10 +159,12 @@ class PoolTeam:
 
         except sqlite3.Error as e:
             ret = False
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
             ret = False
-            print('Exception in destroy: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             if outer_connection is False:
                 connection.close()
@@ -191,11 +195,13 @@ class PoolTeam:
                 for key in self.__dict__.keys():
                     setattr(self, key, row[key])
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         finally:
             cursor.close()
 
@@ -258,9 +264,11 @@ class PoolTeam:
                 pool_team.G_minimum_starts = row['G_minimum_starts']
                 pool_teams.append(pool_team)
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -291,11 +299,13 @@ class PoolTeam:
             connection.execute(sql, tuple(values))
             connection.commit()
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
 
