@@ -181,7 +181,10 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
                 player_info = row.find(name=["a"]).get('href').rsplit('/')
                 if player_info[1] == 'team':
                     nhl_team = player_info[2]
-                    team.append(nhl_teams[nhl_team])
+                    if nhl_team == 'utah-hc':
+                        team.append('UTA')
+                    else:
+                        team.append(nhl_teams[nhl_team])
                 else:
                     team.append('N/A')
 
@@ -205,10 +208,11 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         df['note'] = injury_note
 
     except Exception as e:
+        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
         if dialog:
-            sg.PopupScrolled(''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)), modal=True)
+            sg.PopupScrolled(msg, modal=True)
         else:
-            logger.error(repr(e))
+            logger.error(msg)
             raise
 
     return df
