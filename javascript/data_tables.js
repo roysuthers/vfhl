@@ -1315,6 +1315,66 @@ document.getElementById('undoDraftPick').addEventListener('click', () => {
 
 })
 
+document.getElementById('toggleSummary').addEventListener('click', () => {
+
+    if ($('#toggleSummary')[0].checked) {
+        let statsTable = $('#player_stats').DataTable();
+        createManagerSummaryTable(statsTable)
+    } else {
+        let mangagerSummaryTable = $('#managerSummary').DataTable();
+        mangagerSummaryTable.destroy();
+    }
+
+})
+
+document.getElementById('toggleScarcity').addEventListener('click', () => {
+
+    if ($('#toggleScarcity')[0].checked) {
+
+        // Check if DataTable instance exists
+        if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+            let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(statsTable)
+        }
+
+        createMyCategoryNeedsTable()
+
+        // Create the allPlayers array
+        let allPlayers = getAllPlayers();
+
+        // create Category Scarcity by Z-score Range table
+        categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
+        createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+
+        // Filter out rows with no team manager
+        let allAvailablePlayers = allPlayers.filter(function (row) {
+            return row['manager'] === "";
+        });
+        // create Category Scarcity table
+        categoryScarcity = getCategoryScarcity(allAvailablePlayers);
+        createCategoryScarcityTable(categoryScarcity);
+
+    } else {
+
+        if ($('#toggleSummary')[0].checked == false) {
+            let mangagerSummaryTable = $('#managerSummary').DataTable();
+            mangagerSummaryTable.destroy();
+        }
+
+        let myCategoryNeeds = $('#myCategoryNeeds').DataTable();
+        myCategoryNeeds.destroy();
+        // Remove the table element from the DOM
+        $('#myCategoryNeeds').remove();
+
+        let categoryScarcityByZScoreRange = $('#categoryScarcityByZScoreRange').DataTable();
+        categoryScarcityByZScoreRange.destroy();
+
+        let categoryScarcity = $('#categoryScarcity').DataTable();
+        categoryScarcity.destroy();
+    }
+
+})
+
 function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable) {
 
     // Reset search panes
@@ -1803,8 +1863,8 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
     // Filter out rows with no team manager
     let rosteredPlayers = originalPlayerStatsTableData.filter(function (row) {
-        return row[manager_idx] !== "";
-        // return row[manager_idx] !== "" && row[keeper_idx] === 'Yes';
+        // return row[manager_idx] !== "";
+        return row[manager_idx] !== "" && row[keeper_idx] === 'Yes';
     });
 
     // Create new data source for new table
@@ -1829,7 +1889,7 @@ function calcManagerSummaryZScores(playerStatsTable) {
             // Team manager does not exist in new data, add new row
             data.push({
                 manager: manager,
-                picks: 25, // 25 because loop starts with 0; actual picks will start at 14, during draft simulation, but to start include 12 keepers
+                picks: 25, // 25 because loop starts with 0; actual picks will start at 14, during draft simulation, but to start include 11 Keepers & 2 Minors Eligible
                 fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
                 dCount: (position === 'D') ? 1 : 0,
                 gCount: (position === 'G') ? 1 : 0,
@@ -2616,8 +2676,11 @@ function createMyCategoryNeedsTable() {
 
     const managerData = getMyCategoryNeeds().find(data => data.manager === 'Banshee');
     if (managerData) {
-        const managerTable = $('<table>').css('margin', '10px').appendTo('#myCategoryNeedsContainer');
-        managerTable.addClass('display cell-border hover compact');
+
+        const managerTable = $('<table>').css('margin', '10px').appendTo('#myCategoryNeedsContainer')
+
+        managerTable.attr('id', 'myCategoryNeeds')
+                    .addClass('display cell-border hover compact');
 
         const categories = Object.entries(managerData)
             .filter(([key]) => key !== 'manager')
