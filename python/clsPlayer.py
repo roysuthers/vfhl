@@ -17,7 +17,7 @@ import ujson as json
 from PIL import Image
 
 # Import NHL Pool classes
-from constants import NHL_API_BASE_URL, NHL_API_URL
+from constants import NHL_API_BASE_URL, NHL_API_URL, NHL_ASSETS_BASE_URL
 from utils import get_db_connection, get_db_cursor
 
 
@@ -78,11 +78,13 @@ class Player:
                 for key in self.__dict__.keys():
                     setattr(self, key, row[key])
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
         finally:
             cursor.close()
 
@@ -130,27 +132,37 @@ class Player:
                     setattr(player, key, row[key])
                 players.append(player)
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
         return players
 
-    def layout(self):
+    def layout(self, season_id: int):
 
         # Mug shot
-        url = f'http://nhl.bamcontent.com/images/headshots/current/168x168/{self.id}.jpg'
-        img = Image.open(urlopen(url))
-        mug_shot = io.BytesIO()
-        img.save(mug_shot, format='GIF')
+        # https://assets.nhle.com/mugs/nhl/default-skater.png
+        url = f'{NHL_ASSETS_BASE_URL}/mugs/nhl/{season_id}/{self.current_team_abbr}/{self.id}.png'
+        # img = Image.open(urlopen(url))
+        # mug_shot = io.BytesIO()
+        # img.save(mug_shot, format='GIF')
+        # Download the image
+        response = requests.get(url)
+        img = Image.open(io.BytesIO(response.content))
+        # Convert the image to a format that PySimpleGUI can display
+        bio = io.BytesIO()
+        img.save(bio, format='PNG')
+        img_data = bio.getvalue()
 
-        player = j.search('people[0]', requests.get(f'{NHL_API_URL}/people/{self.id}').json())
+        player = requests.get(f'{NHL_API_URL}/player/{self.id}/landing').json()
 
         date = player.get('birthDate')
-        city =player.get('birthCity')
-        province_state = player.get('birthStateProvince')
+        city = player.get('birthCity').get('default')
+        province_state = player.get('birthStateProvince').get('default') if 'birthStateProvince' in player else None
         country = player.get('birthCountry')
         if province_state is None:
             birth_info = ''.join([date, ' in ', city, ', ', country])
@@ -160,17 +172,18 @@ class Player:
         team_id = None
         team_name = None
         team_logo = None
-        if 'currentTeam' in player:
-            current_team = j.search('currentTeam', player)
+        if 'currentTeamId' in player:
+            current_team = player.get('currentTeamId')
 
-            team_id = current_team.get('id')
-            team_name = current_team.get('name')
+            team_id = player.get('currentTeamId')
+            team_abbr = player.get('currentTeamAbbrev')
+            team_name = player.get('fullTeamName').get('default')
 
-            # url = f'https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/{team_id}.svg'
-            # team_logo = io.BytesIO()
-            # cairosvg.svg2png(url=url, write_to=team_logo, scale=0.035)
-            # team_logo = team_logo.getvalue()
-            team_logo = Image.open(os.path.abspath(f'./python/input/nhl-images/logos/{team_id}.png'))
+            url = player.get('teamLogo')
+            team_logo = io.BytesIO()
+            cairosvg.svg2png(url=url, write_to=team_logo, scale=0.035)
+            team_logo = team_logo.getvalue()
+            # team_logo = Image.open(os.path.abspath(f'./python/input/nhl-images/logos/{team_id}.png'))
 
         # primary_position = ''
         # if 'primaryPosition' in player:
@@ -187,46 +200,49 @@ class Player:
         else:
             team_visible = True
 
-        jersey_number = ''
-        position = ''
-        if team_id is not None:
-            for person in [fj.flatten(d, '_') for d in j.search('teams[0].roster.roster', requests.get(f'{NHL_API_URL}/teams/{team_id}?expand=team.roster').json())]:
-                if person['person_id'] == self.id:
-                    break
-            jersey_number = person['jerseyNumber']
-            position = person['position_abbreviation']
+        jersey_number = player.get('sweaterNumber')
+        position = player.get('position')
+        # if team_id is not None:
+        #     for person in [fj.flatten(d, '_') for d in j.search('teams[0].roster.roster', requests.get(f'{NHL_API_URL}/teams/{team_id}?expand=team.roster').json())]:
+        #         if person['person_id'] == self.id:
+        #             break
+        #     jersey_number = person['jerseyNumber']
+        #     position = person['position_abbreviation']
 
-        twitter = j.search('people[0].social.twitter[0]', requests.get(f'{NHL_API_URL}/people/{self.id}?expand=person.social').json())
-        if twitter is not None:
-            twitter = f'@{twitter}'
+        # twitter = j.search('people[0].social.twitter[0]', requests.get(f'{NHL_API_URL}/people/{self.id}?expand=person.social').json())
+        # if twitter is not None:
+        #     twitter = f'@{twitter}'
 
         layout = [
             [
                 sg.Column(layout=
                     [
                         [
-                            sg.Image(data=mug_shot.getvalue(), enable_events=True, key='CLICK-MUG-SHOT', tooltip='Click to open NHL API player link'),
-                            sg.Text(player['link'], visible=False, key='PLAYER-LINK'),
+                            # sg.Image(data=mug_shot.getvalue(), enable_events=True, key='CLICK-MUG-SHOT', tooltip='Click to open NHL API player link'),
+                            sg.Image(data=img_data),
+                            # sg.Text(player['link'], visible=False, key='PLAYER-LINK'),
                         ],
-                        [
-                            sg.Input(twitter, size=(20,1), readonly=True, disabled_readonly_background_color=sg.theme_background_color(), disabled_readonly_text_color=sg.theme_text_color(), border_width=0, justification='center'),
-                        ],
+                        # [
+                        #     sg.Input(twitter, size=(20,1), readonly=True, disabled_readonly_background_color=sg.theme_background_color(), disabled_readonly_text_color=sg.theme_text_color(), border_width=0, justification='center'),
+                        # ],
                     ], expand_x=True, expand_y=True),
                 sg.Column(layout=
                     [
                         [
-                            sg.Text(player.get('fullName'), auto_size_text=True),
+                            sg.Text(f"{player.get('firstName').get('default')} {player.get('lastName').get('default')}", auto_size_text=True),
                         ],
                         [
                             sg.Text('Born:', auto_size_text=True), sg.Text(birth_info, auto_size_text=True),
                         ],
                         [
-                            sg.Text('Age:', auto_size_text=True), sg.Text(player.get('currentAge'), auto_size_text=True),
-                            sg.Text('Height:', auto_size_text=True), sg.Text(player.get('height'), auto_size_text=True),
-                            sg.Text('Weight:', auto_size_text=True), sg.Text(player.get('weight'), auto_size_text=True),
+                            # sg.Text('Age:', auto_size_text=True), sg.Text(player.get('currentAge'), auto_size_text=True),
+                            sg.Text('Height:', auto_size_text=True), sg.Text(player.get('heightInInches'), auto_size_text=True),
+                            sg.Text('Weight:', auto_size_text=True), sg.Text(player.get('weightInPounds'), auto_size_text=True),
                         ],
                         [
-                            sg.Text('Team:', auto_size_text=True, visible=team_visible), sg.Image(data=team_logo.im, visible=logo_visible), sg.Text(team_name, auto_size_text=True, visible=team_visible),
+                            # sg.Text('Team:', auto_size_text=True, visible=team_visible), sg.Image(data=team_logo.im, visible=logo_visible), sg.Text(team_name, auto_size_text=True, visible=team_visible),
+                            sg.Text('Team:', auto_size_text=True, visible=team_visible),
+                            sg.Image(data=team_logo, visible=logo_visible), sg.Text(team_name, auto_size_text=True, visible=team_visible),
                         ],
                         [
                             sg.Text('Jersey:', auto_size_text=True, visible=team_visible), sg.Text(jersey_number, auto_size_text=True, visible=team_visible),
@@ -242,9 +258,9 @@ class Player:
 
         return layout
 
-    def window(self):
+    def window(self, season_id: int):
 
-        window = sg.Window(title='Player Biography', layout=self.layout(), finalize=True, resizable=True)
+        window = sg.Window(title='Player Biography', layout=self.layout(season_id), finalize=True, resizable=True)
 
         while True:
 
@@ -254,9 +270,9 @@ class Player:
                 window.close()
                 return
 
-            if event == 'CLICK-MUG-SHOT':
-                link = window.AllKeysDict['PLAYER-LINK'].get()
-                webbrowser.open(f'{NHL_API_BASE_URL}/{link}')
+            # if event == 'CLICK-MUG-SHOT':
+            #     link = window.AllKeysDict['PLAYER-LINK'].get()
+            #     webbrowser.open(f'{NHL_ASSETS_BASE_URL}/{link}')
 
         return
 
@@ -280,13 +296,15 @@ class Player:
             connection.commit()
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
             connection.rollback()
             returnCode = False
         except Exception as e:
-            print('Exception in persist: {0}'.format(e.args[0]))
-            print(sql)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
+            # print(sql)
             connection.rollback()
             returnCode = False
         finally:
