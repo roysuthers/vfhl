@@ -62,13 +62,13 @@ def main():
             if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
                 try:
                     nhl_api.get_player_stats(season=season, batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to nhl_api.get_player_stats().')
                 logger.info('Call to nhl_api.get_player_stats() returned.')
             elif season.SEASON_HAS_STARTED is False:
-                logger.info(f'{season.id}{season.type} has not started.')
+                logger.info(f'nhl_api.get_player_stats() not executed because "{season.id}{season.type}" has not started.')
             elif season.SEASON_HAS_ENDED is True:
-                logger.info(f'{season.id}{season.type} has completed.')
+                logger.info(f'nhl_api.get_player_stats() not executed because "{season.id}{season.type}" has completed.')
         # I think I need to get the players after player stats, because get_players()
         # will add missing roster players, irrespective of having stats, while the
         # get_player_stats clears the TeamRosters table, and re-outputs based on stats, or being on a
@@ -76,14 +76,14 @@ def main():
         logger.info('Calling nhl_api.get_players().')
         try:
             nhl_api.get_players(season=seasons[0], batch=True)
-        except:
+        except Exception as e:
             logger.info('Exception in call to nhl_api.get_players() returned.')
         logger.info('Call to nhl_api.get_players() returned.')
 
         logger.info('Calling hp.updatePlayerInjuries().')
         try:
             hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
-        except:
+        except Exception as e:
             logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
@@ -94,52 +94,58 @@ def main():
         # the  task_scheduler_2.py scheduled task
         for season in seasons:
             if season.type == 'R':
-                logger.info('Calling hp.update_player_lines().')
-                today = date.strftime(date.today(), '%Y-%m-%d')
-                # yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
-                # for game_date in (yesterday, today):
-                    # hp.update_player_lines(season=season, batch=True, game_date=game_date)
-                try:
-                    hp.update_player_lines(season=season, batch=True, game_date=today)
-                except:
-                    logger.info('Exception in call to hp.update_player_lines() returned.')
-                logger.info('Call to hp.update_player_lines() returned.')
-                # break
+
+                # update season constants
+                season.set_season_constants()
+
+                if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
+                    logger.info('Calling hp.update_player_lines().')
+                    today = date.strftime(date.today(), '%Y-%m-%d')
+                    # yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
+                    # for game_date in (yesterday, today):
+                        # hp.update_player_lines(season=season, batch=True, game_date=game_date)
+                    try:
+                        hp.update_player_lines(season=season, batch=True, game_date=today)
+                    except Exception as e:
+                        logger.info('Exception in call to hp.update_player_lines() returned.')
+                    logger.info('Call to hp.update_player_lines() returned.')
+                    # break
 
                 logger.info('Calling hp.updatePoolTeams().')
                 try:
                     hp.updatePoolTeams(suppress_prompt=True, batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updatePoolTeams() returned.')
                 logger.info('Call to hp.updatePoolTeams() returned.')
 
                 logger.info('Calling hp.updatePoolTeamRosters().')
                 try:
                     hp.updatePoolTeamRosters(suppress_prompt=True, batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updatePoolTeamRosters() returned.')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for active_available_players, minors_available_players, active_taken_players, minors_taken_players')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
-            logger.info('Calling hp.getMoneyPuckData().')
-            try:
-                hp.getMoneyPuckData(season=season, batch=True)
-            except:
-                logger.info('Exception in call to hp.getMoneyPuckData() returned.')
-            logger.info('Call to hp.getMoneyPuckData() returned.')
+                if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
+                    logger.info('Calling hp.getMoneyPuckData().')
+                    try:
+                        hp.getMoneyPuckData(season=season, batch=True)
+                    except Exception as e:
+                        logger.info('Exception in call to hp.getMoneyPuckData() returned.')
+                    logger.info('Call to hp.getMoneyPuckData() returned.')
 
         logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
         caption = f'Task Scheduler: "Daily VFHL Scheduled Task" notification'
