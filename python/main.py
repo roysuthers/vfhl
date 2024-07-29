@@ -82,6 +82,10 @@ def create_app():
         except FileNotFoundError:
             # If the file does not exist, scrape the data and save it to the file
             draft_picks = scrape_draft_picks()
+            if len(draft_picks) == 0:
+                # raise Exception('main::draft_order(): No draft picks scraped.')
+                return
+
             with open(file_path, 'w') as f:
                 json.dump(draft_picks, f)
 
