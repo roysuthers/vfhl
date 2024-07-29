@@ -96,35 +96,35 @@ class Fantrax:
 
         return
 
-    def login(self, driver, wait):
+    # def login(self, driver, wait):
 
-        count = 0
-        while True and count < 3:
-            count += 1
+    #     count = 0
+    #     while True and count < 3:
+    #         count += 1
 
-            user_id = wait.until(EC.presence_of_element_located((By.XPATH, self.login_user_xpath)))
-            password = driver.find_element(By.XPATH, self.login_password_xpath)
-            login_button = driver.find_element(By.XPATH, self.login_button_xpath)
+    #         user_id = wait.until(EC.presence_of_element_located((By.XPATH, self.login_user_xpath)))
+    #         password = driver.find_element(By.XPATH, self.login_password_xpath)
+    #         login_button = driver.find_element(By.XPATH, self.login_button_xpath)
 
-            user_id.send_keys(self.user_name)
-            password.send_keys('in35HenES7')
-            login_button.click()
+    #         user_id.send_keys(self.user_name)
+    #         password.send_keys('in35HenES7')
+    #         login_button.click()
 
-            try:
-                errorMsgElem = driver.find_element(By.XPATH, '/html/body/app-root/div/div[1]/div[1]/div/app-login/div/section/form/div[1]/div[2]')
-                print(errorMsgElem.text)
-                return False
-            except:
-                if driver.current_url==f'https://www.fantrax.com/error/{league_id}':
-                    # alert_msg = driver.find_element(By.XPATH, '//html/body/app-root/div/div[1]/div[1]/div/app-error/div/section/alert/div/article/div/div/p')
-                    # print(f'Alert: {alert_msg.text}')
-                    home_button = driver.find_element(By.XPATH, '/html/body/app-root/div/div[1]/div[1]/div/app-error/div/section/alert/div/article/div/div/div/a/span[1]')
-                    home_button.click()
-                break
+    #         try:
+    #             errorMsgElem = driver.find_element(By.XPATH, '/html/body/app-root/div/div[1]/div[1]/div/app-login/div/section/form/div[1]/div[2]')
+    #             print(errorMsgElem.text)
+    #             return False
+    #         except:
+    #             if driver.current_url==f'https://www.fantrax.com/error/{league_id}':
+    #                 # alert_msg = driver.find_element(By.XPATH, '//html/body/app-root/div/div[1]/div[1]/div/app-error/div/section/alert/div/article/div/div/p')
+    #                 # print(f'Alert: {alert_msg.text}')
+    #                 home_button = driver.find_element(By.XPATH, '/html/body/app-root/div/div[1]/div[1]/div/app-error/div/section/alert/div/article/div/div/div/a/span[1]')
+    #                 home_button.click()
+    #             break
 
-            if count >= 3:
-                print('3 attempts to log in have failed...')
-                return False
+    #         if count >= 3:
+    #             print('3 attempts to log in have failed...')
+    #             return False
 
         return True
 
@@ -142,6 +142,8 @@ class Fantrax:
                     return
             else:
                 logger.debug(msg)
+
+            dfNHLTeamTransactions = None
 
             with Browser() as browser:
 
@@ -824,7 +826,7 @@ class Fantrax:
                             # some rows are not specific to a player
                             try:
                                 player_name = player.find_element(By.TAG_NAME, 'a').text
-                            except:
+                            except Exception as e:
                                 continue
 
                             pool_team.append(team.name)
