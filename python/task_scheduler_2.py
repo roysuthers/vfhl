@@ -50,14 +50,14 @@ def main():
         logger.info('Calling hp.email_nhl_team_transactions().')
         try:
             hp.email_nhl_team_transactions(batch=True)
-        except:
+        except Exception as e:
             logger.info('Exception in call to hp.email_nhl_team_transactions() returned.')
         logger.info('Call to hp.email_nhl_team_transactions() returned.')
 
         logger.info('Calling hp.updatePlayerInjuries().')
         try:
             hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
-        except:
+        except Exception as e:
             logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
@@ -65,39 +65,39 @@ def main():
         # only for regular season
         for season in seasons:
             if season.type == 'R':
-                logger.info('Calling hp.update_player_lines().')
-                today = date.strftime(date.today(), '%Y-%m-%d')
-                yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
-                # for game_date in (yesterday, today):
-                #     try:
-                #         hp.update_player_lines(season=season, batch=True, game_date=game_date)
-                #     except:
-                #         logger.info('Exception in call to hp.update_player_lines() returned.')
-                try:
-                    hp.update_player_lines(season=season, batch=True)
-                except:
-                    logger.info('Exception in call to hp.update_player_lines() returned.')
-                logger.info('Call to hp.update_player_lines() returned.')
-                # break
+                # logger.info('Calling hp.update_player_lines().')
+                # # today = date.strftime(date.today(), '%Y-%m-%d')
+                # # yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
+                # # for game_date in (yesterday, today):
+                # #     try:
+                # #         hp.update_player_lines(season=season, batch=True, game_date=game_date)
+                # #     except Exception as e:
+                # #         logger.info('Exception in call to hp.update_player_lines() returned.')
+                # try:
+                #     hp.update_player_lines(season=season, batch=True)
+                # except Exception as e:
+                #     logger.info('Exception in call to hp.update_player_lines() returned.')
+                # logger.info('Call to hp.update_player_lines() returned.')
+                # # break
 
                 logger.info('Calling hp.updatePoolTeamRosters().')
                 try:
                     hp.updatePoolTeamRosters(suppress_prompt=True, batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updatePoolTeamRosters() returned.')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for minors_available_players, minors_taken_players, active_available_players, all_taken_players')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
-                except:
+                except Exception as e:
                     logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
