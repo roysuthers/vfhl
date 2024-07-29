@@ -21,7 +21,7 @@ pd.set_option('display.colheader_justify','left')
 
 sg.ChangeLookAndFeel('Black')
 
-def assign_player_ids(df: pd.DataFrame, player_name: str, nhl_team: str, pos_code: str, fantrax_id: str) -> pd.Series:
+def assign_player_ids(df: pd.DataFrame, player_name: str='name', nhl_team: str='team', pos_code: str='pos', fantrax_id: str='') -> pd.Series:
 
     from clsNHL_API import NHL_API
     nhl_api = NHL_API()
@@ -33,7 +33,10 @@ def assign_player_ids(df: pd.DataFrame, player_name: str, nhl_team: str, pos_cod
     player_ids = load_player_name_and_id_dict()
 
     # Get player IDs
-    playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code], row['fantrax_id']), axis=1)
+    if fantrax_id == '':
+        playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code]), axis=1)
+    else:
+        playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code], row['fantrax_id']), axis=1)
 
     return playerIds
 
