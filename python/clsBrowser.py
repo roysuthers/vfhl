@@ -1,4 +1,5 @@
 import os
+import psutil
 import sys
 import threading
 import traceback
@@ -16,6 +17,7 @@ class Browser:
         self.browser_download_dir = browser_download_dir
         # self.browser = self.setBrowserOptions()
         self.browser = None
+        self.firefox_pids = []
 
         return
 
@@ -24,11 +26,10 @@ class Browser:
         # Create a separate thread to initialize the browser
         thread = threading.Thread(target=self.init_browser)
         thread.start()
-
-        # Wait for the specified amount of time
-        thread.join(timeout=30)  # Set timeout to 30 seconds
+        thread.join(timeout=60)  # Set timeout
 
         if thread.is_alive():
+            self.terminate_orphaned_processes()
             raise Exception("Initialization is taking longer than expected...")
         else:
             return self.browser
@@ -37,8 +38,9 @@ class Browser:
         self.browser = self.setBrowserOptions()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-
-        self.browser.quit()
+        if self.browser:
+            self.browser.quit()
+        self.terminate_orphaned_processes()
 
         return
 
@@ -64,6 +66,11 @@ class Browser:
 
             self.browser.set_page_load_timeout(30)  # Set timeout to 10 seconds
 
+            # Track the PIDs of the Firefox processes
+            for proc in psutil.process_iter(['pid', 'name']):
+                if proc.info['name'] == 'firefox.exe':
+                    self.firefox_pids.append(proc.info['pid'])
+
         except FileNotFoundError:
             raise Exception(f"Driver not found: {driver_path}")
             return None
@@ -73,3 +80,11 @@ class Browser:
             return None
 
         return self.browser
+
+    def terminate_orphaned_processes(self):
+        for pid in self.firefox_pids:
+            try:
+                proc = psutil.Process(pid)
+                proc.terminate()
+            except psutil.NoSuchProcess:
+                pass
