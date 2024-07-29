@@ -103,7 +103,8 @@ class Season:
             # season = Season().getSeason(ID=ID)
 
         except Exception as e:
-            print(e)
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
         return season
 
@@ -139,9 +140,11 @@ class Season:
                 self.count_of_total_game_dates = row['count_of_total_game_dates']
                 self.count_of_completed_game_dates = row['count_of_completed_game_dates']
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -171,9 +174,11 @@ class Season:
             rows = cursor.fetchall()
 
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         except Exception as e:
-            print('Exception in fetch_many: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
         finally:
             cursor.close()
 
@@ -253,11 +258,13 @@ class Season:
             connection.execute(sql, tuple(values))
             connection.commit()
         except sqlite3.Error as e:
-            print('Database error: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
         except Exception as e:
-            print('Exception in persist: {0}'.format(e.args[0]))
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
             connection.rollback()
             returnCode = False
 
