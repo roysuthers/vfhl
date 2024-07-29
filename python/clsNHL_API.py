@@ -35,7 +35,7 @@ from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 # from clsHockeyPool import HockeyPool
 from clsTeam import Team
-from constants import NHL_API_URL, TODAY, YESTERDAY, NHL_API_SEARCH_SUGGESTIONS_URL, NHL_API_SEARCH_SUGGESTIONS_PARAMS
+from constants import NHL_API_URL, TODAY, YESTERDAY, NHL_API_SEARCH_SUGGESTIONS_URL, NHL_API_SEARCH_SUGGESTIONS_PARAMS, NHL_STATS_API_URL
 from utils import get_db_connection, get_iso_week_start_end_dates, inches_to_feet, split_seasonID_into_component_years, string_to_time, seconds_to_string_time
 
 
@@ -566,7 +566,8 @@ class NHL_API():
             team_id = j.search('people[0].currentTeam.id', requests.get(f'{NHL_API_URL}/people/{nhl_id}').json())
 
         except Exception as e:
-            print(f'{Path(__file__).stem}, Line {e.__traceback__.tb_lineno}: {e}({str(e)})')
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
         return team_id
 
@@ -1980,7 +1981,7 @@ class NHL_API():
 
         try:
             # https://statsapi.web.nhl.com/api/v1/teams?season=20212022
-            teams = [{'id': d['id'], 'name': d['name'], 'abbr': d['abbreviation']} for d in j.search('teams', requests.get(f'{NHL_API_URL}/teams/?season={season.id}').json())]
+            teams = [{'id': d['id'], 'name': d['fullName'], 'abbr': d['triCode']} for d in j.search('data', requests.get(f'{NHL_STATS_API_URL}/team').json())]
         except TypeError:
             # season information not yet set up in NHL API
             df = pd.DataFrame()
@@ -2079,12 +2080,12 @@ class NHL_API():
 
         return df
 
-    def get_season(self, season: str):
+    # def get_season(self, season: str):
 
-        # https://statsapi.web.nhl.com/api/v1/seasons/?season=20212022
-        season_info = [{'startDate': d['regularSeasonStartDate'], 'endDate': d['regularSeasonEndDate'], 'numberOfGames': d['numberOfGames']} for d in j.search('seasons', requests.get(f'{NHL_API_URL}/seasons/?season={season}').json())]
+    #     # https://statsapi.web.nhl.com/api/v1/seasons/?season=20212022
+    #     season_info = [{'startDate': d['regularSeasonStartDate'], 'endDate': d['regularSeasonEndDate'], 'numberOfGames': d['numberOfGames']} for d in j.search('seasons', requests.get(f'{NHL_API_URL}/seasons/?season={season}').json())]
 
-        return season_info
+    #     return season_info
 
     def save_stats_snapshot(self, season: Season, week_number: int, batch: bool=False):
 
