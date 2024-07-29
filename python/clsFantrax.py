@@ -143,7 +143,7 @@ class Fantrax:
             else:
                 logger.debug(msg)
 
-            dfNHLTeamTransactions = None
+            dfNHLTeamTransactions = pd.DataFrame()
 
             with Browser() as browser:
 
