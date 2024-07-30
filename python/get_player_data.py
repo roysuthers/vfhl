@@ -1319,7 +1319,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
             sktr_prj = sktr_prj_all.groupby(level=0).mean(numeric_only=True)
             goalie_prj = goalie_prj_all.groupby(level=0).mean(numeric_only=True)
 
-        # player may not be in df
+        # skaters may not be in df
         missing_indexes = sktr_prj[~sktr_prj.index.isin(df.index)].index
         df_missing_skaters = pd.DataFrame(columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
         if len(missing_indexes) > 0:
@@ -1328,7 +1328,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
                 df_player = pd.DataFrame(data=[[season_id, player_id, player["Player"], player["Pos"], player["Team"]]], columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
                 df_missing_skaters = pd.concat([df_missing_skaters, df_player])
 
-        # player may not be in df
+        # goalies may not be in df
         missing_indexes = goalie_prj[~goalie_prj.index.isin(df.index)].index
         df_missing_goalies = pd.DataFrame(columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
         if len(missing_indexes) > 0:
@@ -1336,7 +1336,6 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
                 player = goalie_prj_all.loc[player_id]
                 df_player = pd.DataFrame(data=[[season_id, player_id, player["Player"], player["Pos"], player["Team"]]], columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
                 df_missing_goalies = pd.concat([df_missing_goalies, df_player])
-
 
         df_missing_skaters.set_index('player_id', inplace=True)
         df_missing_goalies.set_index('player_id', inplace=True)
@@ -2487,7 +2486,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     if game_type == 'Prj':
         # drop players when projections are used the projected games !> 0
-        df_player_stats.query('(games.notna() and games>=1) or watch_list=="Yes"', inplace=True)
+        df_player_stats.query('(games.notna() and games>=1) or watch_list=="Yes" or keeper=="Yes"', inplace=True)
     else:
         # drop players in minors and not on active nhl team roster, and not on a pool team
         # removed minors=="" from `'(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y")`. if player has
