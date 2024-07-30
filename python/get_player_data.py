@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 # import plotly.express as px
 from numpy.polynomial.polynomial import polyfit
+import PySimpleGUI as sg
 
 import clsSeason as Season
 from constants import  DATABASE, NHL_API_URL
@@ -1333,7 +1334,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         if len(missing_indexes) > 0:
             for player_id in missing_indexes:
                 player = goalie_prj_all.loc[player_id]
-                df_player = pd.DataFrame(data={'seasonID': season_id, 'player_id': player_id, 'name': player['Player'], 'pos': player['Pos'], 'team_abbr': player['Team']})
+                df_player = pd.DataFrame(data=[[season_id, player_id, player["Player"], player["Pos"], player["Team"]]], columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
                 df_missing_goalies = pd.concat([df_missing_goalies, df_player])
 
 
