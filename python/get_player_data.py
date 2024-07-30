@@ -107,7 +107,10 @@ def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
     )
 
     # add players not in df
-    df = pd.concat([df, df_draft_list.loc[~df_draft_list.index.isin(df.index)]])
+    # Exclude empty entries before concatenation
+    non_empty_entries = df_draft_list.loc[~df_draft_list.index.isin(df.index)]
+    if not non_empty_entries.empty:
+        df = pd.concat([df, non_empty_entries])
 
     df.fillna({'round': '','pick': '','overall': '','picked_by': ''}, inplace=True)
 
@@ -628,27 +631,27 @@ def calc_projected_draft_round(df_player_stats: pd.DataFrame):
 
         # Find potential draft round using average draft position
         df_temp = df_player_stats.query('keeper!="Yes" and adp!=0 and team_abbr!="(N/A)"').sort_values('adp')
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr1'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
         # Find potential draft round using Fantrax score
         df_temp = df_player_stats.query('keeper!="Yes" and fantrax_score!=0 and team_abbr!="(N/A)"').sort_values('fantrax_score', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
         # Find potential draft round using z-score
         df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-offense
         df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-peripheral
         df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr5'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # get mean, min & max pdr
@@ -682,7 +685,7 @@ def calc_projected_draft_round(df_player_stats: pd.DataFrame):
         # df_player_stats['pdr'] = np.select(conditions, choices, default=default)
         # df_player_stats['pdr'] = df_player_stats['pdr_mean']
         df_temp = df_player_stats.query('keeper!="Yes" and pdr_mean>0 and team_abbr!="(N/A)"').sort_values('pdr_mean')
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14, axis='index').ngroup() + 1
+        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 14 else 14)
 
         # if projected draft round is 0, set to ''
