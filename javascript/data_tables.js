@@ -2320,9 +2320,9 @@ function columnVisibility() {
     let prj_season_sktr_columns = [];
     let prj_season_goalie_columns = [];
     if (!draft_completed) {
-        prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]);
-        prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]);
-        prj_season_goalie_columns = getColumnNames(table, [tier_idx]);
+        prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]).filter((column) => !manually_hidden_columns.includes(column));
+        prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]).filter((column) => !manually_hidden_columns.includes(column));
+        prj_season_goalie_columns = getColumnNames(table, [tier_idx]).filter((column) => !manually_hidden_columns.includes(column));
     }
 
     if (current_game_type === 'Projected Season') {
