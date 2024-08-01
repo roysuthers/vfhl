@@ -2316,28 +2316,28 @@ function columnVisibility() {
     let draft_completed = data.some(function(value) {
         return value.trim() !== '';
     });
-    let prj_season_columns = [];
-    let prj_season_sktr_columns = [];
-    let prj_season_goalie_columns = [];
-    if (!draft_completed) {
-        prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]).filter((column) => !manually_hidden_columns.includes(column));
-        prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]).filter((column) => !manually_hidden_columns.includes(column));
-        prj_season_goalie_columns = getColumnNames(table, [tier_idx]).filter((column) => !manually_hidden_columns.includes(column));
-    }
+    // let prj_season_columns = [];
+    // let prj_season_sktr_columns = [];
+    // let prj_season_goalie_columns = [];
+    // if (!draft_completed) {
+    //     prj_season_columns = getColumnNames(table, [adp_idx, fantrax_score_idx, injury_note_idx, prj_draft_round_idx, watch_idx]).filter((column) => !manually_hidden_columns.includes(column));
+    //     prj_season_sktr_columns = getColumnNames(table, [breakout_threshold_idx, pp_unit_prj_idx]).filter((column) => !manually_hidden_columns.includes(column));
+    //     prj_season_goalie_columns = getColumnNames(table, [tier_idx]).filter((column) => !manually_hidden_columns.includes(column));
+    // }
 
-    if (current_game_type === 'Projected Season') {
-        if ( current_positon === 'G' ) {
-            columns_to_hide = [... columns_to_hide, ... prj_season_sktr_columns];
-            columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_goalie_columns];
-        } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
-            columns_to_hide = [... columns_to_hide, ... prj_season_goalie_columns];
-            columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_sktr_columns];
-        } else {
-            columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_sktr_columns, ... prj_season_goalie_columns];
-        }
-    } else {
-        columns_to_hide = [... columns_to_hide, ... prj_season_columns, ... prj_season_sktr_columns, ... prj_season_goalie_columns];
-    }
+    // if (current_game_type === 'Projected Season') {
+    //     if ( current_positon === 'G' ) {
+    //         columns_to_hide = [... columns_to_hide, ... prj_season_sktr_columns];
+    //         columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_goalie_columns];
+    //     } else if ( current_positon === 'D' || current_positon === 'F' || current_positon === 'Sktr' ) {
+    //         columns_to_hide = [... columns_to_hide, ... prj_season_goalie_columns];
+    //         columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_sktr_columns];
+    //     } else {
+    //         columns_to_show = [... columns_to_show, ... prj_season_columns, ... prj_season_sktr_columns, ... prj_season_goalie_columns];
+    //     }
+    // } else {
+    //     columns_to_hide = [... columns_to_hide, ... prj_season_columns, ... prj_season_sktr_columns, ... prj_season_goalie_columns];
+    // }
 
     // don't hide position columns if already hidden
     columns_to_hide = columns_to_hide.filter(column => !currently_hidden_columns.includes(column));

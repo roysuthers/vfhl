@@ -2523,7 +2523,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     # Add a checkbox column at the beginning of the DataFrame
     df_k['checkbox'] = '<input type="checkbox" class="row-checkbox"></input>'
 
-    config = stats_config(position='all')
+    config = stats_config(position='all', game_type=game_type, projection_source=projection_source)
     column_formats = get_config_column_formats(config=config)
 
     # z-score rank
@@ -2597,7 +2597,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
     return data_dict
 
-def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
+def stats_config(position: str='all', game_type: str='R', projection_source: str='') -> Tuple[List, List, List, Dict, List]:
 
     config = {
         'columns': [
@@ -2621,7 +2621,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'height', 'table column': 'height', 'data_group': 'general', 'hide': True},
             {'title': 'weight', 'table column': 'weight', 'data_group': 'general', 'hide': True},
             {'title': 'career games', 'table column': 'career_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': True, 'search_builder': True},
+            {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': False if game_type=='Prj' else True, 'search_builder': True},
             {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'pre-draft manager', 'table column': 'pre_draft_manager', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
@@ -2629,10 +2629,10 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
             {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
             {'title': 'minors', 'table column': 'minors', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'prj draft round', 'runtime column': 'pdr', 'data_group': 'draft', 'hide': True},
+            {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': False if game_type=='Prj' else True, 'search_builder': True},
+            {'title': 'prj draft round', 'runtime column': 'pdr', 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
             {'title': 'injury', 'table column': 'injury_status', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'hide': True},
-            {'title': 'injury note', 'table column': 'injury_note', 'justify': 'left', 'data_group': 'general', 'hide': True},
+            {'title': 'injury note', 'table column': 'injury_note', 'justify': 'left', 'data_group': 'general', 'hide': False if game_type=='Prj' else True},
             {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
             {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'gp', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
@@ -2690,13 +2690,13 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     skater_columns = {
         'columns': [
-            {'title': 'line', 'table column': 'line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
-            {'title': 'pp unit', 'table column': 'pp_line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True},
-            {'title': 'pp unit prj', 'runtime column': 'pp_unit_prj', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
-            {'title': 'sleeper', 'runtime column': 'sleeper', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},
-            {'title': 'upside', 'runtime column': 'upside', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},
-            {'title': '3yp', 'runtime column': '3yp', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'draft', 'hide': True},
-            {'title': 'bandaid boy', 'runtime column': 'bandaid_boy', 'format': eval(f_str), 'data_group': 'draft', 'hide': True},
+            {'title': 'line', 'table column': 'line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
+            {'title': 'pp unit', 'table column': 'pp_line', 'format': eval(f_0_decimals), 'data_group': 'skater', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
+            {'title': 'pp unit prj', 'runtime column': 'pp_unit_prj', 'format': eval(f_0_decimals), 'data_group': 'skater', 'hide': False if game_type=='Prj' else True},
+            {'title': 'sleeper', 'runtime column': 'sleeper', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group':  'skater', 'hide': False if game_type=='Prj' else True},
+            {'title': 'upside', 'runtime column': 'upside', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group':  'skater', 'hide': False if game_type=='Prj' else True},
+            {'title': '3yp', 'runtime column': '3yp', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group':  'skater', 'hide': False if game_type=='Prj' else True},
+            {'title': 'bandaid boy', 'runtime column': 'bandaid_boy', 'format': eval(f_str), 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
 
             {'title': 'on-ice sh%', 'table column': 'on_ice_sh_pct', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'on-ice sv%', 'table column': 'on_ice_sv_pct', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
@@ -2707,13 +2707,13 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'toi pg', 'table column': 'toi_pg', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
             {'title': 'toi pg (sec)', 'runtime column': 'toi_pg_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi pg (trend)', 'runtime column': 'toi_pg_sec_trend', 'format': eval(f_0_toi_to_empty_and_show_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
-            {'title': 'toi pg (ewm)', 'table column': 'toi_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
+            {'title': 'toi pg (ewm)', 'table column': 'toi_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
 
             {'title': 'toi even (sec)', 'runtime column': 'toi_even_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi even pg', 'table column': 'toi_even_pg', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
             {'title': 'toi even pg (sec)', 'runtime column': 'toi_even_pg_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi even pg (trend)', 'runtime column': 'toi_even_pg_sec_trend', 'format': eval(f_0_toi_to_empty_and_show_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
-            {'title': 'toi even pg (ewm)', 'table column': 'toi_even_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
+            {'title': 'toi even pg (ewm)', 'table column': 'toi_even_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
 
             {'title': 'ev pts', 'table column': 'evg_point', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'ev on-ice', 'table column': 'evg_on_ice', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
@@ -2730,7 +2730,7 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': 'toi pp pg', 'table column': 'toi_pp_pg', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
             {'title': 'toi pp pg (sec)', 'runtime column': 'toi_pp_pg_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi pp pg (trend)', 'runtime column': 'toi_pp_pg_sec_trend', 'format': eval(f_0_toi_to_empty_and_show_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
-            {'title': 'toi pp pg (ewm)', 'table column': 'toi_pp_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
+            {'title': 'toi pp pg (ewm)', 'table column': 'toi_pp_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
 
             {'title': 'pp sog/120', 'table column': 'pp_sog_p120', 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'skater', 'hide': True},
             {'title': 'pp g/120', 'table column': 'pp_goals_p120', 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'skater', 'hide': True},
@@ -2747,13 +2747,13 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
             {'title': '%pp', 'runtime column': 'toi_pp_pg_ratio', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': '%pp (last game)', 'runtime column': 'toi_pp_ratio', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': '%pp (trend)', 'runtime column': 'toi_pp_pg_ratio_trend', 'format': eval(f_1_decimal_show_0_and_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
-            {'title': '%pp (ewm)', 'runtime column': 'toi_pp_pg_ratio_ewm', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
+            {'title': '%pp (ewm)', 'runtime column': 'toi_pp_pg_ratio_ewm', 'format': eval(f_1_decimal), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
 
             {'title': 'toi sh (sec)', 'runtime column': 'toi_sh_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi sh pg', 'table column': 'toi_sh_pg', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
             {'title': 'toi sh pg (sec)', 'runtime column': 'toi_sh_pg_sec', 'format': eval(f_0_decimals), 'data_group': 'skater', 'default order': 'desc', 'hide': True},
             {'title': 'toi sh pg (trend)', 'runtime column': 'toi_sh_pg_sec_trend', 'format': eval(f_0_toi_to_empty_and_show_plus), 'data_group': 'skater', 'default order': 'desc', 'hide': True, 'search_builder': True},
-            {'title': 'toi sh pg (ewm)', 'table column': 'toi_sh_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True},
+            {'title': 'toi sh pg (ewm)', 'table column': 'toi_sh_pg_ewm_last', 'format': eval(f_0_toi_to_empty), 'data_group': 'skater', 'default order': 'desc', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
 
             {'title': 'sh%', 'table column': 'shooting%', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater', 'search_builder': True, 'hide': True},
             {'title': 'hd sat', 'table column': 'highDangerShots', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_2_decimals), 'default order': 'desc', 'data_group': 'skater', 'hide': True},
@@ -2820,15 +2820,15 @@ def stats_config(position: str='all') -> Tuple[List, List, List, Dict, List]:
 
     goalie_columns = {
         'columns': [
-            {'title': 'tier', 'runtime column': 'tier', 'data_group': 'draft', 'hide': True},
-            {'title': 'goalie starts', 'table column': 'games_started', 'format': eval(f_0_decimals), 'data_group': 'goalie', 'search_builder': True},
+            {'title': 'tier', 'runtime column': 'tier', 'data_group': 'goalie', 'hide': False if game_type=='Prj' else True, 'search_builder': True, 'search_builder': True if game_type=='Prj' else False},
+            {'title': 'goalie starts', 'table column': 'games_started', 'format': eval(f_0_decimals), 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
             {'title': '% of team games started', 'table column': 'starts_as_percent', 'format': eval(f_0_decimals), 'hide': True, 'data_group': 'goalie'},
-            {'title': 'qs', 'table column': 'quality_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
-            {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie', 'search_builder': True},
-            {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie'},
+            {'title': 'qs', 'table column': 'quality_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
+            {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
+            {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
             {'title': 'goals against', 'table column': 'goals_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
             {'title': 'xga', 'table column': 'xGoalsAgainst', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
-            {'title': 'gsax', 'table column': 'goals_saved_above_expected', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie'},
+            {'title': 'gsax', 'table column': 'goals_saved_above_expected', 'format': eval(f_2_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
             {'title': 'shots against', 'table column': 'shots_against', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True},
         ],
     }
