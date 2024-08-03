@@ -1392,7 +1392,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         df = df.assign(
             fantrax_score = sktr_prj_fantrax['Score'].add(goalie_prj_fantrax['Score'], fill_value=0),
             adp = sktr_prj_fantrax['ADP'].combine_first(goalie_prj_fantrax['ADP']),
-            team_abbr = sktr_prj_fantrax['Team'].combine_first(goalie_prj_fantrax['Team'])
+            # team_abbr = sktr_prj_fantrax['Team'].combine_first(goalie_prj_fantrax['Team'])
         )
 
         df.reset_index(inplace=True)
@@ -2153,21 +2153,33 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
         df_temp = pd.read_sql(sql, params=params, con=get_db_connection())
 
-        # Define a function to get the primary position for a player
-        def get_primary_position(player_id):
+        # # Define a function to get the primary position for a player
+        # def get_primary_position(player_id):
+        #     try:
+        #         primary_position = j.search('position', requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json())
+        #     except Exception as e:
+        #         ...
+        #         if player_id == 8470860: # Halak
+        #             primary_position = 'G'
+        #         elif player_id == 8470638: # Bergeron
+        #             primary_position = 'C'
+        #         elif player_id == 8474141: # Patrick Kane
+        #             primary_position = 'C'
+        #     return primary_position
+
+        # # Use the apply method to add the primary position information to the df_temp DataFrame
+        # df_temp['pos'] = df_temp['player_id'].apply(get_primary_position)
+
+        # Define a function to get the team_abbr for player
+        def get_team_abbr(player_id):
             try:
-                primary_position = j.search('position', requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json())
+                team_abbr = j.search('currentTeamAbbrev', requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json())
             except Exception as e:
-                if player_id == 8470860: # Halak
-                    primary_position = 'G'
-                elif player_id == 8470638: # Bergeron
-                    primary_position = 'C'
-                elif player_id == 8474141: # Patrick Kane
-                    primary_position = 'C'
-            return primary_position
+                team_abbr = '(N/A)'
+            return team_abbr
 
         # Use the apply method to add the primary position information to the df_temp DataFrame
-        df_temp['pos'] = df_temp['player_id'].apply(get_primary_position)
+        df_temp['team_abbr'] = df_temp['player_id'].apply(get_team_abbr)
 
         # merge dataframes
         df = pd.concat([df, df_temp])
