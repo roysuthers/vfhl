@@ -492,7 +492,7 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
         'ptr.poolteam_id',
         'pt.name as pool_team',
         'ptr.status',
-        'ptr.keeper',
+        'ptr.keeper'
     ]
 
     select_sql = ', '.join([
@@ -550,7 +550,7 @@ def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats
     df['poolteam_id'] = df['poolteam_id'].apply(lambda x: '' if x is None else x)
     df['pool_team'] = df['pool_team'].apply(lambda x: '' if x is None else x)
     df['status'] = df['status'].apply(lambda x: '' if x is None else x)
-    df['keeper'] = df['keeper'].apply(lambda x: 'Yes' if x=='y' else '')
+    df['keeper'] = df['keeper'].apply(lambda x: 'Yes' if x == 'y' else ('MIN' if x == 'm' else ''))
 
     # reposition columns
     df['poolteam_id'] = df.pop('poolteam_id')

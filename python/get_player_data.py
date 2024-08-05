@@ -630,27 +630,27 @@ def calc_projected_draft_round(df_player_stats: pd.DataFrame):
         df_player_stats.set_index('player_id', inplace=True)
 
         # Find potential draft round using average draft position
-        df_temp = df_player_stats.query('keeper!="Yes" and adp!=0 and team_abbr!="(N/A)"').sort_values('adp')
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and adp!=0 and team_abbr!="(N/A)"').sort_values('adp')
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr1'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
         # Find potential draft round using Fantrax score
-        df_temp = df_player_stats.query('keeper!="Yes" and fantrax_score!=0 and team_abbr!="(N/A)"').sort_values('fantrax_score', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and fantrax_score!=0 and team_abbr!="(N/A)"').sort_values('fantrax_score', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
 
         # Find potential draft round using z-score
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-offense
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
         # Find potential draft round using z-peripheral
-        df_temp = df_player_stats.query('keeper!="Yes" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr5'] = df_temp.apply(lambda x: x if x <= 12 else 12)
 
@@ -684,7 +684,7 @@ def calc_projected_draft_round(df_player_stats: pd.DataFrame):
         # default = ''
         # df_player_stats['pdr'] = np.select(conditions, choices, default=default)
         # df_player_stats['pdr'] = df_player_stats['pdr_mean']
-        df_temp = df_player_stats.query('keeper!="Yes" and pdr_mean>0 and team_abbr!="(N/A)"').sort_values('pdr_mean')
+        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and pdr_mean>0 and team_abbr!="(N/A)"').sort_values('pdr_mean')
         df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
         df_player_stats['pdr'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 14 else 14)
 
@@ -2195,7 +2195,7 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
     breakout_thresholds = calc_player_breakout_threshold(df=df)
     # breakout_thresholds = breakout_thresholds.reset_index(drop=True)
     df = df.assign(
-        keeper=lambda x: np.where(x['keeper'] == 'y', 'Yes', ''),
+        keeper = lambda x: np.where(x['keeper'] == 'y', 'Yes', np.where(x['keeper'] == 'm', 'MIN', '')),
         age=calc_player_ages(df=df),
         # Reset the index of the resulting Series and assign it to the 'breakout_threshold' column of the df DataFrame
         breakout_threshold = breakout_thresholds,
@@ -2501,7 +2501,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     if game_type == 'Prj':
         # drop players when projections are used the projected games !> 0
-        df_player_stats.query('(games.notna() and games>=1) or watch_list=="Yes" or keeper=="Yes"', inplace=True)
+        df_player_stats.query('(games.notna() and games>=1) or watch_list=="Yes" or keeper=="Yes" or keeper=="MIN"', inplace=True)
     else:
         # drop players in minors and not on active nhl team roster, and not on a pool team
         # removed minors=="" from `'(games>=1 and games.notna() and minors=="" and nhl_roster_status=="y")`. if player has

@@ -1585,7 +1585,8 @@ class HockeyPool:
             'ptr.player_id',
             'p.full_name as player_name',
             't.abbr as team_abbr',
-            'p.primary_position as pos'
+            'p.primary_position as pos',
+            'ptr.keeper'
         ]
 
         select_sql = ', '.join([
@@ -1600,7 +1601,7 @@ class HockeyPool:
             left outer join Team t on t.id=p.current_team_id
         ''')
 
-        where_clause = f'where pt.pool_id={pool.id} and ptr.keeper="y"'
+        where_clause = f'where pt.pool_id={pool.id} and (ptr.keeper="y" or ptr.keeper="m"'
 
         sql = textwrap.dedent(f'''\
             {select_sql}
@@ -1638,7 +1639,7 @@ class HockeyPool:
         rows.append(
             sg.pin(sg.Column(layout=[
                 [
-                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', '!Unmark as Keeper', '-', 'Player Bio', '-','Remove Player']]),
+                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', '!Unmark as Keeper', '-', 'Mark as Keeper - Minor', '!Unmark as Keeper Minor', '-', 'Player Bio', '-','Remove Player']]),
                 ]
             ], visible=True, key='__FT_PTR_MCLB_CNTNR__')
         , vertical_alignment='top'))
@@ -2808,7 +2809,7 @@ class HockeyPool:
                             roster_player = PoolTeamRoster().fetch(**kwargs)
                             roster_player.dialog()
 
-                    elif event in ('Mark as Keeper', 'Unmark as Keeper'):
+                    elif event in ('Mark as Keeper', 'Unmark as Keeper', 'Mark as Keeper - Minor', 'Unmark as Keeper - Minor'):
                         if self.web_host == 'Fantrax' and values['Tab'] == '__POOL_TEAMS_TAB__':
                             mclb = window['__FT_PTR_MCLB__']
                         else:
@@ -2825,6 +2826,10 @@ class HockeyPool:
                                 roster_player.keeper = ''
                             elif roster_player.keeper in ('', None) and event == 'Mark as Keeper':
                                 roster_player.keeper = 'y'
+                            elif roster_player.keeper == 'm' and event == 'Unmark as Keeper - Minor':
+                                roster_player.keeper = ''
+                            elif roster_player.keeper in ('', None) and event == 'Mark as Keeper - Minor':
+                                roster_player.keeper = 'm'
                             roster_player.persist()
 
                             pool_team_roster_mclb_selected_row = selection
@@ -2961,12 +2966,23 @@ class HockeyPool:
                             if roster_player.keeper == 'y':
                                 right_click_menu[1][0] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper'
                                 right_click_menu[1][1] = 'Unmark as Keeper'
+                                right_click_menu[1][3] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper - Minor'
+                                right_click_menu[1][4] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper - Minor'
+                            elif roster_player.keeper == 'm':
+                                right_click_menu[1][0] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper'
+                                right_click_menu[1][1] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper'
+                                right_click_menu[1][3] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper - Minor'
+                                right_click_menu[1][4] = 'Unmark as Keeper - Minor'
                             else:
                                 right_click_menu[1][0] = 'Mark as Keeper'
                                 right_click_menu[1][1] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper'
+                                right_click_menu[1][3] = 'Mark as Keeper - Minor'
+                                right_click_menu[1][4] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper - Minor'
                         else:
                             right_click_menu[1][0] = 'Mark as Keeper'
                             right_click_menu[1][1] = 'Unmark as Keeper'
+                            right_click_menu[1][3] = 'Mark as Keeper - Minor'
+                            right_click_menu[1][4] = 'Unmark as Keeper - Minor'
 
                         ft_ptr_mclb.set_right_click_menu(right_click_menu)
 
