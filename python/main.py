@@ -11,9 +11,6 @@ from fantrax import scrape_draft_picks
 from utils import process_dict
 
 
-# Constant
-JSON_FOLDER = Path('./json')
-
 def create_app():
     # app = Flask(__name__)
     app = Flask(__name__, static_folder='./json')
@@ -72,7 +69,11 @@ def create_app():
 
         pool_id = request.args.get('poolID')
 
-        file_path = JSON_FOLDER / "draft_picks.json"
+        ###################################################################
+        # Create the absolute path to the parent directory
+        parent_dir = os.getcwd()
+        json_folder = os.path.join(parent_dir, 'json')
+        file_path = os.path.join(json_folder, 'draft_picks.json')
 
         # Check if draft_picks.json file exists
         try:
