@@ -1909,6 +1909,8 @@ function calcManagerSummaryZScores(playerStatsTable) {
             careerGames = 0;
         }
 
+        let keeper = row[keeper_idx];
+
         // Check if team manager already exists in new data
         let index = data.findIndex(function (item) {
             return item.manager === manager;
@@ -1919,10 +1921,11 @@ function calcManagerSummaryZScores(playerStatsTable) {
             data.push({
                 manager: manager,
                 picks: 25, // 25 because loop starts with 0; actual picks will start at 14, during draft simulation, but to start include 11 Keepers & 2 Minors Eligible
-                fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
-                dCount: (position === 'D') ? 1 : 0,
-                gCount: (position === 'G') ? 1 : 0,
-                mfCount: (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
+                fCount: (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0,
+                dCount: (position === 'D' && keeper !== 'MIN') ? 1 : 0,
+                gCount: (position === 'G' && keeper !== 'MIN') ? 1 : 0,
+                // mfCount: (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
+                mfCount: (keeper === 'MIN') ? 1 : 0,
                 zScore: 0,
                 zScoreSktr: 0,
                 zOffense: 0,
@@ -1946,10 +1949,11 @@ function calcManagerSummaryZScores(playerStatsTable) {
             });
         } else {
             // Team manager exists in new data, update row
-            data[index].fCount += (position !== 'G' && position !== 'D') ? 1 : 0;
-            data[index].dCount += (position === 'D') ? 1 : 0;
-            data[index].gCount += (position === 'G') ? 1 : 0;
-            data[index].mfCount += (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
+            data[index].fCount += (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0;
+            data[index].dCount += (position === 'D' && keeper !== 'MIN') ? 1 : 0;
+            data[index].gCount += (position === 'G' && keeper !== 'MIN') ? 1 : 0;
+            // data[index].mfCount += (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
+            data[index].mfCount += (keeper === 'MIN') ? 1 : 0,
             data[index].picks -= 1
         }
     }
