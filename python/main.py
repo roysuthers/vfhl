@@ -70,6 +70,8 @@ def create_app():
     def draft_order():
         """Returns the draft order data as JSON."""
 
+        pool_id = request.args.get('poolID')
+
         file_path = JSON_FOLDER / "draft_picks.json"
 
         # Check if draft_picks.json file exists
@@ -81,7 +83,7 @@ def create_app():
 
         except FileNotFoundError:
             # If the file does not exist, scrape the data and save it to the file
-            draft_picks = scrape_draft_picks()
+            draft_picks = scrape_draft_picks(pool_id)
             if len(draft_picks) == 0:
                 # raise Exception('main::draft_order(): No draft picks scraped.')
                 return
