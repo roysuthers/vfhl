@@ -14,6 +14,7 @@ var remaining_draft_picks;
 var completed_draft_picks = [];
 var draft_manager;
 var auto_assign_picks = false;
+var draft_in_progress = false;
 // global variables to include managers that have reached their position maximium limits, during auto assignment
 var f_limit_reached = [];
 var d_limit_reached = [];
@@ -213,6 +214,12 @@ document.getElementById('applyButton').addEventListener('click', () => {
             if ($.fn.DataTable.isDataTable('#player_stats')) {
 
                 updatePlayerStatsTable(data);
+
+                if ($.fn.dataTable.isDataTable('#managerSummary') === true) {
+                    let playerStatsTable = $('#player_stats').DataTable();
+                    managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+                    updateManagerSummaryTable(managerSummaryZScores);
+                }
 
             } else {
 
@@ -1225,6 +1232,8 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', () => 
 
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
+    draft_in_progress = true;
+
     // Show pulsing bar
     document.getElementById('pulsing-bar').style.display = 'block';
 
@@ -1245,9 +1254,15 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         clearDraftColumns();
 
-        // let playerStatsTable = $('#player_stats').DataTable();
-        managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
-        updateManagerSummaryTable(managerSummaryZScores);
+        // Check if DataTable instance exists
+        if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+            let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(statsTable);
+        } else {
+            // let playerStatsTable = $('#player_stats').DataTable();
+            managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+            updateManagerSummaryTable(managerSummaryZScores);
+        }
 
         // data = calcManagerCategoryNeedsData();
         myCategoryNeeds = getMyCategoryNeeds()
@@ -1264,10 +1279,10 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         tableCaption.style.fontWeight = 'bold';
         tableCaption.style.textDecoration = 'underline';
 
-        tableCaption = document.querySelector('#managerCategoryNeedsContainerCaption');
-        tableCaption.textContent = 'Manager Category Needs';
-        tableCaption.style.fontWeight = 'bold';
-        tableCaption.style.textDecoration = 'underline';
+        // tableCaption = document.querySelector('#managerCategoryNeedsContainerCaption');
+        // tableCaption.textContent = 'Manager Category Needs';
+        // tableCaption.style.fontWeight = 'bold';
+        // tableCaption.style.textDecoration = 'underline';
 
         document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
 
@@ -1318,8 +1333,11 @@ document.getElementById('undoDraftPick').addEventListener('click', () => {
 document.getElementById('toggleSummary').addEventListener('click', () => {
 
     if ($('#toggleSummary')[0].checked) {
-        let statsTable = $('#player_stats').DataTable();
-        createManagerSummaryTable(statsTable)
+        // Check if DataTable instance exists
+        if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+            let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(statsTable)
+        }
     } else {
         let mangagerSummaryTable = $('#managerSummary').DataTable();
         mangagerSummaryTable.destroy();
@@ -1435,25 +1453,26 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     //     });
     // }
 
-    // force Jason's preference for 1F & 4D before a goalie is picked
-    if (draft_manager === "Fowler's Flyers" && managers_pick_number < 6) {
-        // Clear position search pane selections
-        positionSearchPaneDataTable.searchPanes.clearSelections();
-        // Jason started draft with 8 Fs & 3 Ds
-        let position = 'Sktr';
-        if (fCount === 9) {
-            position = 'D';
-        } else if (dCount === 7) {
-            position = 'F';
-        }
-        positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-            posOpt = this.data().display;
-            if (posOpt === position) {
-                this.select();
-            }
-        });
+    // // // force Jason's preference for 1F & 4D before a goalie is picked
+    // // if (draft_manager === "Fowler's Flyers" && managers_pick_number < 6) {
+    // //     // Clear position search pane selections
+    // //     positionSearchPaneDataTable.searchPanes.clearSelections();
+    // //     // Jason started draft with 8 Fs & 3 Ds
+    // //     let position = 'Sktr';
+    // //     if (fCount === 9) {
+    // //         position = 'D';
+    // //     } else if (dCount === 7) {
+    // //         position = 'F';
+    // //     }
+    // //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+    // //         posOpt = this.data().display;
+    // //         if (posOpt === position) {
+    // //             this.select();
+    // //         }
+    // //     });
     // force goalie selection if not at "acceptable" level by specific pick numbers
-    } else if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
+    // } else if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
+    if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
         // Clear position search pane selections
         positionSearchPaneDataTable.searchPanes.clearSelections();
         positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
@@ -1557,17 +1576,19 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     // // the following is for debug purposes; should never have 'D' & 'Sktr" or 'F' & 'Sktr' selected, or 'G' & 'Sktr'
     // let count = positionSearchPaneDataTable.rows({ selected: true }).count();
 
-    if ((managers_pick_number === 13 && mfCount === 0) || (managers_pick_number === 14 && mfCount === 1)) {
-        additionalFiltersSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-            filterOpt = this.data().display;
-            if (filterOpt === 'Minors (Fantasy)') {
-                this.select();
-            }
-        });
-    }
+    // if ((managers_pick_number === 13 && mfCount === 0) || (managers_pick_number === 14 && mfCount === 1)) {
+    //     additionalFiltersSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+    //         filterOpt = this.data().display;
+    //         if (filterOpt === 'Minors (Fantasy)') {
+    //             this.select();
+    //         }
+    //     });
+    // }
 
     if (draft_manager === 'Banshee') {
-        playerStatsTable.order([z_score_idx, 'desc'], [score_idx, 'desc']);
+        // playerStatsTable.order([z_score_idx, 'desc'], [score_idx, 'desc']);
+        // playerStatsTable.order([score_idx, 'desc']);
+        playerStatsTable.order([z_combo_idx, 'desc']);
 
         // Manually select player
         // mySearchBuilderCriteria = {
@@ -1603,7 +1624,8 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
         // playerStatsTable.order([fantrax_score_idx, 'desc']);
         // playerStatsTable.order([adp_idx, 'asc']); // This will generally keep players with few project games from being auto-picked
         // playerStatsTable.order([prj_draft_round_idx, 'asc'], [fantrax_score_idx, 'desc']);
-        playerStatsTable.order([prj_draft_round_idx, 'asc'], [fantrax_score_idx, 'desc']);
+        // playerStatsTable.order([prj_draft_round_idx, 'asc'], [fantrax_score_idx, 'desc']);
+        playerStatsTable.order([score_idx, 'desc']);
     }
 
     playerStatsTable.draw();
@@ -1614,39 +1636,39 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     let randomIndex = Math.floor(Math.random() * 5);
     let selectedRow = filteredSortedIndexes[randomIndex];
 
-    let player_name;
-    if (draft_manager === 'Horse Palace 26' && overall_pick === 1 ) {
-        player_name = 'Connor Bedard';
-    } else if (draft_manager === 'Shawsome1' && overall_pick === 2 ) {
-        player_name = 'Clayton Keller';
-    } else if (draft_manager === 'WhatA LoadOfIt' && overall_pick === 3 ) {
-        player_name = 'Cole Caufield';
-    } else if (draft_manager === 'Horse Palace 26' && overall_pick === 4 ) {
-        player_name = 'Dylan Cozens';
-    } else if (draft_manager === 'Shawsome1' && overall_pick === 5 ) {
-        player_name = 'Adam Fantilli';
-    }
+    // let player_name;
+    // if (draft_manager === 'Horse Palace 26' && overall_pick === 1 ) {
+    //     player_name = 'Connor Bedard';
+    // } else if (draft_manager === 'Shawsome1' && overall_pick === 2 ) {
+    //     player_name = 'Clayton Keller';
+    // } else if (draft_manager === 'WhatA LoadOfIt' && overall_pick === 3 ) {
+    //     player_name = 'Cole Caufield';
+    // } else if (draft_manager === 'Horse Palace 26' && overall_pick === 4 ) {
+    //     player_name = 'Dylan Cozens';
+    // } else if (draft_manager === 'Shawsome1' && overall_pick === 5 ) {
+    //     player_name = 'Adam Fantilli';
+    // }
 
-    if (player_name) {
-        var playerIndex = nameToIndex[player_name];
+    // if (player_name) {
+    //     var playerIndex = nameToIndex[player_name];
 
-        // draftSearchBuilderCriteria = {
-        //     "criteria": [
-        //         {
-        //             "condition": "=",
-        //             "data": "name",
-        //             "type": "str",
-        //             "value": [player_name]
-        //         }
-        //     ],
-        //     "logic": "AND"
-        // }
-        // playerStatsTable.searchBuilder.rebuild(draftSearchBuilderCriteria);
-        // selectedRow = playerStatsTable.rows({order: 'current', search: 'applied'}).indexes().toArray()[0];
-        if (playerIndex.length === 1) {
-            selectedRow = playerIndex[0];
-        }
-    }
+    //     // draftSearchBuilderCriteria = {
+    //     //     "criteria": [
+    //     //         {
+    //     //             "condition": "=",
+    //     //             "data": "name",
+    //     //             "type": "str",
+    //     //             "value": [player_name]
+    //     //         }
+    //     //     ],
+    //     //     "logic": "AND"
+    //     // }
+    //     // playerStatsTable.searchBuilder.rebuild(draftSearchBuilderCriteria);
+    //     // selectedRow = playerStatsTable.rows({order: 'current', search: 'applied'}).indexes().toArray()[0];
+    //     if (playerIndex.length === 1) {
+    //         selectedRow = playerIndex[0];
+    //     }
+    // }
 
     if (assignManager(playerStatsTable, selectedRow, draft_manager, managerSummaryDataTable) === false) {
         auto_assign_picks = false;
@@ -1714,6 +1736,7 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
     } else {
         document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
         destroyDraftContextMenu();
+        draft_in_progress = false;
         return false;
     }
 
@@ -1863,8 +1886,11 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
     // Filter out rows with no team manager
     let rosteredPlayers = originalPlayerStatsTableData.filter(function (row) {
-        // return row[manager_idx] !== "";
-        return row[manager_idx] !== "" && row[keeper_idx] === 'Yes';
+        if (draft_in_progress === true) {
+            return row[manager_idx] !== "";
+        } else {
+            return row[manager_idx] !== "" && (row[keeper_idx] === 'Yes' || row[keeper_idx] === 'MIN');
+        }
     });
 
     // Create new data source for new table
@@ -1878,7 +1904,10 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
         let position = row[position_idx];
 
-        let careerGames = row[career_games_idx];
+        let careerGames = parseInt(row[career_games_idx], 10);
+        if (isNaN(careerGames)) {
+            careerGames = 0;
+        }
 
         // Check if team manager already exists in new data
         let index = data.findIndex(function (item) {
@@ -2478,8 +2507,8 @@ function createDraftBoardTable(remaining_draft_picks) {
         "WhatA LoadOfIt": "WhatA",
         "Banshee": "Banshee",
         "Horse Palace 26": "Horsey",
-        "Shawsome1": "Shawsome",
-        "High Cheese Chedsie": "Chedsie"
+        "Avovocado": "Avovocado",
+        "Open Team 1": "Open Team"
     };
 
     for (var i = 0; i < remaining_draft_picks.length; i++) {
@@ -2759,7 +2788,7 @@ function clearDraftColumns() {
 
     // Filter out rows with no team manager
     let availablePlayersWithManager = allPlayers.filter(function (row) {
-        return row[keeper_idx] !== 'Yes' && row[manager_idx] !== '';
+        return row[keeper_idx] !== 'Yes' && row[keeper_idx] !== 'MIN' && row[manager_idx] !== '';
     });
 
 
@@ -2880,10 +2909,10 @@ function getDraftPicks(callback) {
     // Set the base URL for the Flask API endpoint
     const baseUrl = 'http://localhost:5000/draft-order';
 
-    const queryParams = '';
+    const queryParams = `poolID=${poolID.value}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
-    $.get(baseUrl + queryParams, function(draft_order) {
+    $.get(baseUrl + '?' + queryParams, function(draft_order) {
         // Call the callback function with the draft order
         callback(draft_order);
     })
