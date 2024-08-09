@@ -1,14 +1,18 @@
 import json
 import os
 import pandas as pd
+import re
+import sqlite3
+import traceback
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from io import StringIO
 from pathlib import Path
 
 from get_player_data import rank_players, calc_z_scores, min_cat, max_cat, mean_cat
 from fantrax import scrape_draft_picks
-from utils import process_dict
+from utils import get_db_connection, process_dict
 
 
 def create_app():
@@ -95,7 +99,43 @@ def create_app():
         # Return the data as JSON
         return jsonify(draft_picks)
 
-        return app
+    @app.route('/draft-board')
+    def draft_board():
+        """Writes the draft board to the database."""
+
+        try:
+            ret_val = jsonify({'status': 'success'})
+
+            data = request.args.get('draft_board')
+
+            # Create a DataFrame
+            df = pd.read_json(StringIO(data))
+
+            with get_db_connection() as connection:
+                cursor = connection.cursor()
+                overall_pick = 0
+                for index, row in df.iterrows():
+                    # Skip every other row, starting with the second row
+                    if index % 2 != 0:
+                        round_num = row['Rnd']
+                        for col in df.columns[1:]:
+                            player_info = row[col]
+                            if player_info:
+                                match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
+                                if match:
+                                    player_name, pos, team = match.groups()
+                                    overall_pick += 1
+                                    cursor.execute('''
+                                    INSERT INTO DraftSimulations (player_name, pos, team, round, overall_pick)
+                                    VALUES (?, ?, ?, ?, ?)
+                                    ''', (player_name, pos, team, round_num, overall_pick))
+                cursor.close()
+
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            ret_val = jsonify({f'status': 'error: {msg}'})
+
+        return ret_val
 
     return app
 

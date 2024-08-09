@@ -1395,16 +1395,16 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
 function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable) {
 
-    // Reset search panes
-    playerStatsTable.searchPanes.clearSelections();
-    managerSearchPaneDataTable.rows(function(idx, data, node) {
-        return data.display.includes('No data');
-    }).select();
+            // Reset search panes
+        playerStatsTable.searchPanes.clearSelections();
+        managerSearchPaneDataTable.rows(function(idx, data, node) {
+            return data.display.includes('No data');
+        }).select();
 
-    // Reset search builder selections
-    let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
-    if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
-        playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+        // Reset search builder selections
+        let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+        if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+            playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
     }
 
     let managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
@@ -1473,44 +1473,44 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     // force goalie selection if not at "acceptable" level by specific pick numbers
     // } else if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
     if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
-        // Clear position search pane selections
+                    // Clear position search pane selections
         positionSearchPaneDataTable.searchPanes.clearSelections();
-        positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-            posOpt = this.data().display;
-            if (posOpt === 'G') {
-                this.select();
-            }
-        });
-    } else if (f_limit_reached.includes(draft_manager) || d_limit_reached.includes(draft_manager) || g_limit_reached.includes(draft_manager)) {
-        positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-            posOpt = this.data().display;
-            if (!f_limit_reached.includes(draft_manager) && !d_limit_reached.includes(draft_manager)) {
-                if (posOpt === 'Sktr') {
-                    this.select();
-                }
-            }
-            else if (!f_limit_reached.includes(draft_manager)) {
-                if (posOpt === 'F') {
-                    this.select();
-                }
-            }
-            else if (!d_limit_reached.includes(draft_manager)) {
-                if (posOpt === 'D') {
-                    this.select();
-                }
-            }
-            if (!g_limit_reached.includes(draft_manager)) {
+            positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+                posOpt = this.data().display;
                 if (posOpt === 'G') {
-                    if ((gCount === 0) || (gCount === 1 && managers_pick_number > 5) || (gCount === 2 && managers_pick_number >= 8) || (gCount === 3 && managers_pick_number >= 11)) {
+                    this.select();
+                }
+            });
+    } else if (f_limit_reached.includes(draft_manager) || d_limit_reached.includes(draft_manager) || g_limit_reached.includes(draft_manager)) {
+                positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+                posOpt = this.data().display;
+                if (!f_limit_reached.includes(draft_manager) && !d_limit_reached.includes(draft_manager)) {
+                    if (posOpt === 'Sktr') {
                         this.select();
                     }
                 }
-            // } else if (f_limit_reached.includes(draft_manager) && d_limit_reached.includes(draft_manager)) {
-            //     if (posOpt === 'Sktr') {
-            //         this.select();
-            //     }
-            }
-        });
+                else if (!f_limit_reached.includes(draft_manager)) {
+                    if (posOpt === 'F') {
+                        this.select();
+                    }
+                }
+                else if (!d_limit_reached.includes(draft_manager)) {
+                    if (posOpt === 'D') {
+                        this.select();
+                    }
+                }
+                if (!g_limit_reached.includes(draft_manager)) {
+                    if (posOpt === 'G') {
+                        if ((gCount === 0) || (gCount === 1 && managers_pick_number > 5) || (gCount === 2 && managers_pick_number >= 8) || (gCount === 3 && managers_pick_number >= 11)) {
+                            this.select();
+                        }
+                    }
+                // } else if (f_limit_reached.includes(draft_manager) && d_limit_reached.includes(draft_manager)) {
+                //     if (posOpt === 'Sktr') {
+                //         this.select();
+                //     }
+                }
+            });
     }
 
     // // Get data for selected rows
@@ -1703,7 +1703,8 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
     if (['LW', 'C', 'RW'].includes(position)) {
         position = 'F'
     }
-    playerName = playerName + ' (' + position + ')';
+    playerName = playerName + ' (' + position + '/' + team + ')';
+
     let tableData = $('#draftBoard').DataTable();
     // Find the corresponding cell in tableData and update it
     let cell = tableData.cell((round - 1) * 2 + 1, pick); // Get the cell object
@@ -1729,14 +1730,60 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
     // updatePlayerTableWithCalculatedSummaryZScores(calculatedPlayerSummaryZScores);
 
     if (remaining_draft_picks.length > 0) {
+
         managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
         // manager_selection_number = (15 - managerSummaryData.picks);
         document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
         return true;
+
     } else {
-        document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
-        destroyDraftContextMenu();
-        draft_in_progress = false;
+
+        let draftBoardTable = $('#draftBoard').DataTable();
+        // Extract column names
+        let columnNames = draftBoardTable.columns().header().toArray().map(header => $(header).text());
+        // Extract row data
+        let rowData = draftBoardTable.rows().data().toArray();
+        // Create a dictionary with column names as keys
+        let draftBoardDataDict = rowData.map(row => {
+            let rowDict = {};
+            columnNames.forEach((col, index) => {
+                rowDict[col] = row[index];
+            });
+            return rowDict;
+        });
+
+        // Convert dictionary to JSON format
+        let jsonDataDict = JSON.stringify(draftBoardDataDict);
+
+        writeToDatabase(jsonDataDict, function(results) {
+
+            if (results.status === 'error') {
+                // Hide pulsing bar
+                // document.getElementById('pulsing-bar').style.display  = 'none';
+                alert(results.error)
+                // return
+            }
+
+            document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
+            destroyDraftContextMenu();
+            draft_in_progress = false;
+
+            // Reset search panes
+            playerStatsTable.searchPanes.clearSelections();
+
+            // let managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
+            // managerSearchPaneDataTable.rows(function(idx, data, node) {
+            //     return data.display.includes('No data');
+            // }).select();
+
+            // // Reset search builder selections
+            // let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+            // if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+            //     playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+            // }
+
+        });
+
         return false;
     }
 
@@ -3577,6 +3624,26 @@ function updatePlayerStatsTable(data) {
     // Redraw the table
     playerStatsTable.columns.adjust().draw();
 
+}
+
+function writeToDatabase(draftBoardDataDict, callback) {
+
+    // Set the base URL for the Flask API endpoint
+    const baseUrl = 'http://localhost:5000/draft-board';
+
+    const queryParams = `draft_board=${draftBoardDataDict}`;
+
+    // Send a GET request to the Flask API endpoint with the specified query parameters
+    $.get(baseUrl + '?' + queryParams, function(draft_board) {
+        // Call the callback function with the draft order
+        callback(draft_board);
+    })
+    .fail(function(jqXHR, textStatus, errorThrown) {
+        // // Handle the error here
+        // console.error("Error occurred: ", textStatus, errorThrown);
+        // You can also call the callback function with an error message
+        callback({ error: "An error occurred while write draft board to database: " + errorThrown });
+    });
 }
 
 // The code defines a "colourize" function as a jQuery plugin using a self-executing anonymous function to create a private scope
