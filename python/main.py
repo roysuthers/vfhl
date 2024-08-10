@@ -107,6 +107,8 @@ def create_app():
             ret_val = jsonify({'status': 'success'})
 
             data = request.args.get('draft_board')
+            projection_source = request.args.get('projectionSource')
+            positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
 
             # Create a DataFrame
             df = pd.read_json(StringIO(data))
@@ -126,9 +128,9 @@ def create_app():
                                     player_name, pos, team = match.groups()
                                     overall_pick += 1
                                     cursor.execute('''
-                                    INSERT INTO DraftSimulations (player_name, pos, team, round, overall_pick)
-                                    VALUES (?, ?, ?, ?, ?)
-                                    ''', (player_name, pos, team, round_num, overall_pick))
+                                    INSERT INTO DraftSimulations (player_name, pos, team, projection_source, positional_scoring, round, overall_pick)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    ''', (player_name, pos, team, projection_source, positional_scoring, round_num, overall_pick))
                 cursor.close()
 
         except Exception as e:

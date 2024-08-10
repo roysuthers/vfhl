@@ -3628,7 +3628,7 @@ function writeToDatabase(draftBoardDataDict, callback) {
     // Set the base URL for the Flask API endpoint
     const baseUrl = 'http://localhost:5000/draft-board';
 
-    const queryParams = `draft_board=${draftBoardDataDict}`;
+    const queryParams = `draft_board=${draftBoardDataDict}&projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}`;
 
     // Send a GET request to the Flask API endpoint with the specified query parameters
     $.get(baseUrl + '?' + queryParams, function(draft_board) {
