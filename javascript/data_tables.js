@@ -14,7 +14,9 @@ var remaining_draft_picks;
 var completed_draft_picks = [];
 var draft_manager;
 var auto_assign_picks = false;
+var manually_select_my_picks = false;
 var draft_in_progress = false;
+var draft_completed = false;
 // global variables to include managers that have reached their position maximium limits, during auto assignment
 var f_limit_reached = [];
 var d_limit_reached = [];
@@ -32,8 +34,12 @@ var gRatioCategories = ['gaa', 'savePercent'];
 
 var nameToIndex = {};
 
+// datatables
+var managerSearchPaneDataTable;
+var injurySearchPaneDataTable;
 var positionSearchPaneDataTable;
 var additionalFiltersSearchPaneDataTable;
+var playerStatsDataTable;
 
 var managerSummaryZScores;
 
@@ -164,8 +170,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
     // Check if DataTable instance exists
     if ($.fn.dataTable.isDataTable('#player_stats')) {
-        // Get DataTable instance
-        var table = $('#player_stats').DataTable();
+        // // Get DataTable instance
+        // var table = $('#player_stats').DataTable();
 
         // Save searchPane selections
         var selectedOptions = {};
@@ -173,7 +179,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
             return this.id.indexOf('DataTables_Table_') === 0;
         }).each(function() {
             var table = $(this).DataTable();
-            var selectedRows = table.rows('.selected');
+            var selectedRows = playerStatsDataTable.rows('.selected');
             selectedOptions[this.id] = selectedRows.data().toArray().map(function(row) {
                 return row.display;
             });
@@ -216,8 +222,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
                 updatePlayerStatsTable(data);
 
                 if ($.fn.dataTable.isDataTable('#managerSummary') === true) {
-                    let playerStatsTable = $('#player_stats').DataTable();
-                    managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+                    // let playerStatsTable = $('#player_stats').DataTable();
+                    managerSummaryZScores = calcManagerSummaryZScores(playerStatsDataTable);
                     updateManagerSummaryTable(managerSummaryZScores);
                 }
 
@@ -702,8 +708,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
                                     additionalFiltersSearchPaneDataTable.row(selectedPlayersRow).select();
                                 }
                                 // Reset search builder selections
-                                let playerStatsTable = $('#player_stats').DataTable();
-                                let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+                                // let playerStatsTable = $('#player_stats').DataTable();
+                                let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
                                 if (JSON.stringify(currentSearchBuilderDetails).includes('selectedPlayers') || JSON.stringify(currentSearchBuilderDetails).includes('unselectedPlayers')) {
                                     playerStatsTable.searchBuilder.rebuild(currentSearchBuilderDetails);
                                 }
@@ -804,6 +810,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
                     },
 
                     initComplete: function () {
+
+                        playerStatsDataTable = $('#player_stats').DataTable();
 
                         const api = this.api();
 
@@ -963,10 +971,10 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
                 // Use the order event to update lastSortIdx and lastSortOrder when the table is sorted
                 $('#player_stats').on('order.dt', function() {
-                    var table = $('#player_stats').DataTable();
+                    // var table = $('#player_stats').DataTable();
                     executePlayerStatsTableSortDrawCallbackCode = true;
-                    lastSortIdx = table.order()[0][0];
-                    lastSortOrder = table.order()[0][1] === 'desc' ? false : true;
+                    lastSortIdx = playerStatsDataTable.order()[0][0];
+                    lastSortOrder = playerStatsDataTable.order()[0][1] === 'desc' ? false : true;
                 });
 
                 // Display the checkboxes & calc z-score options
@@ -977,7 +985,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
                     var checkbox = $(this);
 
-                    var playerId = $('#player_stats').DataTable().row($(this).parents('tr')).data()[id_idx];
+                    // var playerId = $('#player_stats').DataTable().row($(this).parents('tr')).data()[id_idx];
+                    var playerId = playerStatsDataTable.row($(this).parents('tr')).data()[id_idx];
                     var selectedPlayerIds = JSON.parse(localStorage.getItem('selectedPlayerIds')) || [];
 
                     if (checkbox.prop('checked')) {
@@ -1008,8 +1017,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
                     }
 
                     // Reset search builder selections
-                    let playerStatsTable = $('#player_stats').DataTable();
-                    let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+                    // let playerStatsTable = $('#player_stats').DataTable();
+                    let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
                     if (JSON.stringify(currentSearchBuilderDetails).includes('selectedPlayers') || JSON.stringify(currentSearchBuilderDetails).includes('unselectedPlayers')) {
                         playerStatsTable.searchBuilder.rebuild(currentSearchBuilderDetails);
                     }
@@ -1175,7 +1184,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
             hidePulsingBarShowTables()
 
             // *******************************************************************
-            $('#player_stats').DataTable().searchPanes.rebuildPane();
+            // $('#player_stats').DataTable().searchPanes.rebuildPane();
+            playerStatsDataTable.searchPanes.rebuildPane();
 
             // Reapply searchPane selections
             $.each(selectedOptions, function(id, options) {
@@ -1188,8 +1198,12 @@ document.getElementById('applyButton').addEventListener('click', () => {
                 });
             });
 
+            // search panes
             positionSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[1]).DataTable();
+            injurySearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[3]).DataTable();
+            managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
             additionalFiltersSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[7]).DataTable();
+
             // "DataTables_Table_0" is "pos" searchPane
             $('#DataTables_Table_0').DataTable().on('user-select', function(e, dt, type, cell, originalEvent){
                 // save "pos" searchPane selection as "current"
@@ -1206,8 +1220,8 @@ document.getElementById('applyButton').addEventListener('click', () => {
             var selectedPlayerIds = JSON.parse(localStorage.getItem('selectedPlayerIds'));
             // Reapply 'selected' class
             if (selectedPlayerIds) {
-                let table = $('#player_stats').DataTable();
-                table.rows().every(function() {
+                // let table = $('#player_stats').DataTable();
+                playerStatsDataTable.rows().every(function() {
                     var row = this.data();
                     var playerId = row[id_idx];
                     var checkbox = $(this.node()).find('.row-checkbox');
@@ -1226,6 +1240,14 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
 document.getElementById('autoAssignDraftPicks').addEventListener('click', () => {
 
+    manually_select_my_picks = document.getElementById('manuallySelectMyPicks').checked;
+
+    // Check if DataTable instance exists
+    if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+        // let statsTable = $('#player_stats').DataTable();
+        createManagerSummaryTable(playerStatsDataTable);
+    }
+
     autoAssignDraftPicks();
 
 })
@@ -1233,12 +1255,18 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', () => 
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
     draft_in_progress = true;
+    draft_completed = false;
 
     // Show pulsing bar
     document.getElementById('pulsing-bar').style.display = 'block';
 
-    let playerStatsTable = $('#player_stats').DataTable();
-    playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+    // let playerStatsTable = $('#player_stats').DataTable();
+    playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+
+    // reset draft limits per position
+    f_limit_reached = [];
+    d_limit_reached = [];
+    g_limit_reached = [];
 
     getDraftPicks(draft_order => {
 
@@ -1256,11 +1284,11 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         // Check if DataTable instance exists
         if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
-            let statsTable = $('#player_stats').DataTable();
-            createManagerSummaryTable(statsTable);
+            // let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(playerStatsDataTable);
         } else {
             // let playerStatsTable = $('#player_stats').DataTable();
-            managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+            managerSummaryZScores = calcManagerSummaryZScores(playerStatsDataTable);
             updateManagerSummaryTable(managerSummaryZScores);
         }
 
@@ -1290,11 +1318,11 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         // hide not-useful columns
         columns_to_hide = [manager_idx, line_idx, pp_unit_idx, toi_even_pg_idx, corsi_for_percent_idx, toi_pp_pg_idx, pp_percent_idx, shooting_percent_idx, goalie_starts_idx, qualtity_starts_idx, qualtity_starts_percent_idx, really_bad_starts_idx];
-        playerStatsTable.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
+        playerStatsDataTable.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
 
         // columns to show
         columns_to_be_visible = [fantrax_score_idx, z_score_idx, z_offense_idx, z_peripheral_idx, z_g_count_idx, z_g_ratio_idx];
-        playerStatsTable.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
+        playerStatsDataTable.columns(columns_to_be_visible).visible(show=true, redrawCalculations=false);
 
         // Hide pulsing bar
         document.getElementById('pulsing-bar').style.display = 'none';
@@ -1307,7 +1335,6 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         $('#autoAssignDraftPicksContainer').removeClass('hidden').css('display', 'inline-block');
         $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
 
-        let managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
         managerSearchPaneDataTable.rows(function(idx, data, node) {
             return data.display.includes('No data');
         }).select();
@@ -1335,10 +1362,11 @@ document.getElementById('toggleSummary').addEventListener('click', () => {
     if ($('#toggleSummary')[0].checked) {
         // Check if DataTable instance exists
         if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
-            let statsTable = $('#player_stats').DataTable();
-            createManagerSummaryTable(statsTable)
+            // let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(playerStatsDataTable)
         }
-    } else {
+    }
+    else if (!draft_in_progress) {
         let mangagerSummaryTable = $('#managerSummary').DataTable();
         mangagerSummaryTable.destroy();
     }
@@ -1351,28 +1379,35 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
         // Check if DataTable instance exists
         if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
-            let statsTable = $('#player_stats').DataTable();
-            createManagerSummaryTable(statsTable)
+            // let statsTable = $('#player_stats').DataTable();
+            createManagerSummaryTable(playerStatsDataTable)
         }
 
-        createMyCategoryNeedsTable()
+        if ($.fn.dataTable.isDataTable('#myCategoryNeeds') == false) {
+            createMyCategoryNeedsTable()
+        }
 
         // Create the allPlayers array
         let allPlayers = getAllPlayers();
 
-        // create Category Scarcity by Z-score Range table
-        categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
-        createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+        if ($.fn.dataTable.isDataTable('#categoryScarcityByZScoreRange') == false) {
+            // create Category Scarcity by Z-score Range table
+            categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
+            createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+        }
 
-        // Filter out rows with no team manager
-        let allAvailablePlayers = allPlayers.filter(function (row) {
-            return row['manager'] === "";
-        });
-        // create Category Scarcity table
-        categoryScarcity = getCategoryScarcity(allAvailablePlayers);
-        createCategoryScarcityTable(categoryScarcity);
+        if ($.fn.dataTable.isDataTable('#categoryScarcity') == false) {
+            // Filter out rows with no team manager
+            let allAvailablePlayers = allPlayers.filter(function (row) {
+                return row['manager'] === "";
+            });
+            // create Category Scarcity table
+            categoryScarcity = getCategoryScarcity(allAvailablePlayers);
+            createCategoryScarcityTable(categoryScarcity);
+        }
 
-    } else {
+    }
+    else if (!draft_in_progress) {
 
         if ($('#toggleSummary')[0].checked == false) {
             let mangagerSummaryTable = $('#managerSummary').DataTable();
@@ -1393,9 +1428,15 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
 })
 
-function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable) {
+function assignDraftPick(playerStatsTable, managerSummaryDataTable) {
 
-            // Reset search panes
+    if (auto_assign_picks === true) {
+        // clear all filters on the entire table
+        playerStatsTable.column(position_idx).search('').draw();
+    }
+
+    if (auto_assign_picks === false || (manually_select_my_picks === true && draft_manager === 'Banshee')) {
+        // Reset search panes
         playerStatsTable.searchPanes.clearSelections();
         managerSearchPaneDataTable.rows(function(idx, data, node) {
             return data.display.includes('No data');
@@ -1405,6 +1446,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
         let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
         if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
             playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+        }
     }
 
     let managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
@@ -1444,146 +1486,122 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     let overall_pick = remaining_draft_picks[0].overall_pick;
     let managers_pick_number = remaining_draft_picks[0].managers_pick_number;
 
-    // if (draft_manager === 'Shawsome1' && managers_pick_number === 2) {
-    //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    //         posOpt = this.data().display;
-    //         if (posOpt === 'G') {
-    //             this.select();
-    //         }
-    //     });
-    // }
-
-    // // // force Jason's preference for 1F & 4D before a goalie is picked
-    // // if (draft_manager === "Fowler's Flyers" && managers_pick_number < 6) {
-    // //     // Clear position search pane selections
-    // //     positionSearchPaneDataTable.searchPanes.clearSelections();
-    // //     // Jason started draft with 8 Fs & 3 Ds
-    // //     let position = 'Sktr';
-    // //     if (fCount === 9) {
-    // //         position = 'D';
-    // //     } else if (dCount === 7) {
-    // //         position = 'F';
-    // //     }
-    // //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    // //         posOpt = this.data().display;
-    // //         if (posOpt === position) {
-    // //             this.select();
-    // //         }
-    // //     });
     // force goalie selection if not at "acceptable" level by specific pick numbers
-    // } else if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
-    if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
-                    // Clear position search pane selections
-        positionSearchPaneDataTable.searchPanes.clearSelections();
-            positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-                posOpt = this.data().display;
-                if (posOpt === 'G') {
-                    this.select();
-                }
-            });
-    } else if (f_limit_reached.includes(draft_manager) || d_limit_reached.includes(draft_manager) || g_limit_reached.includes(draft_manager)) {
-                positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-                posOpt = this.data().display;
+    if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 13)) {
+        if (manually_select_my_picks === true && draft_manager === 'Banshee') {
+            // Clear position search pane selections
+            // positionSearchPaneDataTable.searchPanes.clearSelections();
+            // positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+            //     posOpt = this.data().display;
+            //     if (posOpt === 'G') {
+            //         this.select();
+            //     }
+            // });
+
+            positionSearchPaneDataTable.rows(function(idx, data, node) {
+                return data.display.includes('G');
+            }).select();
+
+        } else {
+            // Programmatically filter the table
+            playerStatsTable.column(position_idx).search('G').draw();
+        }
+    // } else if (f_limit_reached.includes(draft_manager) || d_limit_reached.includes(draft_manager) || g_limit_reached.includes(draft_manager)) {
+    } else {
+        if (manually_select_my_picks === true && draft_manager === 'Banshee') {
+            // Clear position search pane selections
+            // positionSearchPaneDataTable.searchPanes.clearSelections();
+            // positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
+            //     posOpt = this.data().display;
+            //     if (!f_limit_reached.includes(draft_manager) && !d_limit_reached.includes(draft_manager)) {
+            //         if (posOpt === 'Sktr') {
+            //             this.select();
+            //         }
+            //     }
+            //     else if (!f_limit_reached.includes(draft_manager)) {
+            //         if (posOpt === 'F') {
+            //             this.select();
+            //         }
+            //     }
+            //     else if (!d_limit_reached.includes(draft_manager)) {
+            //         if (posOpt === 'D') {
+            //             this.select();
+            //         }
+            //     }
+            //     if (!g_limit_reached.includes(draft_manager)) {
+            //         if (posOpt === 'G') {
+            //             if ((gCount === 0) || (gCount === 1 && managers_pick_number > 5) || (gCount === 2 && managers_pick_number >= 8) || (gCount === 3 && managers_pick_number >= 11)) {
+            //                 this.select();
+            //             }
+            //         }
+            //     // } else if (f_limit_reached.includes(draft_manager) && d_limit_reached.includes(draft_manager)) {
+            //     //     if (posOpt === 'Sktr') {
+            //     //         this.select();
+            //     //     }
+            //     }
+            // });
+
+            positionSearchPaneDataTable.rows(function(idx, data, node) {
                 if (!f_limit_reached.includes(draft_manager) && !d_limit_reached.includes(draft_manager)) {
-                    if (posOpt === 'Sktr') {
-                        this.select();
-                    }
+                    return data.display.includes('Sktr');
                 }
                 else if (!f_limit_reached.includes(draft_manager)) {
-                    if (posOpt === 'F') {
-                        this.select();
-                    }
+                    return data.display.includes('F');
                 }
                 else if (!d_limit_reached.includes(draft_manager)) {
-                    if (posOpt === 'D') {
-                        this.select();
+                    return data.display.includes('D');
+                }
+            }).select();
+
+            if (!g_limit_reached.includes(draft_manager)) {
+                if ((gCount === 0) || (gCount === 1 && managers_pick_number > 5) || (gCount === 2 && managers_pick_number >= 8) || (gCount === 3 && managers_pick_number >= 11)) {
+                    positionSearchPaneDataTable.rows(function(idx, data, node) {
+                        return data.display.includes('G');
+                    }).select();
+                }
+            }
+
+        } else {
+            // Programmatically filter the table
+            var includeValues = [];
+
+            if (!f_limit_reached.includes(draft_manager) && !d_limit_reached.includes(draft_manager)) {
+                includeValues.push('F');
+                includeValues.push('D');
+            }
+            else if (!f_limit_reached.includes(draft_manager)) {
+                includeValues.push('F');
+            }
+            else if (!d_limit_reached.includes(draft_manager)) {
+                includeValues.push('D');
+            }
+            if (!g_limit_reached.includes(draft_manager)) {
+                if (gCount === 0 || (gCount === 1 && managers_pick_number > 3) || (gCount === 2 && managers_pick_number > 6)) {
+                    // Generate a random number between 0 and 1
+                    var randomNumber = Math.random();
+                    // Execute with 33% probability
+                    if (randomNumber <= 0.33) {
+                        includeValues.push('G');
                     }
                 }
-                if (!g_limit_reached.includes(draft_manager)) {
-                    if (posOpt === 'G') {
-                        if ((gCount === 0) || (gCount === 1 && managers_pick_number > 5) || (gCount === 2 && managers_pick_number >= 8) || (gCount === 3 && managers_pick_number >= 11)) {
-                            this.select();
-                        }
+                else if (gCount === 3 && managers_pick_number > 9) {
+                    // Generate a random number between 0 and 1
+                    var randomNumber = Math.random();
+                    // Execute with 25% probability
+                    if (randomNumber <= 0.25) {
+                        includeValues.push('G');
                     }
-                // } else if (f_limit_reached.includes(draft_manager) && d_limit_reached.includes(draft_manager)) {
-                //     if (posOpt === 'Sktr') {
-                //         this.select();
-                //     }
                 }
-            });
+            }
+
+            if (includeValues.length > 0) {
+                var regex = '^(' + includeValues.join('|') + ')$';
+                playerStatsTable.column(position_idx).search(regex, true, false).draw();
+            // } else {
+                // playerStatsTable.column(position_idx).search('').draw(); // Clear the filter if no exclusions
+            }
+        }
     }
-
-    // // Get data for selected rows
-    // var selectedPositions = positionSearchPaneDataTable.rows({ selected: true }).data();
-    // var dSelected = false;
-    // var fSelected = false;
-    // var gSelected = false;
-    // var sktrSelected = false;
-    // for (var i = 0; i < selectedPositions.length; i++) {
-    //     // the value is in the first column
-    //     var value = selectedPositions[i].display;
-    //     if (value === 'D') {
-    //         dSelected = true;
-    //     } else if (value === 'F') {
-    //         fSelected = true;
-    //     } else if (value === 'G') {
-    //         gSelected = true;
-    //     } else if (value === 'Sktr') {
-    //         sktrSelected = true;
-    //     }
-    // }
-
-    // let count = positionSearchPaneDataTable.rows({ selected: true }).count();
-
-    // // force Jason's preference for 1F & 4D before a goalie is picked
-    // if (draft_manager === "Fowler's Flyers" && managers_pick_number < 6) {
-    //     // Clear position search pane selections
-    //     positionSearchPaneDataTable.searchPanes.clearSelections();
-    //     // Jason started draft with 8 Fs & 3 Ds
-    //     let position = 'Sktr';
-    //     if (fCount === 9) {
-    //         position = 'D';
-    //     } else if (dCount === 7) {
-    //         position = 'F';
-    //     }
-    //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    //         posOpt = this.data().display;
-    //         if (posOpt === position) {
-    //             this.select();
-    //         }
-    //     });
-    // // force non-goalie selection if not at "acceptable" level by specific pick numbers
-    // } else if (((gCount === 1 && managers_pick_number < 3) || (gCount === 2 && managers_pick_number < 6) || (gCount === 3 && managers_pick_number < 9))
-    //             && count === 0) {
-    //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    //         posOpt = this.data().display;
-    //         if (posOpt === 'Sktr') {
-    //             this.select();
-    //         }
-    //     });
-    // // force goalie selection if not at "acceptable" level by specific pick numbers
-    // } else if ((gCount === 0 && managers_pick_number === 3) || (gCount === 1 && managers_pick_number === 6) || (gCount === 2 && managers_pick_number === 9) || (gCount === 3 && managers_pick_number === 12)) {
-    //     // Clear position search pane selections
-    //     positionSearchPaneDataTable.searchPanes.clearSelections();
-    //     positionSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    //         posOpt = this.data().display;
-    //         if (posOpt === 'G') {
-    //             this.select();
-    //         }
-    //     });
-    // }
-
-    // // the following is for debug purposes; should never have 'D' & 'Sktr" or 'F' & 'Sktr' selected, or 'G' & 'Sktr'
-    // let count = positionSearchPaneDataTable.rows({ selected: true }).count();
-
-    // if ((managers_pick_number === 13 && mfCount === 0) || (managers_pick_number === 14 && mfCount === 1)) {
-    //     additionalFiltersSearchPaneDataTable.rows().every(function(rowIdx, tableLoop, rowLoop) {
-    //         filterOpt = this.data().display;
-    //         if (filterOpt === 'Minors (Fantasy)') {
-    //             this.select();
-    //         }
-    //     });
-    // }
 
     if (draft_manager === 'Banshee') {
         // playerStatsTable.order([z_score_idx, 'desc'], [score_idx, 'desc']);
@@ -1612,8 +1630,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
         // }
         // playerStatsTable.searchBuilder.rebuild(mySearchBuilderCriteria);
 
-        let manuallySelectMyPicks = document.getElementById('manuallySelectMyPicks').checked;
-        if (manuallySelectMyPicks === true) {
+        if (manually_select_my_picks === true) {
             playerStatsTable.draw();
             return;
         }
@@ -1676,7 +1693,7 @@ function assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearc
     }
 
     setTimeout(function() {
-        assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable);
+        assignDraftPick(playerStatsTable, managerSummaryDataTable);
     }, 0);
 
 }
@@ -1698,6 +1715,8 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
 
     // add the player to remaining_draft_picks
     remaining_draft_picks[0].drafted_player = playerName;
+
+    let team = playerStatsTable.cell(rowIndex, team_idx).data();
 
     let position = playerStatsTable.cell(rowIndex, position_idx).data(); // postion for the drafted player
     if (['LW', 'C', 'RW'].includes(position)) {
@@ -1767,11 +1786,20 @@ function assignManager(playerStatsTable, rowIndex, manager, managerSummaryDataTa
             document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
             destroyDraftContextMenu();
             draft_in_progress = false;
+            draft_completed = true;
 
             // Reset search panes
             playerStatsTable.searchPanes.clearSelections();
 
-            // let managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
+            // clear all filters on the entire table
+            playerStatsTable.column(position_idx).search('').draw();
+
+            // Reset search builder selections
+            let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+            if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+                playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+            }
+
             // managerSearchPaneDataTable.rows(function(idx, data, node) {
             //     return data.display.includes('No data');
             // }).select();
@@ -1804,10 +1832,6 @@ function autoAssignDraftPicks() {
     //         return true;
     //     }
     // );
-    let managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
-    managerSearchPaneDataTable.rows(function(idx, data, node) {
-        return data.display.includes('No data');
-    }).select();
 
     // // don't want goalies with less than 20 starts
     // $.fn.dataTable.ext.search.push(
@@ -1823,9 +1847,9 @@ function autoAssignDraftPicks() {
     // let table = $('#player_stats').DataTable();
     // table.searchPanes.clearSelections();
     // table.searchBuilder.rebuild();
-    let playerStatsTable = $('#player_stats').DataTable();
+    // let playerStatsTable = $('#player_stats').DataTable();
     let managerSummaryDataTable = $('#managerSummary').DataTable();
-    assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable);
+    assignDraftPick(playerStatsDataTable, managerSummaryDataTable);
 
     // // Clear all search pane & serach builder selections, which may have been set programatically
     // table.searchPanes.clearSelections();
@@ -1933,7 +1957,7 @@ function calcManagerSummaryZScores(playerStatsTable) {
 
     // Filter out rows with no team manager
     let rosteredPlayers = originalPlayerStatsTableData.filter(function (row) {
-        if (draft_in_progress === true) {
+        if (draft_in_progress === true || draft_completed === true) {
             return row[manager_idx] !== "";
         } else {
             return row[manager_idx] !== "" && (row[keeper_idx] === 'Yes' || row[keeper_idx] === 'MIN');
@@ -2345,15 +2369,15 @@ function columnVisibility() {
     // reset the colvisClicked flag to false
     colvisClicked = false;
 
-    const table = $('#player_stats').DataTable();
+    // const table = $('#player_stats').DataTable();
     // get game type & "pos" search pane, previous & current values
     const current_game_type = $('#gameType').data('current');
     const current_positon = $('#DataTables_Table_0').data('current');
 
     // get currently hidden  & visilble columns
     // const all_table_columns =  getColumnNames(table);
-    const currently_hidden_columns = getColumnNames(table).filter((name) => !table.column(name).visible());
-    const currently_visible_columns = getColumnNames(table).filter((name) => table.column(name).visible());
+    const currently_hidden_columns = getColumnNames(playerStatsDataTable).filter((name) => !playerStatsDataTable.column(name).visible());
+    const currently_visible_columns = getColumnNames(playerStatsDataTable).filter((name) => playerStatsDataTable.column(name).visible());
 
     let columns_to_hide = [];
     let columns_to_show = [];
@@ -2391,11 +2415,12 @@ function columnVisibility() {
         columns_to_show = [... columns_to_show.filter((column) => !initially_hidden_column_names.includes(column) && !columns_to_hide.includes(column)), ... manually_unhidden_columns];
     }
 
-    // if draft round column has values, the draft is completed, and no need to sho projected columns
-    let data = table.column(draft_round_idx).data().toArray();
-    let draft_completed = data.some(function(value) {
-        return value.trim() !== '';
-    });
+    // // if draft round column has values, the draft is completed, and no need to show projected columns
+    // let data = table.column(draft_round_idx).data().toArray();
+    // let draft_completed = data.some(function(value) {
+    //     // return value.trim() !== '';
+    //     return value !== '';
+    // });
     // let prj_season_columns = [];
     // let prj_season_sktr_columns = [];
     // let prj_season_goalie_columns = [];
@@ -2426,21 +2451,21 @@ function columnVisibility() {
     columns_to_show = columns_to_show.filter(column => !currently_visible_columns.includes(column));
 
     // hide columns
-    table.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
+    playerStatsDataTable.columns(columns_to_hide).visible(show=false, redrawCalculations=false);
     // unhide columns
-    table.columns(columns_to_show).visible(show=true, redrawCalculations=false);
+    playerStatsDataTable.columns(columns_to_show).visible(show=true, redrawCalculations=false);
 
     // get current sort columns
-    let sort_columns = table.order();
+    let sort_columns = playerStatsDataTable.order();
     for ( let sort_info of sort_columns ) {
-        if ( sort_info[0] == 0 || table.column( sort_info[0] ).visible() == false ) {
+        if ( sort_info[0] == 0 || playerStatsDataTable.column( sort_info[0] ).visible() == false ) {
             sort_columns = [score_idx, "desc"];
             break;
         }
     }
     // sort columns
     executePlayerStatsTableSortDrawCallbackCode = true;
-    table.order(sort_columns);
+    playerStatsDataTable.order(sort_columns);
 
     // save current gameType & position as previous values
     $('#gameType').data('previous', current_game_type);
@@ -2644,8 +2669,10 @@ function createCategoryScarcityByZScoreRangeTable(data_dict) {
             {orderable: false, targets: ['_all']},
         ],
         initComplete: function () {
-            let headers = '<tr><th colspan="1"></th><th colspan="9">Skaters</th><th colspan="4">Goalies</th></tr>';
-            $("#categoryScarcityByZScoreRange thead").prepend(headers);
+            let header = '<tr><th colspan="1"></th><th colspan="9">Skaters</th><th colspan="4">Goalies</th></tr>';
+            if ($("#categoryScarcityByZScoreRange thead tr").length === 1) {
+                $("#categoryScarcityByZScoreRange thead").prepend(header);
+            }
         },
     });
 }
@@ -2738,7 +2765,9 @@ function createManagerSummaryTable(playerStatsTable) {
         },
         initComplete: function () {
             let header = '<tr><th colspan="2"></th><th colspan="5"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
-            $("#managerSummary thead").prepend(header);
+            if ($("#managerSummary thead tr").length === 2) {
+                $("#managerSummary thead").prepend(header);
+            }
         },
     });
 
@@ -2814,52 +2843,20 @@ function createMyCategoryNeedsTable() {
 
 function clearDraftColumns() {
 
-    let table = $('#player_stats').DataTable();
+    // let table = $('#player_stats').DataTable();
 
-    // Get the data for all rows in the table
-    let allPlayers = table.rows().data().toArray();
-
-    table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+    playerStatsDataTable.rows().every(function (rowIdx, tableLoop, rowLoop) {
         let rowData = this.data();
-        // let id = rowData[id_idx].match(/>(\d+)</)[1];
-        let id = rowData[id_idx];
-        let newDataItem = allPlayers.find(function(item) {
-            // return item[id_idx].match(/>(\d+)</)[1] === id;
-            return item[id_idx] === id;
-        });
-
-        if (newDataItem) {
-            // update rowData with data from newDataItem
-            rowData[draft_round_idx] = '';
-            rowData[draft_position_idx] = '';
-            rowData[draft_overall_pick_idx] = '';
-            this.data(rowData);
+        rowData[draft_round_idx] = '';
+        rowData[draft_position_idx] = '';
+        rowData[draft_overall_pick_idx] = '';
+        if (rowData[keeper_idx] !== 'Yes' && rowData[keeper_idx] !== 'MIN') {
+            rowData[manager_idx] = '';
         }
-    } );
-
-    // Filter out rows with no team manager
-    let availablePlayersWithManager = allPlayers.filter(function (row) {
-        return row[keeper_idx] !== 'Yes' && row[keeper_idx] !== 'MIN' && row[manager_idx] !== '';
+        this.data(rowData);
     });
 
-
-    table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
-        let rowData = this.data();
-        // let id = rowData[id_idx].match(/>(\d+)</)[1];
-        let id = rowData[id_idx];
-        let newDataItem = availablePlayersWithManager.find(function(item) {
-            // return item[id_idx].match(/>(\d+)</)[1] === id;
-            return item[id_idx] === id;
-        });
-
-        if (newDataItem) {
-            // update rowData with data from newDataItem
-            rowData[manager_idx] = '';
-            this.data(rowData);
-        }
-    } );
-
-    table.columns.adjust().draw();
+    playerStatsDataTable.columns.adjust().draw();
 
 }
 
@@ -2870,8 +2867,8 @@ function destroyDraftContextMenu() {
 
 function getAllPlayers() {
 
-        // Get the data for all rows in the table
-    let allPlayerTableRows = $('#player_stats').DataTable().rows().data().toArray();
+    // Get the data for all rows in the table
+    let allPlayerTableRows = playerStatsDataTable.rows().data().toArray();
 
     // Create the allPlayers array
     let allPlayers = [];
@@ -3099,7 +3096,8 @@ function hidePulsingBarShowTables() {
         $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
     }
 
-    $('#player_stats').DataTable().columns.adjust().draw();
+    // $('#player_stats').DataTable().columns.adjust().draw();
+    playerStatsDataTable.columns.adjust().draw();
     $('#player_stats-div').show();
 
 }
@@ -3122,8 +3120,7 @@ function hideTablesShowPulsingBar() {
 
 function initDraftContextMenu() {
 
-    let playerStatsTable = $('#player_stats').DataTable();
-    let managerSearchPaneDataTable = $(document.querySelectorAll('.dtsp-searchPanes table.dataTable')[5]).DataTable();
+    // let playerStatsTable = $('#player_stats').DataTable();
     let managerSummaryDataTable = $('#managerSummary').DataTable();
 
     $.contextMenu({
@@ -3132,22 +3129,22 @@ function initDraftContextMenu() {
             // Update the context menu options before the menu is shown
             return {
                 callback: function(key, options) {
-                    let rowIndex = playerStatsTable.row(this).index();
+                    let rowIndex = playerStatsDataTable.row(this).index();
                     switch(key) {
                         case "Draft player":
 
-                            assignManager(playerStatsTable, rowIndex, draft_manager, managerSummaryDataTable);
+                            assignManager(playerStatsDataTable, rowIndex, draft_manager, managerSummaryDataTable);
 
                             // Reset search panes
-                            playerStatsTable.searchPanes.clearSelections();
+                            playerStatsDataTable.searchPanes.clearSelections();
                             managerSearchPaneDataTable.rows(function(idx, data, node) {
                                 return data.display.includes('No data');
                             }).select();
 
                             // Reset search builder selections
-                            let currentSearchBuilderDetails = playerStatsTable.searchBuilder.getDetails();
+                            let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
                             if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
-                                playerStatsTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+                                playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
                             }
 
                             // Resume auto processing
@@ -3157,7 +3154,7 @@ function initDraftContextMenu() {
                                 // table.searchPanes.clearSelections();
                                 // table.searchBuilder.rebuild();
 
-                                assignDraftPick(playerStatsTable, managerSummaryDataTable, managerSearchPaneDataTable);
+                                assignDraftPick(playerStatsDataTable, managerSummaryDataTable);
                             }
                             break;
                     default:
@@ -3556,7 +3553,7 @@ function updateMyCategoryNeedsTable(myCategoryNeeds) {
 function undoDraftPick() {
 
     if (completed_draft_picks) {
-        let playerStatsTable = $('#player_stats').DataTable();
+        // let playerStatsTable = $('#player_stats').DataTable();
 
         // get most reacent draft pick
         let last_pick = completed_draft_picks.pop();
@@ -3565,11 +3562,11 @@ function undoDraftPick() {
             if (playerIndex.length === 1) {
                 rowIndex = playerIndex[0];
                 // clear draft information from table row for the drafted player
-                playerStatsTable.cell(rowIndex, manager_idx).data('');
-                playerStatsTable.cell(rowIndex, draft_round_idx).data('');
-                playerStatsTable.cell(rowIndex, draft_position_idx).data('');
-                playerStatsTable.cell(rowIndex, draft_overall_pick_idx).data('');
-                playerStatsTable.cell(rowIndex, picked_by_idx).data('');
+                playerStatsDataTable.cell(rowIndex, manager_idx).data('');
+                playerStatsDataTable.cell(rowIndex, draft_round_idx).data('');
+                playerStatsDataTable.cell(rowIndex, draft_position_idx).data('');
+                playerStatsDataTable.cell(rowIndex, draft_overall_pick_idx).data('');
+                playerStatsDataTable.cell(rowIndex, picked_by_idx).data('');
 
                 // add the last drafted player back to remaining_draft_picks array
                 last_pick.drafted_player = '';
@@ -3582,7 +3579,7 @@ function undoDraftPick() {
                 let cell = tableData.cell((round - 1) * 2 + 1, pick); // Get the cell object
                 cell.data('');
 
-                managerSummaryZScores = calcManagerSummaryZScores(playerStatsTable);
+                managerSummaryZScores = calcManagerSummaryZScores(playerStatsDataTable);
                 updateManagerSummaryTable(managerSummaryZScores);
 
                 myCategoryNeeds = getMyCategoryNeeds()
