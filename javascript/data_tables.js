@@ -1260,9 +1260,6 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
     // Show pulsing bar
     document.getElementById('pulsing-bar').style.display = 'block';
 
-    // let playerStatsTable = $('#player_stats').DataTable();
-    playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
-
     // reset draft limits per position
     f_limit_reached = [];
     d_limit_reached = [];
@@ -1335,9 +1332,15 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         $('#autoAssignDraftPicksContainer').removeClass('hidden').css('display', 'inline-block');
         $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
 
+        // Reset search panes
+        playerStatsDataTable.searchPanes.clearSelections();
+
         managerSearchPaneDataTable.rows(function(idx, data, node) {
             return data.display.includes('No data');
         }).select();
+
+        // let playerStatsTable = $('#player_stats').DataTable();
+        playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
 
         initDraftContextMenu();
 
