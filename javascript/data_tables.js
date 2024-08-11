@@ -1981,6 +1981,7 @@ function calcManagerSummaryScores(playerStatsTable) {
         }
 
         let keeper = row[keeper_idx];
+        let ir = row[fantrax_roster_status_idx];
 
         // Check if team manager already exists in new data
         let index = data.findIndex(function (item) {
@@ -1992,11 +1993,15 @@ function calcManagerSummaryScores(playerStatsTable) {
             data.push({
                 manager: manager,
                 picks: 25, // 25 because loop starts with 0; actual picks will start at 14, during draft simulation, but to start include 11 Keepers & 2 Minors Eligible
-                fCount: (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0,
-                dCount: (position === 'D' && keeper !== 'MIN') ? 1 : 0,
-                gCount: (position === 'G' && keeper !== 'MIN') ? 1 : 0,
+                // fCount: (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0,
+                // dCount: (position === 'D' && keeper !== 'MIN') ? 1 : 0,
+                // gCount: (position === 'G' && keeper !== 'MIN') ? 1 : 0,
+                fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
+                dCount: (position === 'D') ? 1 : 0,
+                gCount: (position === 'G') ? 1 : 0,
                 // mfCount: (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
-                mfCount: (keeper === 'MIN') ? 1 : 0,
+                mfCount: (keeper === 'MIN') ? 1 : 0, // minors (fantasy)
+                irCount: (ir === 'IR') ? 1 : 0,
                 score: 0,
                 scoreSktr: 0,
                 scoreOffense: 0,
@@ -2020,11 +2025,15 @@ function calcManagerSummaryScores(playerStatsTable) {
             });
         } else {
             // Team manager exists in new data, update row
-            data[index].fCount += (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0;
-            data[index].dCount += (position === 'D' && keeper !== 'MIN') ? 1 : 0;
-            data[index].gCount += (position === 'G' && keeper !== 'MIN') ? 1 : 0;
+            // data[index].fCount += (position !== 'G' && position !== 'D' && keeper !== 'MIN') ? 1 : 0;
+            // data[index].dCount += (position === 'D' && keeper !== 'MIN') ? 1 : 0;
+            // data[index].gCount += (position === 'G' && keeper !== 'MIN') ? 1 : 0;
+            data[index].fCount += (position !== 'G' && position !== 'D') ? 1 : 0;
+            data[index].dCount += (position === 'D') ? 1 : 0;
+            data[index].gCount += (position === 'G') ? 1 : 0;
             // data[index].mfCount += (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
             data[index].mfCount += (keeper === 'MIN') ? 1 : 0,
+            data[index].irCount += (ir === 'IR') ? 1 : 0,
             data[index].picks -= 1
         }
     }
@@ -2037,10 +2046,12 @@ function calcManagerSummaryScores(playerStatsTable) {
 
     // Group data by manager_idx and position_idx
     let groupedData = rosteredPlayers.reduce(function (r, a) {
-        // Exclude rows with 'IR' or 'Min' in fantrax_roster_status_idx
-        if (a[fantrax_roster_status_idx] === 'IR' || a[fantrax_roster_status_idx] === 'Min') {
-            return r;
-        }
+
+        // I think 'IR' & 'Min' players should be included in player counts, so comnenting this out for now
+        // // When using season projections, exclude rows with 'IR' or 'Min' in fantrax_roster_status_idx
+        // if (gameType.value !== 'Projected Season' && (a[fantrax_roster_status_idx] === 'IR' || a[fantrax_roster_status_idx] === 'Min')) {
+        //     return r;
+        // }
 
         r[a[manager_idx]] = r[a[manager_idx]] || {};
         let position = ['LW', 'C', 'RW'].includes(a[position_idx]) ? 'F' : a[position_idx];
@@ -2086,64 +2097,69 @@ function calcManagerSummaryScores(playerStatsTable) {
 
         let manager = row[manager_idx];
 
-        let score = parseFloat(row[score_idx]);
+        let score = 0;
+        let scoreSktr = 0;
+        let scoreOffense = 0;
+        let scorePeripheral = 0;
+        let points = 0;
+        let goals = 0;
+        let assists = 0;
+        let powerplayPoints = 0;
+        let shotsOnGoal = 0;
+        let blockedShots = 0;
+        let hits = 0;
+        let takeaways = 0;
+        let penaltyMinutes = 0;
+        let scoreG = 0;
+        let scoreCountG = 0;
+        let scoreRatioG = 0;
+        let wins = 0;
+        let saves = 0;
+        let gaa = 0;
+        let savePercent = 0;
+
+        if (gameType.value === 'Projected Season') {
+            score = parseFloat(row[score_idx]);
+            scoreSktr = parseFloat(row[score_idx]);
+            scoreOffense = parseFloat(row[offense_score_idx]);
+            scorePeripheral = parseFloat(row[peripheral_score_idx]);
+            points = parseFloat(row[pts_score_idx]);
+            goals = parseFloat(row[g_score_idx]);
+            assists = parseFloat(row[a_score_idx]);
+            powerplayPoints = parseFloat(row[ppp_score_idx]);
+            shotsOnGoal = parseFloat(row[sog_score_idx]);
+            blockedShots = parseFloat(row[blk_score_idx]);
+            hits = parseFloat(row[hits_score_idx]);
+            takeaways = parseFloat(row[tk_score_idx]);
+            penaltyMinutes = parseFloat(row[pim_score_idx]);
+            scoreG = parseFloat(row[score_idx]);
+            scoreCountG = parseFloat(row[g_count_score_idx]);
+            scoreRatioG = parseFloat(row[g_ratio_score_idx]);
+            wins = parseFloat(row[w_score_idx]);
+            saves = parseFloat(row[sv_score_idx]);
+            gaa = parseFloat(row[gaa_score_idx]);
+            savePercent = parseFloat(row[save_percent_score_idx]);
+        }
+
         if (isNaN(score)) {score = 0;}
-
-        let scoreSktr = parseFloat(row[score_idx]);
         if (isNaN(scoreSktr) || row[position_idx] === 'G') {scoreSktr = 0;}
-
-        let scoreOffense = parseFloat(row[offense_score_idx]);
         if (isNaN(scoreOffense)) {scoreOffense = 0;}
-
-        let scorePeripheral = parseFloat(row[peripheral_score_idx]);
         if (isNaN(scorePeripheral)) {scorePeripheral = 0;}
-
-        let points = parseFloat(row[pts_score_idx]);
-        if (isNaN(points) || points < 0 || row[position_idx] !== 'D') {points = 0;}
-
-        let goals = parseFloat(row[g_score_idx]);
-        if (isNaN(goals) || goals < 0) {goals = 0;}
-
-        let assists = parseFloat(row[a_score_idx]);
-        if (isNaN(assists) || assists < 0) {assists = 0;}
-
-        let powerplayPoints = parseFloat(row[ppp_score_idx]);
-        if (isNaN(powerplayPoints) || powerplayPoints < 0) {powerplayPoints = 0;}
-
-        let shotsOnGoal = parseFloat(row[sog_score_idx]);
-        if (isNaN(shotsOnGoal) || shotsOnGoal < 0) {shotsOnGoal = 0;}
-
-        let blockedShots = parseFloat(row[blk_score_idx]);
-        if (isNaN(blockedShots) || blockedShots < 0) {blockedShots = 0;}
-
-        let hits = parseFloat(row[hits_score_idx]);
-        if (isNaN(hits) || hits < 0) {hits = 0;}
-
-        let takeaways = parseFloat(row[tk_score_idx]);
-        if (isNaN(takeaways) || takeaways < 0) {takeaways = 0;}
-
-        let penaltyMinutes = parseFloat(row[pim_score_idx]);
-        if (isNaN(penaltyMinutes) || penaltyMinutes < 0) {penaltyMinutes = 0;}
-
-        let scoreG = parseFloat(row[score_idx]);
+        if (isNaN(points) || row[position_idx] !== 'D') {points = 0;}
+        if (isNaN(goals)) {goals = 0;}
+        if (isNaN(assists)) {assists = 0;}
+        if (isNaN(powerplayPoints)) {powerplayPoints = 0;}
+        if (isNaN(shotsOnGoal)) {shotsOnGoal = 0;}
+        if (isNaN(blockedShots)) {blockedShots = 0;}
+        if (isNaN(hits)) {hits = 0;}
+        if (isNaN(takeaways)) {takeaways = 0;}
+        if (isNaN(penaltyMinutes)) {penaltyMinutes = 0;}
         if (isNaN(scoreG) || row[position_idx] !== 'G') {scoreG = 0;}
-
-        let scoreCountG = parseFloat(row[g_count_score_idx]);
         if (isNaN(scoreCountG) || row[position_idx] !== 'G') {scoreCountG = 0;}
-
-        let scoreRatioG = parseFloat(row[g_ratio_score_idx]);
         if (isNaN(scoreRatioG) || row[position_idx] !== 'G') {scoreRatioG = 0;}
-
-        let wins = parseFloat(row[w_score_idx]);
-        if (isNaN(wins) || wins < 0) {wins = 0;}
-
-        let saves = parseFloat(row[sv_score_idx]);
-        if (isNaN(saves) || saves < 0) {saves = 0;}
-
-        let gaa = parseFloat(row[gaa_score_idx]);
+        if (isNaN(wins)) {wins = 0;}
+        if (isNaN(saves)) {saves = 0;}
         if (isNaN(gaa)) {gaa = 0;}
-
-        let savePercent = parseFloat(row[save_percent_score_idx]);
         if (isNaN(savePercent)) {savePercent = 0;}
 
         // Find team manager row index
@@ -2683,7 +2699,7 @@ function createManagerSummaryTable(playerStatsTable) {
 
     managerSummaryZScores = calcManagerSummaryScores(playerStatsTable);
 
-    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'score', 'scoreSktr', 'scoreOffense', 'scorePeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'irCount', 'score', 'scoreSktr', 'scoreOffense', 'scorePeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
 
     // Initialize new DataTable with calculated managerSummaryZScores
     $('#managerSummary').DataTable({
@@ -2696,6 +2712,7 @@ function createManagerSummaryTable(playerStatsTable) {
             { data: 'dCount', title: 'd\'s' },
             { data: 'gCount', title: 'g\'s' },
             { data: 'mfCount', title: 'm\'s' },
+            { data: 'irCount', title: 'ir\'s' },
             { data: 'score', title: 'score' },
             { data: 'scoreSktr', title: 'score' },
             { data: 'scoreOffense', title: 'offense' },
@@ -2717,7 +2734,7 @@ function createManagerSummaryTable(playerStatsTable) {
             { data: 'gaa', title: 'gaa' },
             { data: 'savePercent', title: 'sv%' },
         ],
-        order: [[6, "desc"]],
+        order: [[7, "desc"]],
         pageLength: 13,
         columnDefs: [
             // default is center-align all colunns, header & body
@@ -2764,8 +2781,8 @@ function createManagerSummaryTable(playerStatsTable) {
             // $("#managerSummary thead tr:first-child").after(header);
         },
         initComplete: function () {
-            let header = '<tr><th colspan="2"></th><th colspan="5"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
-            if ($("#managerSummary thead tr").length === 2) {
+            let header = '<tr><th colspan="2"></th><th colspan="6"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
+            if ($("#managerSummary thead tr").length === 1) {
                 $("#managerSummary thead").prepend(header);
             }
         },
