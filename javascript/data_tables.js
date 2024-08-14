@@ -1261,16 +1261,16 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
             updateManagerSummaryTable(managerSummaryScores);
         }
 
-        myCategoryNeeds = getMyCategoryNeeds()
-        updateMyCategoryNeedsTable(myCategoryNeeds);
+        // myCategoryNeeds = getMyCategoryNeeds()
+        // updateMyCategoryNeedsTable(myCategoryNeeds);
 
-        let caption = updateCaption();
-        let tableCaption = document.querySelector('#managerSummary caption');
+        // let caption = updateCaption();
+        // let tableCaption = document.querySelector('#managerSummary caption');
 
-        tableCaption = document.querySelector('#managerSummary caption');
-        tableCaption.textContent = caption + ' - Manager Scores';
-        tableCaption.style.fontWeight = 'bold';
-        tableCaption.style.textDecoration = 'underline';
+        // tableCaption = document.querySelector('#managerSummary caption');
+        // tableCaption.textContent = caption + ' - Manager Scores';
+        // tableCaption.style.fontWeight = 'bold';
+        // tableCaption.style.textDecoration = 'underline';
 
         document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
 
@@ -1370,7 +1370,8 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
         }
 
     }
-    else if (!draft_in_progress) {
+    // else if (!draft_in_progress) {
+    else {
 
         if ($('#toggleSummary')[0].checked == false) {
             let mangagerSummaryTable = $('#managerSummary').DataTable();
@@ -1580,8 +1581,8 @@ function assignManager(rowIndex, manager, managerSummaryDataTable) {
         managerSummaryScores = calcManagerSummaryScores();
         updateManagerSummaryTable(managerSummaryScores);
 
-        myCategoryNeeds = getMyCategoryNeeds()
-        updateMyCategoryNeedsTable(myCategoryNeeds);
+        // myCategoryNeeds = getMyCategoryNeeds()
+        // updateMyCategoryNeedsTable(myCategoryNeeds);
 
         // remove the first element from remaining_draft_picks and return that element removed
         let completedPick = remaining_draft_picks.shift();
@@ -1677,8 +1678,8 @@ function simulateStartDraftButtonClick() {
     managerSummaryScores = calcManagerSummaryScores();
     updateManagerSummaryTable(managerSummaryScores);
 
-    myCategoryNeeds = getMyCategoryNeeds()
-    updateMyCategoryNeedsTable(myCategoryNeeds);
+    // myCategoryNeeds = getMyCategoryNeeds()
+    // updateMyCategoryNeedsTable(myCategoryNeeds);
 
     document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
     $('#draftMessage').show();
@@ -3350,8 +3351,8 @@ function undoDraftPick() {
                 managerSummaryScores = calcManagerSummaryScores();
                 updateManagerSummaryTable(managerSummaryScores);
 
-                myCategoryNeeds = getMyCategoryNeeds()
-                updateMyCategoryNeedsTable(myCategoryNeeds);
+                // myCategoryNeeds = getMyCategoryNeeds()
+                // updateMyCategoryNeedsTable(myCategoryNeeds);
 
                 draft_manager = remaining_draft_picks[0].manager;
                 let managerSummaryDataTable = $('#managerSummary').DataTable();
