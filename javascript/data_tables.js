@@ -1425,7 +1425,7 @@ function assignDraftPick(managerSummaryDataTable) {
         // Define the weights for each position
         let fWeight = (fCount < 13) ? (13 - fCount) : 0;
         let dWeight = (dCount < 10) ? (10 - dCount) : 0;
-        let gWeight = (gCount < 5) ? (5 - gCount) : 0;
+        let gWeight = (gCount < 4) ? (4 - gCount) : 0;
         if ((picks === 1 && gCount === 3) || (picks === 2 && gCount === 2) || (picks === 3 && gCount === 1) || (picks === 4 && gCount === 0)) {
             fWeight = 0;
             dWeight = 0;
@@ -1669,7 +1669,7 @@ function simulateStartDraftButtonClick() {
     d_limit_reached = [];
     g_limit_reached = [];
 
-    remaining_draft_picks = draft_order_picks;
+    remaining_draft_picks = [...draft_order_picks];
     draft_manager = remaining_draft_picks[0].manager;
 
     clearDraftColumns();
