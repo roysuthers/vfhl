@@ -41,6 +41,7 @@ var injurySearchPaneDataTable;
 var positionSearchPaneDataTable;
 var additionalFiltersSearchPaneDataTable;
 var playerStatsDataTable;
+var managerSummaryDataTable;
 
 var managerSummaryScores;
 
@@ -192,15 +193,6 @@ document.getElementById('applyButton').addEventListener('click', () => {
             hidePulsingBarShowTables()
             return;
         } else {
-            caption = updateCaption();
-            let tableCaption = document.querySelector('#player_stats caption');
-            tableCaption.textContent = caption;
-
-            tableCaption = document.querySelector('#managerSummary caption');
-            tableCaption.textContent = caption + ' - Manager Scores';
-            tableCaption.style.fontWeight = 'bold';
-            tableCaption.style.textDecoration = 'underline';
-
             updateGlobalVariables(playerData);
 
             // In JavaScript, when you assign an array to another variable using let data = stats_data, both data and stats_data point to the same array
@@ -1142,6 +1134,15 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
             }
 
+            caption = updateCaption();
+            let tableCaption = document.querySelector('#player_stats caption');
+            tableCaption.textContent = caption;
+
+            tableCaption = document.querySelector('#managerSummary caption');
+            tableCaption.textContent = caption + ' - Manager Scores';
+            tableCaption.style.fontWeight = 'bold';
+            tableCaption.style.textDecoration = 'underline';
+
             const current_game_type =  $('#gameType').data('current');
             const previous_game_type = $('#gameType').data('previous');
             const regularOrPlayoffs = ['Regular Season', 'Playoffs'];
@@ -1256,6 +1257,11 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         // Check if DataTable instance exists
         if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
             createManagerSummaryTable();
+            let caption = updateCaption();
+            let tableCaption = document.querySelector('#managerSummary caption');
+            tableCaption.textContent = caption + ' - Manager Scores';
+            tableCaption.style.fontWeight = 'bold';
+            tableCaption.style.textDecoration = 'underline';
         } else {
             managerSummaryScores = calcManagerSummaryScores();
             updateManagerSummaryTable(managerSummaryScores);
@@ -1263,14 +1269,6 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         // myCategoryNeeds = getMyCategoryNeeds()
         // updateMyCategoryNeedsTable(myCategoryNeeds);
-
-        // let caption = updateCaption();
-        // let tableCaption = document.querySelector('#managerSummary caption');
-
-        // tableCaption = document.querySelector('#managerSummary caption');
-        // tableCaption.textContent = caption + ' - Manager Scores';
-        // tableCaption.style.fontWeight = 'bold';
-        // tableCaption.style.textDecoration = 'underline';
 
         document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
 
@@ -1331,8 +1329,7 @@ document.getElementById('toggleSummary').addEventListener('click', () => {
         }
     }
     else if (!draft_in_progress) {
-        let mangagerSummaryTable = $('#managerSummary').DataTable();
-        mangagerSummaryTable.destroy();
+        managerSummaryDataTable.destroy();
     }
 
 })
@@ -1374,8 +1371,7 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
     else {
 
         if ($('#toggleSummary')[0].checked == false) {
-            let mangagerSummaryTable = $('#managerSummary').DataTable();
-            mangagerSummaryTable.destroy();
+            managerSummaryDataTable.destroy();
         }
 
         let myCategoryNeeds = $('#myCategoryNeeds').DataTable();
@@ -1392,7 +1388,7 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
 })
 
-function assignDraftPick(managerSummaryDataTable) {
+function assignDraftPick() {
 
     return new Promise((resolve, reject) => {
 
@@ -1529,7 +1525,7 @@ function assignDraftPick(managerSummaryDataTable) {
         let randomIndex = Math.floor(Math.random() * 5);
         let selectedRow = filteredSortedIndexes[randomIndex];
 
-        assignManager(selectedRow, draft_manager, managerSummaryDataTable).then(result => {
+        assignManager(selectedRow, draft_manager).then(result => {
             if (result === false) {
                 auto_assign_picks = false;
                 resolve();
@@ -1537,7 +1533,7 @@ function assignDraftPick(managerSummaryDataTable) {
             }
 
             setTimeout(function () {
-                assignDraftPick(managerSummaryDataTable).then(resolve);
+                assignDraftPick().then(resolve);
             }, 0);
         }).catch(error => {
             reject(error);
@@ -1546,7 +1542,7 @@ function assignDraftPick(managerSummaryDataTable) {
 }
 
 // Assign manager
-function assignManager(rowIndex, manager, managerSummaryDataTable) {
+function assignManager(rowIndex, manager) {
 
     return new Promise((resolve, reject) => {
 
@@ -1653,10 +1649,8 @@ function assignManager(rowIndex, manager, managerSummaryDataTable) {
 // and then calling assignDraftPick() repeatedly using setTimeout
 async function autoAssignDraftPicks() {
 
-    let managerSummaryDataTable = $('#managerSummary').DataTable();
-
     auto_assign_picks = true; // global
-    await assignDraftPick(managerSummaryDataTable);
+    await assignDraftPick();
 
 }
 
@@ -2533,6 +2527,7 @@ function createManagerSummaryTable() {
             if ($("#managerSummary thead tr").length === 1) {
                 $("#managerSummary thead").prepend(header);
             }
+            managerSummaryDataTable = $('#managerSummary').DataTable();
         },
     });
 
@@ -2880,8 +2875,6 @@ function hideTablesShowPulsingBar() {
 
 function initDraftContextMenu() {
 
-    let managerSummaryDataTable = $('#managerSummary').DataTable();
-
     $.contextMenu({
         selector: '#player_stats td',
         build: function($trigger, e) {
@@ -2892,7 +2885,7 @@ function initDraftContextMenu() {
                     switch(key) {
                         case "Draft player":
 
-                            assignManager(rowIndex, draft_manager, managerSummaryDataTable);
+                            assignManager(rowIndex, draft_manager);
 
                             // Reset search panes
                             playerStatsDataTable.searchPanes.clearSelections();
@@ -2909,7 +2902,7 @@ function initDraftContextMenu() {
                             // Resume auto processing
                             if (auto_assign_picks === true) {
 
-                                assignDraftPick(managerSummaryDataTable);
+                                assignDraftPick();
                             }
                             break;
                     default:
@@ -3281,15 +3274,14 @@ function updateGlobalVariables(playerData) {
 
 function updateManagerSummaryTable(data) {
 
-    let managerSummaryTable = $('#managerSummary').DataTable();
     // Clear the existing data in the table
-    managerSummaryTable.clear();
+    managerSummaryDataTable.clear();
 
     // Add the new data to the table
-    managerSummaryTable.rows.add(data);
+    managerSummaryDataTable.rows.add(data);
 
     // table.columns.adjust().draw();
-    managerSummaryTable.draw();
+    managerSummaryDataTable.draw();
 
 }
 
@@ -3355,7 +3347,6 @@ function undoDraftPick() {
                 // updateMyCategoryNeedsTable(myCategoryNeeds);
 
                 draft_manager = remaining_draft_picks[0].manager;
-                let managerSummaryDataTable = $('#managerSummary').DataTable();
                 managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
 
                 document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
