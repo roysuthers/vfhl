@@ -98,7 +98,7 @@ $('#gameType').on('change', function() {
     $('#gameType').data('current', gameType.value);
 
     // hide\display startDraftButton as appropriate
-    if (gameType.value === 'Projected Season') {
+    if (gameType.value === 'Projected Season' && $.fn.dataTable.isDataTable('#player_stats')) {
         $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
     } else {
         $('#startDraftButton').addClass('hidden').css('display', 'none');
