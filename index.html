@@ -186,6 +186,11 @@
                 font-size: 1em;
             }
 
+            input[type="number"] {
+                width: 50px;
+                font-size: 1em;
+            }
+
             #dateRange {
                 width: 200px;
                 font-size: 1em;
@@ -377,12 +382,16 @@
         </p>
 
         <p>
-            <div id="autoAssignDraftPicksContainer" class="hidden">
-                <button id="autoAssignDraftPicks">Auto-assign Draft Picks</button>
-                <input type="checkbox" id="manuallySelectMyPicks" name="manuallySelectMyPicks" class="hidden">
+            <div id="autoAssignDraftPicksContainer" class="hidden indented">
+                <input type="checkbox" id="manuallySelectMyPicks" name="manuallySelectMyPicks">
                 <label for="manuallySelectMyPicks">Manually select my picks</label>
-                <label for="iterations">Iterations:</label>
+                <label for="iterations" class="indented">Iterations:</label>
                 <input type="number" id="iterations" name="iterations" min="1" value="1">
+                <input type="checkbox" id="writeToDraftSimulationsTable" name="writeToDraftSimulationsTable" class="indented" checked>
+                <label for="writeToDraftSimulationsTable">Write to Draft Simulations Table</label>
+                <input type="checkbox" id="clearDraftSimulationsTable" name="clearDraftSimulationsTable" class="indented" checked>
+                <label for="clearDraftSimulationsTable">Clear Draft Simulations Table</label>
+                <button id="autoAssignDraftPicks" class="indented">Auto-assign Draft Picks</button>
             </div>
         </p>
 
