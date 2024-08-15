@@ -109,11 +109,16 @@ def create_app():
             data = request.args.get('draft_board')
             projection_source = request.args.get('projectionSource')
             positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
+            clearDraftSimulationsTable = True if request.args.get('clearDraftSimulationsTable') == 'true' else False
 
             # Create a DataFrame
             df = pd.read_json(StringIO(data))
 
             with get_db_connection() as connection:
+
+                if clearDraftSimulationsTable is True:
+                    connection.execute('DELETE FROM DraftSimulations')
+
                 cursor = connection.cursor()
                 overall_pick = 0
                 for index, row in df.iterrows():
