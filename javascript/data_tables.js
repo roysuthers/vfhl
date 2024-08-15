@@ -1416,18 +1416,21 @@ function assignDraftPick() {
         let dCount = managerSummaryData['dCount'];
         let gCount = managerSummaryData['gCount'];
         // let mfCount = managerSummaryData['mfCount'];
-        let mfgkCount = managerSummaryData['mfgkCount'];
+        let mfgmCount = managerSummaryData['mfgmCount']; // minors fantasy goalies in minors
+        let gCount_adj = gCount - mfgmCount;
         let picks = managerSummaryData['picks'];
 
+        // picks_remaining = picks - remaining_draft_picks[0].managers_pick_number + 1;
+
         // Define the weights for each position
-        let fWeight = (fCount < 13) ? (13 - fCount) : 0;
-        let dWeight = (dCount < 10) ? (10 - dCount) : 0;
-        let gWeight = (gCount < 4) ? (4 - gCount) : 0;
-        if ((picks === 1 && gCount === 3) || (picks === 2 && gCount === 2) || (picks === 3 && gCount === 1) || (picks === 4 && gCount === 0)) {
+        let fWeight = 13 - fCount;
+        let dWeight = 10 - dCount;
+        let gWeight = 4 - gCount_adj;
+        if ((picks === 1 && gCount_adj === 3) || (picks === 2 && gCount_adj === 2) || (picks === 3 && gCount_adj === 1) || (picks === 4 && gCount_adj === 0)) {
             fWeight = 0;
             dWeight = 0;
         }
-        if (gCount === 4 && mfgkCount === 0) {
+        if (gCount_adj === 4 && gWeight !== 0) {
             gWeight = 0;
         }
 
@@ -1830,12 +1833,12 @@ function calcManagerSummaryScores() {
             data.push({
                 manager: manager,
                 picks: 25, // 25 because loop starts with 0; actual picks will start at 14, during draft simulation, but to start include 11 Keepers & 2 Minors Eligible
-                fCount: (position !== 'G' && position !== 'D' && (keeper === '' || keeper === 'Yes' || (keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0,
-                dCount: (position === 'D' && (keeper === 'Yes' || (keeper === '' || keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0,
-                gCount: (position === 'G' && (keeper === 'Yes' || (keeper === '' || keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0,
+                fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
+                dCount: (position === 'D') ? 1 : 0,
+                gCount: (position === 'G') ? 1 : 0,
                 // mfCount: (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
                 mfCount: (keeper === 'MIN') ? 1 : 0, // minors (fantasy)
-                mfgkCount: (keeper === 'MIN' && minors !== "Yes") ? 1 : 0, // minors (fantasy) - goalie keeper
+                mfgmCount: (keeper === 'MIN' && minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
                 irCount: (ir === 'IR') ? 1 : 0,
                 score: 0,
                 scoreSktr: 0,
@@ -1860,20 +1863,24 @@ function calcManagerSummaryScores() {
             });
         } else {
             // Team manager exists in new data, update row
-            data[index].fCount += (position !== 'G' && position !== 'D' && (keeper === '' || keeper === 'Yes' || (keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0;
-            data[index].dCount += (position === 'D' && (keeper === '' || keeper === 'Yes' || (keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0;
-            data[index].gCount += (position === 'G' && (keeper === '' || keeper === 'Yes' || (keeper === 'MIN' && minors !== "Yes"))) ? 1 : 0;
+            data[index].fCount += (position !== 'G' && position !== 'D') ? 1 : 0;
+            data[index].dCount += (position === 'D') ? 1 : 0;
+            data[index].gCount += (position === 'G') ? 1 : 0;
             // data[index].mfCount += (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
             data[index].mfCount += (keeper === 'MIN') ? 1 : 0,
-            data[index].mfgkCount += (keeper === 'MIN' && minors !== "Yes") ? 1 : 0,
-            data[index].irCount += (ir === 'IR') ? 1 : 0,
+            data[index].mfgmCount += (keeper === 'MIN' && minors === "Yes") ? 1 : 0,
+            data[index].irCount += (ir === 'IR') ? 1 : 0
             data[index].picks -= 1
         }
     }
 
     for(let i = 0; i < data.length; i++) {
-        if(data[i]['picks'] < 0) {
-            data[i]['picks'] = 0;
+        if(data[i].picks < 0) {
+            data[i].picks = 0;
+        }
+        // adjust for managers without MIN players
+        if(data[i].mfCount < 2) {
+            data[i].picks = data[i].picks - (2 - data[i].mfCount);
         }
     }
 
@@ -2456,7 +2463,7 @@ function createManagerSummaryTable() {
 
     managerSummaryScores = calcManagerSummaryScores();
 
-    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgkCount', 'irCount', 'score', 'scoreSktr', 'scoreOffense', 'scorePeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreOffense', 'scorePeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
 
     // Initialize new DataTable with calculated managerSummaryScores
     $('#managerSummary').DataTable({
@@ -2468,8 +2475,8 @@ function createManagerSummaryTable() {
             { data: 'fCount', title: 'f\'s' },
             { data: 'dCount', title: 'd\'s' },
             { data: 'gCount', title: 'g\'s' },
-            { data: 'mfCount', title: 'm\'s' },
-            { data: 'mfgkCount', title: 'm\'s gk' },
+            { data: 'mfCount', title: 'mf\'s' },
+            { data: 'mfgmCount', title: 'mfgm\'s' },
             { data: 'irCount', title: 'ir\'s' },
             { data: 'score', title: 'score' },
             { data: 'scoreSktr', title: 'score' },
@@ -2523,7 +2530,7 @@ function createManagerSummaryTable() {
 
         },
         initComplete: function () {
-            let header = '<tr><th colspan="2"></th><th colspan="6"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
+            let header = '<tr><th colspan="2"></th><th colspan="6"></th><th colspan="1"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
             if ($("#managerSummary thead tr").length === 1) {
                 $("#managerSummary thead").prepend(header);
             }
