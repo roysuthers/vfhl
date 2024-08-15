@@ -1217,6 +1217,12 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
         createManagerSummaryTable();
     }
 
+    let heatmaps_previously_enabled = heatmaps;
+    // disable heatmaps
+    if (heatmaps === true) {
+        toggleHeatmaps();
+    }
+
     let iterations = parseInt(document.getElementById('iterations').value, 10);
     for (let i = 0; i < iterations; i++) {
         await autoAssignDraftPicks();
@@ -1229,6 +1235,11 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
 
     if ($('#clearDraftSimulationsTable')[0].checked) {
         clearDraftSimulationsTable = true;
+    }
+
+    // enable heatmaps
+    if (heatmaps_previously_enabled === true) {
+        toggleHeatmaps();
     }
 
 })
@@ -1612,7 +1623,7 @@ function assignManager(rowIndex, manager) {
             document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
             resolve(true);;
 
-        } else if (writeToDraftSimulationsTable === true) {
+        } else {
 
             let draftBoardTable = $('#draftBoard').DataTable();
             // Extract column names

@@ -109,34 +109,37 @@ def create_app():
             data = request.args.get('draft_board')
             projection_source = request.args.get('projectionSource')
             positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
+            writeToDraftSimulationsTable = True if request.args.get('writeToDraftSimulationsTable') == 'true' else False
             clearDraftSimulationsTable = True if request.args.get('clearDraftSimulationsTable') == 'true' else False
 
-            # Create a DataFrame
-            df = pd.read_json(StringIO(data))
+            if writeToDraftSimulationsTable is True:
 
-            with get_db_connection() as connection:
+                # Create a DataFrame
+                df = pd.read_json(StringIO(data))
 
-                if clearDraftSimulationsTable is True:
-                    connection.execute('DELETE FROM DraftSimulations')
+                with get_db_connection() as connection:
 
-                cursor = connection.cursor()
-                overall_pick = 0
-                for index, row in df.iterrows():
-                    # Skip every other row, starting with the second row
-                    if index % 2 != 0:
-                        round_num = row['Rnd']
-                        for col in df.columns[1:]:
-                            player_info = row[col]
-                            if player_info:
-                                match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
-                                if match:
-                                    player_name, pos, team = match.groups()
-                                    overall_pick += 1
-                                    cursor.execute('''
-                                    INSERT INTO DraftSimulations (player_name, pos, team, projection_source, positional_scoring, round, overall_pick)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    ''', (player_name, pos, team, projection_source, positional_scoring, round_num, overall_pick))
-                cursor.close()
+                    if clearDraftSimulationsTable is True:
+                        connection.execute('DELETE FROM DraftSimulations')
+
+                    cursor = connection.cursor()
+                    overall_pick = 0
+                    for index, row in df.iterrows():
+                        # Skip every other row, starting with the second row
+                        if index % 2 != 0:
+                            round_num = row['Rnd']
+                            for col in df.columns[1:]:
+                                player_info = row[col]
+                                if player_info:
+                                    match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
+                                    if match:
+                                        player_name, pos, team = match.groups()
+                                        overall_pick += 1
+                                        cursor.execute('''
+                                        INSERT INTO DraftSimulations (player_name, pos, team, projection_source, positional_scoring, round, overall_pick)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                        ''', (player_name, pos, team, projection_source, positional_scoring, round_num, overall_pick))
+                    cursor.close()
 
         except Exception as e:
             msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
