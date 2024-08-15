@@ -19,6 +19,7 @@ var manually_select_my_picks = false;
 var draft_in_progress = false;
 var draft_completed = false;
 var draft_order;
+var writeToDraftSimulationsTable = false;
 // global variables to include managers that have reached their position maximium limits, during auto assignment
 var f_limit_reached = [];
 var d_limit_reached = [];
@@ -1220,16 +1221,34 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
     for (let i = 0; i < iterations; i++) {
         await autoAssignDraftPicks();
         // $('#draftMessage').show();
+        clearDraftSimulationsTable = false;
         if (i < iterations - 1) {
             simulateStartDraftButtonClick();
         }
     }
+
+    if ($('#clearDraftSimulationsTable')[0].checked) {
+        clearDraftSimulationsTable = true;
+    }
+
+})
+
+document.getElementById('clearDraftSimulationsTable').addEventListener('click', () => {
+
+    if ($('#clearDraftSimulationsTable')[0].checked) {
+        clearDraftSimulationsTable = true;
+    }
+    else {
+        clearDraftSimulationsTable = false;
+    }
+
 })
 
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
     draft_in_progress = true;
     draft_completed = false;
+    writeToDraftSimulationsTable = document.querySelector('#writeToDraftSimulationsTable').checked;
 
     // Show pulsing bar
     document.getElementById('pulsing-bar').style.display = 'block';
@@ -1314,26 +1333,6 @@ document.getElementById('statType').addEventListener('change', function() {
     }
 });
 
-document.getElementById('undoDraftPick').addEventListener('click', () => {
-
-    undoDraftPick();
-
-})
-
-document.getElementById('toggleSummary').addEventListener('click', () => {
-
-    if ($('#toggleSummary')[0].checked) {
-        // Check if DataTable instance exists
-        if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
-            createManagerSummaryTable()
-        }
-    }
-    else if (!draft_in_progress) {
-        managerSummaryDataTable.destroy();
-    }
-
-})
-
 document.getElementById('toggleScarcity').addEventListener('click', () => {
 
     if ($('#toggleScarcity')[0].checked) {
@@ -1384,6 +1383,23 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
         let categoryScarcity = $('#categoryScarcity').DataTable();
         categoryScarcity.destroy();
+    }
+
+})
+
+document.getElementById('undoDraftPick').addEventListener('click', () => {
+
+    undoDraftPick();
+
+})
+
+document.getElementById('writeToDraftSimulationsTable').addEventListener('click', () => {
+
+    if ($('#writeToDraftSimulationsTable')[0].checked) {
+        writeToDraftSimulationsTable = true;
+    }
+    else {
+        writeToDraftSimulationsTable = false;
     }
 
 })
@@ -1596,7 +1612,7 @@ function assignManager(rowIndex, manager) {
             document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
             resolve(true);;
 
-        } else {
+        } else if (writeToDraftSimulationsTable === true) {
 
             let draftBoardTable = $('#draftBoard').DataTable();
             // Extract column names
@@ -1615,7 +1631,7 @@ function assignManager(rowIndex, manager) {
             // Convert dictionary to JSON format
             let jsonDataDict = JSON.stringify(draftBoardDataDict);
 
-            writeToDatabase(jsonDataDict).then(results => {
+            writeDraftBoardToDatabase(jsonDataDict).then(results => {
 
                 if (results.status === 'error') {
                     alert(results.error)
@@ -1654,45 +1670,6 @@ async function autoAssignDraftPicks() {
 
     auto_assign_picks = true; // global
     await assignDraftPick();
-
-}
-
-function simulateStartDraftButtonClick() {
-    // document.getElementById('startDraftButton').click();
-    draft_in_progress = true;
-    draft_completed = false;
-
-    // reset draft limits per position
-    f_limit_reached = [];
-    d_limit_reached = [];
-    g_limit_reached = [];
-
-    remaining_draft_picks = [...draft_order_picks];
-    draft_manager = remaining_draft_picks[0].manager;
-
-    clearDraftColumns();
-
-    managerSummaryScores = calcManagerSummaryScores();
-    updateManagerSummaryTable(managerSummaryScores);
-
-    // myCategoryNeeds = getMyCategoryNeeds()
-    // updateMyCategoryNeedsTable(myCategoryNeeds);
-
-    document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
-    $('#draftMessage').show();
-
-    let draftBoardTable = $('#draftBoard').DataTable();
-    draftBoardTable.destroy();
-    createDraftBoardTable(remaining_draft_picks);
-
-    // Reset search panes
-    playerStatsDataTable.searchPanes.clearSelections();
-
-    managerSearchPaneDataTable.rows(function(idx, data, node) {
-        return data.display.includes('No data');
-    }).select();
-
-    playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
 
 }
 
@@ -2966,6 +2943,45 @@ function setFixedColumn( table ) {
 
 }
 
+function simulateStartDraftButtonClick() {
+    // document.getElementById('startDraftButton').click();
+    draft_in_progress = true;
+    draft_completed = false;
+
+    // reset draft limits per position
+    f_limit_reached = [];
+    d_limit_reached = [];
+    g_limit_reached = [];
+
+    remaining_draft_picks = [...draft_order_picks];
+    draft_manager = remaining_draft_picks[0].manager;
+
+    clearDraftColumns();
+
+    managerSummaryScores = calcManagerSummaryScores();
+    updateManagerSummaryTable(managerSummaryScores);
+
+    // myCategoryNeeds = getMyCategoryNeeds()
+    // updateMyCategoryNeedsTable(myCategoryNeeds);
+
+    document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
+    $('#draftMessage').show();
+
+    let draftBoardTable = $('#draftBoard').DataTable();
+    draftBoardTable.destroy();
+    createDraftBoardTable(remaining_draft_picks);
+
+    // Reset search panes
+    playerStatsDataTable.searchPanes.clearSelections();
+
+    managerSearchPaneDataTable.rows(function(idx, data, node) {
+        return data.display.includes('No data');
+    }).select();
+
+    playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+
+}
+
 function toggleHeatmaps() {
 
     heatmaps = !heatmaps;
@@ -3381,14 +3397,14 @@ function updatePlayerStatsTable(data) {
 
 }
 
-function writeToDatabase(draftBoardDataDict, callback) {
+function writeDraftBoardToDatabase(draftBoardDataDict, callback) {
 
     return new Promise((resolve, reject) => {
 
         // Set the base URL for the Flask API endpoint
         const baseUrl = 'http://localhost:5000/draft-board';
 
-        const queryParams = `draft_board=${draftBoardDataDict}&projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}`;
+        const queryParams = `draft_board=${draftBoardDataDict}&projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}&clearDraftSimulationsTable=${clearDraftSimulationsTable.checked}`;
 
         // Send a GET request to the Flask API endpoint with the specified query parameters
         $.get(baseUrl + '?' + queryParams, function(draft_board) {
