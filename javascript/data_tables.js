@@ -1530,52 +1530,30 @@ function assignDraftPick() {
         // Use the selected position to filter the playerStatsDataTable
         playerStatsDataTable.column(position_idx).search(selectedPosition);
 
+        // Determine the column index based on draft_manager and selectedPosition
+        let scoreColumnIndex;
+        let sortColumnIndexes;
         if (draft_manager === 'Banshee') {
-            if (selectedPosition === 'G') {
-                // playerStatsDataTable.order([[tier_idx, 'asc'], [z_combo_idx, 'desc']]);
-                playerStatsDataTable.order([[tier_idx, 'asc'], [score_idx, 'desc']]);
-            }
-            else {
-                // playerStatsDataTable.order([z_combo_idx, 'desc']);
-                playerStatsDataTable.order([score_idx, 'desc']);
-            }
-            if (manually_select_my_picks === true) {
-                playerStatsDataTable.draw();
-                return;
-            }
+            scoreColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
+            sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
         } else if (draft_manager === "Fowler's Flyers") {
-            if (selectedPosition === 'G') {
-                playerStatsDataTable.order([[games_idx, 'desc'], [z_score_idx, 'desc']]);
-            }
-            else {
-                playerStatsDataTable.order([z_score_idx, 'desc']);
-            }
-        }
-        else {
-            if (selectedPosition === 'G') {
-                playerStatsDataTable.order([[games_idx, 'desc'], [z_score_idx, 'desc']]);
-            }
-            else {
-                playerStatsDataTable.order([z_score_idx, 'desc']);
-            }
+            scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+            sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
+        } else {
+            scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+            sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
         }
 
-        playerStatsDataTable.draw();
+        playerStatsDataTable.order(sortColumnIndexes).draw();
+
+        if (draft_manager === 'Banshee' && manually_select_my_picks === true) {
+            return;
+        }
 
         let filteredSortedIndexes = playerStatsDataTable.rows({ order: 'current', search: 'applied' }).indexes().toArray();
 
-        // Determine the column index based on draft_manager and selectedPosition
-        let sortColumnIndex;
-        if (draft_manager === 'Banshee') {
-            sortColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
-        } else if (draft_manager === "Fowler's Flyers") {
-            sortColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
-        } else {
-            sortColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
-        }
-
         // Get the value of the first row's score
-        let firstRowScore = playerStatsDataTable.cell(filteredSortedIndexes[0], sortColumnIndex).data();
+        let firstRowScore = playerStatsDataTable.cell(filteredSortedIndexes[0], scoreColumnIndex).data();
 
         /// Get the value of the first row's games if selectedPosition is 'G'
         let firstRowGames;
@@ -1586,7 +1564,7 @@ function assignDraftPick() {
         // Filter the indexes to include the first row and rows within 10% of the first row's score
         // Additionally, if selectedPosition is 'G', filter based on games within 8 of firstRowGames
         let filteredIndexes = filteredSortedIndexes.filter(index => {
-            let score = playerStatsDataTable.cell(index, sortColumnIndex).data();
+            let score = playerStatsDataTable.cell(index, scoreColumnIndex).data();
             if (selectedPosition === 'G') {
                 let games = playerStatsDataTable.cell(index, games_idx).data();
                 return (index === filteredSortedIndexes[0] || Math.abs(score - firstRowScore) <= 0.1 * firstRowScore) &&
