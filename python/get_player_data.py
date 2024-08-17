@@ -1991,18 +1991,14 @@ def insert_fantrax_columns(df: pd.DataFrame, season_id: Season, game_type: str='
         # dfFantraxPlayerInfo seems to have duplicates, so drop duplicates
         dfFantraxPlayerInfo = dfFantraxPlayerInfo[~dfFantraxPlayerInfo.index.duplicated()]
 
-        fantrax_score = dfFantraxPlayerInfo['score']
+        # 'fantrax_score' may already be in df, if using projected stats
+        if 'fantrax_score' not in df.columns:
+            fantrax_score = dfFantraxPlayerInfo['score']
+        else:
+            fantrax_score = df['fantrax_score']
+
         fantrax_id = dfFantraxPlayerInfo['fantrax_id']
         rookie = dfFantraxPlayerInfo['rookie'].where(dfFantraxPlayerInfo['rookie'] == 1, '').replace(1,'Yes')
-
-        # Dobber doesn't seem to have a Rookie column
-        # # if we're getting projected stats, and there are no rookies, there should be, so get from Dobber
-        # if game_type == 'Prj' and np.count_nonzero(rookie.values) < 10:
-        #     skaters = pd.read_sql_query('SELECT CASE WHEN Rookie = "Y" THEN "Yes" ELSE "" END AS rookie, player_id FROM DobberSkatersDraftList', con=get_db_connection())
-        #     skaters = skaters.set_index('player_id')
-        #     goalies = pd.read_sql_query('SELECT CASE WHEN Rookie = "Y" THEN "Yes" ELSE "" END AS rookie, player_id FROM DobberGoaliesDraftList', con=get_db_connection())
-        #     goalies = goalies.set_index('player_id')
-        #     rookie = skaters['rookie'].combine_first(goalies['rookie'])
 
         minors = dfFantraxPlayerInfo['minors'].where(dfFantraxPlayerInfo['minors'] == 1, '').replace(1,'Yes')
         watch_list = dfFantraxPlayerInfo['watch_list'].where(dfFantraxPlayerInfo['watch_list'] == 1, '').replace(1,'Yes')
