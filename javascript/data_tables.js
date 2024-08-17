@@ -21,6 +21,8 @@ var draft_completed = false;
 var draft_order;
 var writeToDraftSimulationsTable = false;
 var clearDraftSimulationsTable = false;
+var managerAutoDraftScoreColumns = [];
+
 // global variables to include managers that have reached their position maximium limits, during auto assignment
 var f_limit_reached = [];
 var d_limit_reached = [];
@@ -1314,6 +1316,8 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
             updateManagerSummaryTable(managerSummaryScores);
         }
 
+        getManagerAutoDraftScoreColumnIndexes()
+
         // myCategoryNeeds = getMyCategoryNeeds()
         // updateMyCategoryNeedsTable(myCategoryNeeds);
 
@@ -1547,16 +1551,19 @@ function assignDraftPick() {
         playerStatsDataTable.column(position_idx).search(selectedPosition);
 
         // Determine the column index based on draft_manager and selectedPosition
-        let scoreColumnIndex;
+        // Find the manager in managerSummaryScores
+        let managersAutoDraftScoreColumn = managerAutoDraftScoreColumns.find(summary => summary.manager === draft_manager);
+        // Get the autoDraftScoreColumnIndex value for the current draft_manager
+        let scoreColumnIndex = managersAutoDraftScoreColumn ? managersAutoDraftScoreColumn['autoDraftScoreColumnIndex'] : null;
         let sortColumnIndexes;
         if (draft_manager === 'Banshee') {
-            scoreColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
+            // scoreColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
             sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
         } else if (draft_manager === "Fowler's Flyers") {
-            scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+            // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
             sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
         } else {
-            scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+            // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
             sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
         }
 
@@ -1694,7 +1701,12 @@ function assignManager(rowIndex, manager) {
                     reject(new Error(results.error));
                 }
 
+                // hide draft parameters
+                $('#autoAssignDraftPicksContainer').hide();
+
                 document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
+                $('#draftMessage').show();
+
                 destroyDraftContextMenu();
                 draft_in_progress = false;
                 draft_completed = true;
@@ -2718,6 +2730,31 @@ function getAllPlayers() {
 
 }
 
+function getManagerAutoDraftScoreColumnIndexes() {
+
+    // Iterate through managerSummaryScores
+    // let draft_player_score_columns = [fantrax_score_idx, z_score_idx, score_idx];
+    let draft_player_score_columns = [z_score_idx, score_idx];
+    managerSummaryScores.forEach(function(managerSummary) {
+        let autoDraftScoreColumnIndex;
+        if (managerSummary.manager === 'Banshee') {
+            autoDraftScoreColumnIndex = z_score_idx;
+        } else if (managerSummary.manager === "Fowler's Flyers") {
+            autoDraftScoreColumnIndex = score_idx;
+        } else {
+            // Randomly select an element from draft_player_score_columns
+            let randomIndex = Math.floor(Math.random() * draft_player_score_columns.length);
+            autoDraftScoreColumnIndex = draft_player_score_columns[randomIndex];
+        }
+        // Push the dictionary to the array
+        managerAutoDraftScoreColumns.push({
+            manager: managerSummary.manager,
+            autoDraftScoreColumnIndex: autoDraftScoreColumnIndex
+        });
+    });
+
+}
+
 function getCategoryScarcity(availablePlayers) {
 
     let categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(availablePlayers);
@@ -3017,11 +3054,14 @@ function simulateStartDraftButtonClick() {
     managerSummaryScores = calcManagerSummaryScores();
     updateManagerSummaryTable(managerSummaryScores);
 
+    managerAutoDraftScoreColumns = [];
+    getManagerAutoDraftScoreColumnIndexes()
+
     // myCategoryNeeds = getMyCategoryNeeds()
     // updateMyCategoryNeedsTable(myCategoryNeeds);
 
-    document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
-    $('#draftMessage').show();
+    // document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
+    // $('#draftMessage').show();
 
     let draftBoardTable = $('#draftBoard').DataTable();
     draftBoardTable.destroy();
