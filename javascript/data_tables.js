@@ -1224,6 +1224,9 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
         toggleHeatmaps();
     }
 
+    // Hide draft message
+    $('#draftMessage').hide();
+
     let iterations = parseInt(document.getElementById('iterations').value, 10);
     for (let i = 0; i < iterations; i++) {
         await autoAssignDraftPicks();
@@ -1258,6 +1261,19 @@ document.getElementById('clearDraftSimulationsTable').addEventListener('click', 
 
 document.getElementById('startDraftButton').addEventListener('click', () => {
 
+    // Get initial draft values from HTML
+    let initialManuallySelectMyPicks = $('#manuallySelectMyPicks').prop('defaultChecked');
+    let initialIterations = $('#iterations').prop('defaultValue');
+    let initialWriteToDraftSimulationsTable = $('#writeToDraftSimulationsTable').prop('defaultChecked');
+    let initialClearDraftSimulationsTable = $('#clearDraftSimulationsTable').prop('defaultChecked');
+
+    // Set properties to initial draft values
+    $('#manuallySelectMyPicks').prop('checked', initialManuallySelectMyPicks);
+    $('#iterations').val(initialIterations);
+    $('#writeToDraftSimulationsTable').prop('checked', initialWriteToDraftSimulationsTable);
+    $('#clearDraftSimulationsTable').prop('checked', initialClearDraftSimulationsTable);
+
+    auto_assign_picks = false;
     draft_in_progress = true;
     draft_completed = false;
     writeToDraftSimulationsTable = document.querySelector('#writeToDraftSimulationsTable').checked;
@@ -1322,7 +1338,7 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
         // declaration, even if it is added dynamically with JavaScript.
         $('#autoAssignDraftPicksContainer').removeClass('hidden').css('display', 'inline-block');
-        $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
+        // $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
 
         // clear all filters on the entire table
         playerStatsDataTable.column(position_idx).search('');
@@ -1597,6 +1613,11 @@ function assignDraftPick() {
 
 // Assign manager
 function assignManager(rowIndex, manager) {
+
+    // show "Undo Previous Pick" button
+    if (auto_assign_picks === false && $('#undoDraftPick').hasClass('hidden')) {
+        $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
+    }
 
     return new Promise((resolve, reject) => {
 
