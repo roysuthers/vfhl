@@ -23,6 +23,27 @@ var writeToDraftSimulationsTable = false;
 var clearDraftSimulationsTable = false;
 var managerAutoDraftScoreColumns = [];
 
+// Define the base array
+const baseArray = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 1, 1, 1, 1];
+
+// Function to generate a series
+function generateSeries(a, d, length) {
+    let series = [];
+    for (let i = 0; i < length; i++) {
+        series.push(a + i * d);
+    }
+    return series;
+}
+
+// Construct the multipliers array
+const multipliers = [
+    baseArray, // 0 element
+    generateSeries(1 / 4, (1 - 1 / 4) / 3, 3).concat(baseArray.slice(0, 10)), // 1 element
+    generateSeries(1 / 7, (1 - 1 / 7) / 6, 6).concat(baseArray.slice(0, 7)), // 2 element
+    generateSeries(1 / 10, (1 - 1 / 10) / 9, 9).concat(baseArray.slice(0, 4)), // 3 element
+    Array(13).fill(1) // 4 element
+];
+
 // global variables to include managers that have reached their position maximium limits, during auto assignment
 var f_limit_reached = [];
 var d_limit_reached = [];
@@ -1239,6 +1260,9 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
         }
     }
 
+    document.getElementById("draftMessage").innerHTML = iterations + " simulation(s) completed";
+    $('#draftMessage').show();
+
     if ($('#clearDraftSimulationsTable')[0].checked) {
         clearDraftSimulationsTable = true;
     }
@@ -1469,25 +1493,39 @@ function assignDraftPick() {
         // let mfCount = managerSummaryData['mfCount'];
         let mfgmCount = managerSummaryData['mfgmCount']; // minors fantasy goalies in minors
         let gCount_adj = gCount - mfgmCount;
-        let picks = managerSummaryData['picks'];
+        let picks_remaining = managerSummaryData['picks'];
 
         let sktr_score = managerSummaryData['scoreSktr'];
         let offense_score = managerSummaryData['scoreOffense'];
         let peripheral_score = managerSummaryData['scorePeripheral'];
         let g_score = managerSummaryData['scoreG'];
 
-        // picks_remaining = picks - remaining_draft_picks[0].managers_pick_number + 1;
-
         // Define the weights for each position
         let fWeight = 13 - fCount;
         let dWeight = 10 - dCount;
         let gWeight = 4 - gCount_adj;
-        if ((picks === 1 && gCount_adj === 3) || (picks === 2 && gCount_adj === 2) || (picks === 3 && gCount_adj === 1) || (picks === 4 && gCount_adj === 0)) {
-            fWeight = 0;
-            dWeight = 0;
-        }
-        if (gCount_adj === 4 && gWeight !== 0) {
-            gWeight = 0;
+
+        // manager_pick_number = picks_remaining - remaining_draft_picks[0].managers_pick_number + 1;
+
+        // // ensure that 4 goalies are picked, by forcing 'G' picks in the last rounds
+        // if ((picks_remaining === 1 && gCount_adj === 3) || (picks_remaining === 2 && gCount_adj === 2) || (picks_remaining === 3 && gCount_adj === 1) || (picks_remaining === 4 && gCount_adj === 0)) {
+        //     fWeight = 0;
+        //     dWeight = 0;
+        // }
+
+        // // Max out to 4 goalies. Using gCount_adj allows  5 or 6 goalies for a manager, with 1 or 2 being MIN
+        // if (gCount_adj === 4 && gWeight !== 0) {
+        //     gWeight = 0;
+        // }
+
+        if (gCount_adj >= 0 && gCount_adj <= 4) {
+            if (picks_remaining >= 1 && picks_remaining <= 13) {
+                gWeight *= multipliers[gCount_adj][13 - picks_remaining];
+            }
+            if (picks_remaining <= (gCount_adj === 0 ? 4 : gCount_adj === 1 ? 3 : gCount_adj === 2 ? 2 : gCount_adj === 3 ? 1: 0)) {
+                fWeight = 0;
+                dWeight = 0;
+            }
         }
 
         // Calculate the total weight
@@ -1703,9 +1741,6 @@ function assignManager(rowIndex, manager) {
 
                 // hide draft parameters
                 $('#autoAssignDraftPicksContainer').hide();
-
-                document.getElementById("draftMessage").innerHTML = "All rounds are completed.";
-                $('#draftMessage').show();
 
                 destroyDraftContextMenu();
                 draft_in_progress = false;
