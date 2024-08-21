@@ -932,7 +932,7 @@ class Fantrax:
 
                     browser.get(url)
 
-                    table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[3]/div[2]')))
+                    table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[2]/div[2]')))
 
                     msg = 'Scraping pool team games played per position...'
                     if dialog:
@@ -947,6 +947,7 @@ class Fantrax:
                         rows = table.find_elements(By.CLASS_NAME, 'supertable__row')
                         for row in rows:
                             # row.text = 'Forward (F) 103 855(+117) 635 No min 738'
+                            # row.text = 'Games Started - Goalies (GS) 0 0 82 No max'
                             position, pos_abbr, games_played, _, _, _, _, maximum = map(unidecode, row.text.split())
                             pos_abbr = pos_abbr.lstrip('(').rstrip(')')
 
@@ -954,7 +955,7 @@ class Fantrax:
                             team[f'{pos_abbr}_games_played'] = games_played
                             team[f'{pos_abbr}_maximum_games'] = maximum
                             if position == 'Goalie':
-                                table2 = browser.find_element(By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[4]/div[2]/div[2]')
+                                table2 = browser.find_element(By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[3]/div[2]')
                                 min_games_cell = table2.find_elements(By.CLASS_NAME, 'supertable__cell')[4]
                                 # 'Games Started - Goalies (GS) 22 183 82 No max'
                                 team[f'{pos_abbr}_minimum_starts'] = unidecode(min_games_cell.text)
