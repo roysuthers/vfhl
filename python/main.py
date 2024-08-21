@@ -106,40 +106,69 @@ def create_app():
         try:
             ret_val = jsonify({'status': 'success'})
 
-            data = request.args.get('draft_board')
             projection_source = request.args.get('projectionSource')
             positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
             writeToDraftSimulationsTable = True if request.args.get('writeToDraftSimulationsTable') == 'true' else False
             clearDraftSimulationsTable = True if request.args.get('clearDraftSimulationsTable') == 'true' else False
+            draft_board = request.args.get('draft_board')
+            manager_summary_scores = request.args.get('managerSummaryScores')
 
             if writeToDraftSimulationsTable is True:
 
-                # Create a DataFrame
-                df = pd.read_json(StringIO(data))
+                # Create DataFrames
+                df_draft_board = pd.read_json(StringIO(draft_board))
+                df_manager_summary_scores = pd.read_json(StringIO(manager_summary_scores))
 
                 with get_db_connection() as connection:
 
                     if clearDraftSimulationsTable is True:
                         connection.execute('DELETE FROM DraftSimulations')
+                        connection.execute('DELETE FROM DraftSimulationsManagerScores')
+                        simulation_number = 1
+                    else:
+                        max_simulation_number = connection.execute('SELECT MAX(simulation_number) FROM DraftSimulations').fetchone()[0]
+                        if max_simulation_number is None:
+                            simulation_number = 1
+                        else:
+                            simulation_number = max_simulation_number + 1
 
                     cursor = connection.cursor()
-                    overall_pick = 0
-                    for index, row in df.iterrows():
-                        # Skip every other row, starting with the second row
-                        if index % 2 != 0:
-                            round_num = row['Rnd']
-                            for col in df.columns[1:]:
-                                player_info = row[col]
-                                if player_info:
-                                    match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
-                                    if match:
-                                        player_name, pos, team = match.groups()
-                                        overall_pick += 1
-                                        cursor.execute('''
-                                        INSERT INTO DraftSimulations (player_name, pos, team, projection_source, positional_scoring, round, overall_pick)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                        ''', (player_name, pos, team, projection_source, positional_scoring, round_num, overall_pick))
+                    # Iterate through each even & odd row pair
+                    for i in range(0, len(df_draft_board), 2):
+                        even_row = df_draft_board.iloc[i]
+                        odd_row = df_draft_board.iloc[i + 1]
+                        # Iterate through each column in the pair
+                        for col in df_draft_board.columns:
+
+                            if col == 'Rnd':
+                                round_num = int(even_row[col])
+                                continue
+                            else:
+                                manager_info = even_row[col]
+                                player_info = odd_row[col]
+
+                                match = re.match(r"^(.*?)\s*\((\d+)/(\d+)\)$", manager_info)
+                                if match:
+                                    manager = match.group(1)
+                                    managers_pick_number = int(match.group(2))
+                                    overall_pick = int(match.group(3))
+
+                                match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
+                                if match:
+                                    player_name, pos, team = match.groups()
+
+                            cursor.execute('''
+                            INSERT INTO DraftSimulations (simulation_number, projection_source, positional_scoring, round, overall_pick, manager, managers_pick_number, player_name, pos, team)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ''', (simulation_number, projection_source, positional_scoring, round_num, overall_pick, manager, managers_pick_number, player_name, pos, team))
+
                     cursor.close()
+
+                df_manager_summary_scores.insert(0, 'simulation_number', simulation_number)
+                df_manager_summary_scores.insert(1, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
+                df_manager_summary_scores['rank'] = df_manager_summary_scores['rank'].astype(int)
+
+                df_manager_summary_scores.to_sql('DraftSimulationsManagerScores', con=connection, index=False, if_exists='append')
 
         except Exception as e:
             msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))

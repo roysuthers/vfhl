@@ -1729,10 +1729,11 @@ function assignManager(rowIndex, manager) {
                 return rowDict;
             });
 
-            // Convert dictionary to JSON format
-            let jsonDataDict = JSON.stringify(draftBoardDataDict);
+            // Convert dictionaries to JSON format
+            let jsonDataDict1 = JSON.stringify(draftBoardDataDict);
+            let jsonDataDict2 = JSON.stringify(managerSummaryScores);
 
-            writeDraftBoardToDatabase(jsonDataDict).then(results => {
+            writeDraftBoardToDatabase(jsonDataDict1, jsonDataDict2).then(results => {
 
                 if (results.status === 'error') {
                     alert(results.error)
@@ -2456,7 +2457,7 @@ function createDraftBoardTable(remaining_draft_picks) {
             playerRowData = [currentRound];
         }
         var shortManager = managerMapping[remaining_draft_picks[i].manager];  // Get the new manager name from the mapping
-        rowData.push(shortManager  + " (" + remaining_draft_picks[i].managers_pick_number + "\\" + remaining_draft_picks[i].overall_pick + ")");
+        rowData.push(shortManager  + " (" + remaining_draft_picks[i].managers_pick_number + "/" + remaining_draft_picks[i].overall_pick + ")");
         playerRowData.push('');  // Add an empty string for the player in the new row
     }
     tableData.push(rowData);  // Push the last row
@@ -3528,14 +3529,14 @@ function updatePlayerStatsTable(data) {
 
 }
 
-function writeDraftBoardToDatabase(draftBoardDataDict, callback) {
+function writeDraftBoardToDatabase(draftBoardDataDict, managerSummaryScoresDataDict, callback) {
 
     return new Promise((resolve, reject) => {
 
         // Set the base URL for the Flask API endpoint
         const baseUrl = 'http://localhost:5000/draft-board';
 
-        const queryParams = `draft_board=${draftBoardDataDict}&projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}&writeToDraftSimulationsTable=${writeToDraftSimulationsTable}&clearDraftSimulationsTable=${clearDraftSimulationsTable}`;
+        const queryParams = `projectionSource=${projectionSource.value}&positionalScoring=${positionalScoringCheckbox.checked}&writeToDraftSimulationsTable=${writeToDraftSimulationsTable}&clearDraftSimulationsTable=${clearDraftSimulationsTable}&draft_board=${draftBoardDataDict}&managerSummaryScores=${managerSummaryScoresDataDict}`;
 
         // Send a GET request to the Flask API endpoint with the specified query parameters
         $.get(baseUrl + '?' + queryParams, function(draft_board) {
