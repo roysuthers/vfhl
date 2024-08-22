@@ -1428,9 +1428,9 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
     // else if (!draft_in_progress) {
     else {
 
-        if ($('#toggleSummary')[0].checked == false) {
-            managerSummaryDataTable.destroy();
-        }
+        // if ($('#toggleSummary')[0].checked == false) {
+        //     managerSummaryDataTable.destroy();
+        // }
 
         let myCategoryNeeds = $('#myCategoryNeeds').DataTable();
         myCategoryNeeds.destroy();
@@ -1467,12 +1467,13 @@ function assignDraftPick() {
 
     return new Promise((resolve, reject) => {
 
-        if (auto_assign_picks === true) {
-            // clear all filters on the entire table
-            playerStatsDataTable.column(position_idx).search('');
-        }
+        // clear all filters on the entire table
+        playerStatsDataTable.column(position_idx).search('');
 
-        if (auto_assign_picks === false || (manually_select_my_picks === true && draft_manager === 'Banshee')) {
+        if (manually_select_my_picks === true && draft_manager === 'Banshee') {
+            // clear all filters on the entire table
+            playerStatsDataTable.column(position_idx).search('').draw();
+
             // Reset search panes
             playerStatsDataTable.searchPanes.clearSelections();
             managerSearchPaneDataTable.rows(function(idx, data, node) {
@@ -1484,7 +1485,10 @@ function assignDraftPick() {
             if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
                 playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
             }
-        }
+
+            return;
+
+   }
 
         let managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager'] === draft_manager)[0];
         let fCount = managerSummaryData['fCount'];
@@ -1606,10 +1610,6 @@ function assignDraftPick() {
         }
 
         playerStatsDataTable.order(sortColumnIndexes).draw();
-
-        if (draft_manager === 'Banshee' && manually_select_my_picks === true) {
-            return;
-        }
 
         let filteredSortedIndexes = playerStatsDataTable.rows({ order: 'current', search: 'applied' }).indexes().toArray();
 
@@ -2115,58 +2115,58 @@ function calcManagerSummaryScores() {
 
 }
 
-function calcPositionCategoryZScores(player_stats) {
-    // Define the positions and their respective z-scores
-    const positionCategories = {
-        'Forward': {'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
-        'Defence': {'z_points': z_points_idx, 'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
-        'Goalie': {'z_wins': z_wins_idx, 'z_saves': z_saves_idx, 'z_saves_percent': z_saves_percent_idx, 'z_gaa': z_gaa_idx}
-    };
+// function calcPositionCategoryZScores(player_stats) {
+//     // Define the positions and their respective z-scores
+//     const positionCategories = {
+//         'Forward': {'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+//         'Defence': {'z_points': z_points_idx, 'z_goals': z_goals_idx, 'z_assists': z_assists_idx, 'z_ppp': z_ppp_idx, 'z_sog': z_sog_idx, 'z_tk': z_tk_idx, 'z_hits': z_hits_idx, 'z_blk': z_blk_idx, 'z_pim': z_pim_idx},
+//         'Goalie': {'z_wins': z_wins_idx, 'z_saves': z_saves_idx, 'z_saves_percent': z_saves_percent_idx, 'z_gaa': z_gaa_idx}
+//     };
 
-    // Initialize the result array
-    let replacementPlayerZscores = {};
+//     // Initialize the result array
+//     let replacementPlayerZscores = {};
 
-    // Iterate over each position
-    for (let position in positionCategories) {
-        replacementPlayerZscores[position] = {};
+//     // Iterate over each position
+//     for (let position in positionCategories) {
+//         replacementPlayerZscores[position] = {};
 
-        // Filter the players based on the position and whether they are drafted
-        let poolTeamPlayers = player_stats.filter(player => {
-            if (position === "Forward") {
-                return ["LW", "C", "RW"].includes(player[position_idx]) && player[manager_idx];
-            } else if (position === "Defence") {
-                return player[position_idx] === "D" && player[manager_idx];
-            } else if (position === "Goalie") {
-                return player[position_idx] === "G" && player[manager_idx];
-            }
-        });
+//         // Filter the players based on the position and whether they are drafted
+//         let poolTeamPlayers = player_stats.filter(player => {
+//             if (position === "Forward") {
+//                 return ["LW", "C", "RW"].includes(player[position_idx]) && player[manager_idx];
+//             } else if (position === "Defence") {
+//                 return player[position_idx] === "D" && player[manager_idx];
+//             } else if (position === "Goalie") {
+//                 return player[position_idx] === "G" && player[manager_idx];
+//             }
+//         });
 
-        // Filter the players based on the position
-        let allPlayers = player_stats.filter(player => {
-            if (position === "Forward") {
-                return ["LW", "C", "RW"].includes(player[position_idx]);
-            } else if (position === "Defence") {
-                return player[position_idx] === "D";
-            } else if (position === "Goalie") {
-                return player[position_idx] === "G";
-            }
-        });
+//         // Filter the players based on the position
+//         let allPlayers = player_stats.filter(player => {
+//             if (position === "Forward") {
+//                 return ["LW", "C", "RW"].includes(player[position_idx]);
+//             } else if (position === "Defence") {
+//                 return player[position_idx] === "D";
+//             } else if (position === "Goalie") {
+//                 return player[position_idx] === "G";
+//             }
+//         });
 
-        // Iterate over each category for the current position
-        for (let category in positionCategories[position]) {
-            let tableIndex = positionCategories[position][category];
-            // Filter out rows where column with index = tableIndex has a non-blank value
-            let filteredPlayers = allPlayers.filter(player => player[tableIndex] !== '');
-            // Sort the players based on the category
-            // The subtraction operation (b[tableIndex] - a[tableIndex]) in the sort function ensures that JavaScript treats the values as numbers, not strings
-            filteredPlayers.sort((a, b) => b[tableIndex] - a[tableIndex]);
-            // Find the "count + 1" value in category
-            replacementPlayerZscores[position][category] = filteredPlayers[poolTeamPlayers.length] ? parseFloat(filteredPlayers[poolTeamPlayers.length][tableIndex]) : null;
-        }
-    }
+//         // Iterate over each category for the current position
+//         for (let category in positionCategories[position]) {
+//             let tableIndex = positionCategories[position][category];
+//             // Filter out rows where column with index = tableIndex has a non-blank value
+//             let filteredPlayers = allPlayers.filter(player => player[tableIndex] !== '');
+//             // Sort the players based on the category
+//             // The subtraction operation (b[tableIndex] - a[tableIndex]) in the sort function ensures that JavaScript treats the values as numbers, not strings
+//             filteredPlayers.sort((a, b) => b[tableIndex] - a[tableIndex]);
+//             // Find the "count + 1" value in category
+//             replacementPlayerZscores[position][category] = filteredPlayers[poolTeamPlayers.length] ? parseFloat(filteredPlayers[poolTeamPlayers.length][tableIndex]) : null;
+//         }
+//     }
 
-    return replacementPlayerZscores;
-}
+//     return replacementPlayerZscores;
+// }
 
 function colourizeCell(cellNode, column_idx, rowData) {
     if (heatmaps == true && !(rowData[games_idx] == "")) {
@@ -2854,9 +2854,9 @@ function getMyCategoryNeeds() {
 
     // Otherwise, proceed with the original code
     const categoryNeeds = categories.reduce((acc, category) => {
-        // Get all z-scores for the current category
+        // Get all scores for the current category
         const allZScores = managerSummaryScores.map(manager => manager[category]);
-        // Sort the z-scores in descending order
+        // Sort the scores in descending order
         allZScores.sort((a, b) => b - a);
         // Find the rank of mySummaryZScores[category] in allZScores
         acc[category] = 13 - allZScores.indexOf(mySummaryZScores[category]);
@@ -2894,52 +2894,52 @@ function getScoringCategoryCheckboxes() {
 
 }
 
-function getTeamCategoryValuesAndZScores(teamPlayers) {
+// function getTeamCategoryValuesAndZScores(teamPlayers) {
 
-    let teamCategoryValuesAndZScores = {};
+//     let teamCategoryValuesAndZScores = {};
 
-    // Sum the z-scores for each player on each team
-    teamPlayers.forEach(player => {
-        let manager = player.manager;
-        if (!teamCategoryValuesAndZScores[manager]) {
-            teamCategoryValuesAndZScores[manager] = {'values': {}, 'zScores': {}};
-        }
-        for (let category in player.categoryValues) {
-            if (!teamCategoryValuesAndZScores[manager]['values'][category]) {
-                teamCategoryValuesAndZScores[manager]['values'][category] = 0;
-            }
-            if (!isNaN(player.categoryValues[category])) {
-                if ((category !== 'points' && category !== 'toiSec') || (category === 'points' && player.position === 'D') || (category === 'toiSec' && player.position === 'G')) {
-                    teamCategoryValuesAndZScores[manager]['values'][category] += player.categoryValues[category];
-                }
-            }
-        }
-        for (let category in player.categoryZScores) {
-            if (category !== 'gaa' && category !== 'savePercent') {
-                if (!teamCategoryValuesAndZScores[manager]['zScores'][category]) {
-                    teamCategoryValuesAndZScores[manager]['zScores'][category] = 0;
-                }
-                if (!isNaN(player.categoryZScores[category])) {
-                    if (includePlayerCategoryZScore(player, category) === true || (category === 'toiSec' && player.position === 'G')) {
-                        teamCategoryValuesAndZScores[manager]['zScores'][category] += player.categoryZScores[category];
-                    }
-                }
-            }
-        }
+//     // Sum the z-scores for each player on each team
+//     teamPlayers.forEach(player => {
+//         let manager = player.manager;
+//         if (!teamCategoryValuesAndZScores[manager]) {
+//             teamCategoryValuesAndZScores[manager] = {'values': {}, 'zScores': {}};
+//         }
+//         for (let category in player.categoryValues) {
+//             if (!teamCategoryValuesAndZScores[manager]['values'][category]) {
+//                 teamCategoryValuesAndZScores[manager]['values'][category] = 0;
+//             }
+//             if (!isNaN(player.categoryValues[category])) {
+//                 if ((category !== 'points' && category !== 'toiSec') || (category === 'points' && player.position === 'D') || (category === 'toiSec' && player.position === 'G')) {
+//                     teamCategoryValuesAndZScores[manager]['values'][category] += player.categoryValues[category];
+//                 }
+//             }
+//         }
+//         for (let category in player.categoryZScores) {
+//             if (category !== 'gaa' && category !== 'savePercent') {
+//                 if (!teamCategoryValuesAndZScores[manager]['zScores'][category]) {
+//                     teamCategoryValuesAndZScores[manager]['zScores'][category] = 0;
+//                 }
+//                 if (!isNaN(player.categoryZScores[category])) {
+//                     if (includePlayerCategoryZScore(player, category) === true || (category === 'toiSec' && player.position === 'G')) {
+//                         teamCategoryValuesAndZScores[manager]['zScores'][category] += player.categoryZScores[category];
+//                     }
+//                 }
+//             }
+//         }
 
-    });
+//     });
 
-    // need to calculate gaa & save %
-    for (let manager in teamCategoryValuesAndZScores) {
-        teamCategoryValuesAndZScores[manager]['values']['gaa'] = teamCategoryValuesAndZScores[manager]['values']['goalsAgainst'] / teamCategoryValuesAndZScores[manager]['values']['toiSec'] * 3600
-        teamCategoryValuesAndZScores[manager]['values']['savePercent'] = teamCategoryValuesAndZScores[manager]['values']['saves'] / teamCategoryValuesAndZScores[manager]['values']['shotsAgainst']
+//     // need to calculate gaa & save %
+//     for (let manager in teamCategoryValuesAndZScores) {
+//         teamCategoryValuesAndZScores[manager]['values']['gaa'] = teamCategoryValuesAndZScores[manager]['values']['goalsAgainst'] / teamCategoryValuesAndZScores[manager]['values']['toiSec'] * 3600
+//         teamCategoryValuesAndZScores[manager]['values']['savePercent'] = teamCategoryValuesAndZScores[manager]['values']['saves'] / teamCategoryValuesAndZScores[manager]['values']['shotsAgainst']
 
-        teamCategoryValuesAndZScores[manager]['zScores']['gaa'] = (mean_cat['gaa'] - teamCategoryValuesAndZScores[manager]['values']['gaa']) / std_cat['gaa']
-        teamCategoryValuesAndZScores[manager]['zScores']['savePercent'] = (teamCategoryValuesAndZScores[manager]['values']['savePercent'] - mean_cat['save%']) / std_cat['save%']
-    }
+//         teamCategoryValuesAndZScores[manager]['zScores']['gaa'] = (mean_cat['gaa'] - teamCategoryValuesAndZScores[manager]['values']['gaa']) / std_cat['gaa']
+//         teamCategoryValuesAndZScores[manager]['zScores']['savePercent'] = (teamCategoryValuesAndZScores[manager]['values']['savePercent'] - mean_cat['save%']) / std_cat['save%']
+//     }
 
-    return teamCategoryValuesAndZScores;
-}
+//     return teamCategoryValuesAndZScores;
+// }
 
 function getPlayerData(generationType, seasonOrDateRadios, scoringCategoryCheckboxes, callback) {
     // Set the base URL for the Flask API endpoint
