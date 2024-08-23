@@ -1408,11 +1408,11 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
         // Create the allPlayers array
         let allPlayers = getAllPlayers();
 
-        if ($.fn.dataTable.isDataTable('#categoryScarcityByZScoreRange') == false) {
-            // create Category Scarcity by Z-score Range table
-            categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
-            createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
-        }
+        // if ($.fn.dataTable.isDataTable('#categoryScarcityByZScoreRange') == false) {
+        //     // create Category Scarcity by Z-score Range table
+        //     categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(allPlayers);
+        //     createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+        // }
 
         if ($.fn.dataTable.isDataTable('#categoryScarcity') == false) {
             // Filter out rows with no team manager
@@ -1856,7 +1856,7 @@ function calcCategoryScarcityByZScoreRange(players) {
             Object.keys(categories).forEach(category => {
                 if (typeof categories[category] === 'number') {
                     acc[category] = (acc[category] || 0) + parseInt(categories[category]);
-                } else {
+                } else if (acc[category] === undefined) {
                     acc[category] = 0;
                 }
             });
@@ -1992,19 +1992,19 @@ function calcManagerSummaryScores() {
 
             // Filter top rows based on position
             if (position === 'F') {
-                rosteredPlayers.push(...groupedData[manager][position].slice(0, 9));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 10));
             } else if (position === 'D') {
-                rosteredPlayers.push(...groupedData[manager][position].slice(0, 6));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 7));
             } else if (position === 'G') {
-                rosteredPlayers.push(...groupedData[manager][position].slice(0, 2));
+                rosteredPlayers.push(...groupedData[manager][position].slice(0, 3));
             }
         }
 
-        // Add the top row from either 'F' or 'D' that is not already in the top 9 for 'F' or top 6 for 'D'
-        let additionalRow = ['F', 'D'].map(pos => groupedData[manager][pos]).flat().sort((a, b) => b[score_idx] - a[score_idx]).find(item => !rosteredPlayers.includes(item));
-        if (additionalRow) {
-            rosteredPlayers.push(additionalRow);
-        }
+        // // Add the top row from either 'F' or 'D' that is not already in the top 9 for 'F' or top 6 for 'D'
+        // let additionalRow = ['F', 'D'].map(pos => groupedData[manager][pos]).flat().sort((a, b) => b[score_idx] - a[score_idx]).find(item => !rosteredPlayers.includes(item));
+        // if (additionalRow) {
+        //     rosteredPlayers.push(additionalRow);
+        // }
 
     }
 
@@ -2110,6 +2110,28 @@ function calcManagerSummaryScores() {
         data[index].savePercent += savePercent;
 
     }
+
+    // rank catetores
+    const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "wins", "saves", "gaa", "savePercent"];
+    categories.forEach(category => {
+        data.sort((a, b) => b[category] - a[category]);
+        data.forEach((manager, index) => {
+            const sameRankManagers = data.filter(m => m[category] === manager[category]);
+            const rankSum = sameRankManagers.reduce((sum, m) => sum + (13 - data.indexOf(m)), 0);
+            const averageRank = rankSum / sameRankManagers.length;
+            manager[`${category}`] = averageRank;
+        });
+    });
+
+    data.forEach(manager => {
+        manager.score = categories.reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreSktr = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreOffense = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scorePeripheral = ["blockedShots", "hits", "takeaways", "penaltyMinutes"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreG = ["wins", "saves", "gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreCountG = ["wins", "saves"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreRatioG = ["gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
+    });
 
     return data;
 
@@ -2407,7 +2429,7 @@ function createCategoryScarcityTable(data_dict) {
                         min: min,
                         max: max,
                         center: mean,
-                        theme: "cool-warm-reverse",
+                        theme: "cool-warm",
                     });
                 }
             });
@@ -2650,7 +2672,7 @@ function createMyCategoryNeedsTable() {
                 { data: 'category', title: 'category' },
                 { data: 'value', title: 'rank' },
             ],
-            order: [[1, "asc"]],
+            order: [[1, "desc"]],
             pageLength: 13,
             columnDefs: [
                 {className: 'dt-center', targets: '_all'},
@@ -2794,7 +2816,8 @@ function getManagerAutoDraftScoreColumnIndexes() {
 function getCategoryScarcity(availablePlayers) {
 
     let categoryScarcityByZScoreRange = calcCategoryScarcityByZScoreRange(availablePlayers);
-    updateCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+    // updateCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
+    createCategoryScarcityByZScoreRangeTable(categoryScarcityByZScoreRange);
 
     let categoryTotals = categoryScarcityByZScoreRange.find(obj => obj.hasOwnProperty('Totals')).Totals;
     let categories = Object.keys(categoryTotals);
@@ -2815,7 +2838,7 @@ function getCategoryScarcity(availablePlayers) {
 
     let maxCategoryScarcity = Math.max(...Object.values(categoryScarcities).filter(val => val !== 0))
     categories.forEach(key => {
-        categoryScarcities[key] = (1 - categoryScarcities[key] / maxCategoryScarcity) + 1;
+        categoryScarcities[key] = maxCategoryScarcity / categoryScarcities[key];
     });
 
     return categoryScarcities;
@@ -2859,7 +2882,7 @@ function getMyCategoryNeeds() {
         // Sort the scores in descending order
         allZScores.sort((a, b) => b - a);
         // Find the rank of mySummaryZScores[category] in allZScores
-        acc[category] = 13 - allZScores.indexOf(mySummaryZScores[category]);
+        acc[category] = allZScores.indexOf(mySummaryZScores[category]);
         return acc;
     }, {});
 
