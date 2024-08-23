@@ -1516,12 +1516,15 @@ class HockeyPool:
 
         excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
 
-        excel_columns = ('Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
+        excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
 
-        dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
+        dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='Fantrax-Skaters', header=0, usecols=excel_columns, engine='xlrd')
 
         # remove players with 0 projected games
         dfDraftList_skaters.query('GP>0', inplace=True)
+
+        # strip `*` from ID
+        dfDraftList_skaters['ID'] = dfDraftList_skaters['ID'].str.strip('*')
 
         # rename columns
         dfDraftList_skaters.rename(columns={'Position': 'Pos', 'GP': 'Games', 'G': 'Goals', 'A': 'Assists', 'Hit': 'Hits', 'Blk': 'BLKS'}, inplace=True)
@@ -1530,7 +1533,7 @@ class HockeyPool:
         dfDraftList_skaters['season_id'] = season.id
 
         # add player_id
-        dfDraftList_skaters['player_id'] = assign_player_ids(df=dfDraftList_skaters, player_name='Player', nhl_team='Team', pos_code='Pos')
+        dfDraftList_skaters['player_id'] = assign_player_ids(df=dfDraftList_skaters, player_name='Player', nhl_team='Team', pos_code='Pos', fantrax_id='ID')
 
         ##############################################################################
         # Goalies
@@ -1538,12 +1541,15 @@ class HockeyPool:
 
         excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
 
-        excel_columns = ('Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
+        excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
 
-        dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Fantrax-Players-Vikings Fantasy', header=0, usecols=excel_columns, engine='xlrd')
+        dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Fantrax-Goalies', header=0, usecols=excel_columns, engine='xlrd')
 
         # remove players with 0 projected games
         dfDraftList_goalies.query('GP>0', inplace=True)
+
+        # strip `*` from ID
+        dfDraftList_goalies['ID'] = dfDraftList_goalies['ID'].str.strip('*')
 
         # rename columns
         dfDraftList_goalies.rename(columns={'Position': 'Pos', 'GP': 'Games', 'W': 'Wins', 'SV': 'Saves', 'SV%': 'Save%'}, inplace=True)
@@ -1552,7 +1558,7 @@ class HockeyPool:
         dfDraftList_goalies['season_id'] = season.id
 
         # add player_id
-        dfDraftList_goalies['player_id'] = assign_player_ids(df=dfDraftList_goalies, player_name='Player', nhl_team='Team', pos_code='Pos')
+        dfDraftList_goalies['player_id'] = assign_player_ids(df=dfDraftList_goalies, player_name='Player', nhl_team='Team', pos_code='Pos', fantrax_id='ID')
 
         # convert NaN
         cols = {'Wins': 0}

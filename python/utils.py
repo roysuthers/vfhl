@@ -36,7 +36,7 @@ def assign_player_ids(df: pd.DataFrame, player_name: str='name', nhl_team: str='
     if fantrax_id == '':
         playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code]), axis=1)
     else:
-        playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code], row['fantrax_id']), axis=1)
+        playerIds = df.apply(lambda row: get_player_id(team_ids, player_ids, nhl_api, row[player_name], row[nhl_team], row[pos_code], row[fantrax_id]), axis=1)
 
     return playerIds
 
@@ -52,6 +52,13 @@ def calculate_age(birth_date: str) -> int:
         age = np.nan
 
     return age
+
+def find_fantrax_id(data, target_fantrax_id):
+    for name, records in data.items():
+        for record in records:
+            if record['fantrax_id'] == target_fantrax_id:
+                return name, record
+    return None
 
 def get_db_connection():
 
@@ -109,7 +116,14 @@ def get_player_id(team_ids: Dict, player_ids: Dict, nhl_api: 'NHL_API', name: st
                         idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and pos in player_ids[key_name][i]['pos']]
                     if len(idx) == 1:
                         player_id = player_ids[key_name][idx[0]]['id']
-    else:
+
+    if player_id == 0 and fantrax_id != '': # check fantrax_id if passed in
+        # ("ryan o'reilly", {'id': 8475158, 'fantrax_id': '01f6d', 'team_abbr': 'NSH', 'pos': 'C'})
+        player_ids_for_fantrax_id = find_fantrax_id(player_ids, fantrax_id)
+        if player_ids_for_fantrax_id:
+            player_id = player_ids_for_fantrax_id[1]['id']
+
+    if player_id == 0:
         team_id = team_ids[team_abbr] if team_abbr in team_ids else 0
         player_json = nhl_api.get_player_by_name(name=name, team_id=team_id, pos=pos)
         if player_json is not None:
