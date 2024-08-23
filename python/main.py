@@ -166,7 +166,7 @@ def create_app():
 
                 df_manager_summary_scores.insert(0, 'simulation_number', simulation_number)
                 df_manager_summary_scores.insert(1, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
-                df_manager_summary_scores['rank'] = df_manager_summary_scores['rank'].astype(int)
+                # df_manager_summary_scores['rank'] = df_manager_summary_scores['rank'].astype(int)
 
                 df_manager_summary_scores.to_sql('DraftSimulationsManagerScores', con=connection, index=False, if_exists='append')
 
