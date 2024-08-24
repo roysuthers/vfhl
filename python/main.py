@@ -107,7 +107,7 @@ def create_app():
             ret_val = jsonify({'status': 'success'})
 
             projection_source = request.args.get('projectionSource')
-            positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
+            # positional_scoring = 'Yes' if request.args.get('positionalScoring') == 'true' else 'No'
             writeToDraftSimulationsTable = True if request.args.get('writeToDraftSimulationsTable') == 'true' else False
             clearDraftSimulationsTable = True if request.args.get('clearDraftSimulationsTable') == 'true' else False
             draft_board = request.args.get('draft_board')
@@ -158,14 +158,15 @@ def create_app():
                                     player_name, pos, team = match.groups()
 
                             cursor.execute('''
-                            INSERT INTO DraftSimulations (simulation_number, projection_source, positional_scoring, round, overall_pick, manager, managers_pick_number, player_name, pos, team)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ''', (simulation_number, projection_source, positional_scoring, round_num, overall_pick, manager, managers_pick_number, player_name, pos, team))
+                            INSERT INTO DraftSimulations (simulation_number, projection_source, round, overall_pick, manager, managers_pick_number, player_name, pos, team)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ''', (simulation_number, projection_source, round_num, overall_pick, manager, managers_pick_number, player_name, pos, team))
 
                     cursor.close()
 
                 df_manager_summary_scores.insert(0, 'simulation_number', simulation_number)
-                df_manager_summary_scores.insert(1, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
+                df_manager_summary_scores.insert(1, 'projection_source', projection_source)
+                df_manager_summary_scores.insert(2, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
                 # df_manager_summary_scores['rank'] = df_manager_summary_scores['rank'].astype(int)
 
                 df_manager_summary_scores.to_sql('DraftSimulationsManagerScores', con=connection, index=False, if_exists='append')
