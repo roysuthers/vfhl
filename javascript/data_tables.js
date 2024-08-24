@@ -220,6 +220,24 @@ document.getElementById('applyButton').addEventListener('click', () => {
         } else {
             updateGlobalVariables(playerData);
 
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // // make trade with Jason
+            // for (let i = 0; i < stats_data.length; i++) {
+            //     if (stats_data[i][9] === 8477960) {
+            //         // Kempe
+            //         stats_data[i][32] = "Banshee";
+            //         stats_data[i][21] = "Yes";
+            //     } else if (stats_data[i][9] === 8480193) {
+            //         // Tarasov
+            //         stats_data[i][32] = "Fowler's Flyers";
+            //         stats_data[i][21] = "";
+            //     } else if (stats_data[i][9] === 8482087) {
+            //         // Guhle
+            //         stats_data[i][21] = "";
+            //     }
+            // }
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
             // In JavaScript, when you assign an array to another variable using let data = stats_data, both data and stats_data point to the same array
             // in memory. So, if you modify data, it will also modify stats_data and vice versa.
             // These methods only create a shallow copy of the array. If your array contains objects or other arrays, you may need to create a deep copy instead
