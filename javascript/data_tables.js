@@ -502,10 +502,16 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         // custom data type for id_idx, to be used in searchBuilder
                         {targets: id_idx, searchBuilderType: 'playerId'},
 
+                        // custom sort for 'tier' column
+                        {targets: [tier_idx],
+                            type: "custom_goalie_tier_sort",
+                            orderSequence: ['asc']
+                        },
+
                         // custom sort for 'fantrax adp', 'line', 'line prj', 'pp unit', 'pp unit prj', 'athletic z-score rank', 'dobber z-score rank', 'fantrax z-score rank' columns
-                        {targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dobber_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, breakout_threshold_idx],
-                         type: "custom_integer_sort",
-                         orderSequence: ['asc']
+                        {targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dobber_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, breakout_threshold_idx, prj_draft_round_idx],
+                            type: "custom_integer_sort",
+                            orderSequence: ['asc']
                         },
 
                         // custom sort for 'toi pg (trend)', 'toi even pg (trend)', 'toi pp pg (trend)', 'toi sh pg (trend)' columns
@@ -1016,30 +1022,21 @@ document.getElementById('applyButton').addEventListener('click', () => {
                 // custom ordering functions
                 // return -1 if the first item is smaller, 0 if they are equal, and 1 if the first is greater.
                 $.extend( $.fn.dataTable.ext.type.order, {
-                    // custom ascending & descending sorts for "prj draft round" column
-                    "custom_pdr_sort-asc": function (val1, val2) {
+                    // custom ascending sorts for "tier" column
+                    "custom_goalie_tier_sort-asc": function (val1, val2) {
 
-                        function getRange(val) {
-                            const parts = val.split(/[ -]+/);
-                            const [from, to] = parts.map(Number);
-                            return [from, to || from];
-                        }
-
-                        if (val1 === '') {
+                        if (val1 === '' || val1 === null || val1 === undefined) {
                             return 1;
                         }
-
-                        if (val2 === '') {
+                        if (val2 === '' || val2 === null || val2 === undefined) {
                             return -1;
                         }
 
-                        let [from1, to1] = getRange(val1);
-                        let [from2, to2] = getRange(val2);
-                        if (from1 !== from2) {
-                            return from1 - from2;
-                        }
-                        return to1 - to2;
+                        // Extract the numeric part of the tier values and compare them
+                        var num1 = parseInt(val1.replace('Tier ', ''), 10);
+                        var num2 = parseInt(val2.replace('Tier ', ''), 10);
 
+                        return num1 - num2;
                     },
 
                     // custom ascending sort for integer columns
@@ -2791,8 +2788,9 @@ function getAllPlayers() {
 function getManagerAutoDraftScoreColumnIndexes() {
 
     // Iterate through managerSummaryScores
-    // let draft_player_score_columns = [fantrax_score_idx, z_score_idx, score_idx];
-    let draft_player_score_columns = [z_score_idx, score_idx];
+    // Include `fantrax_score_idx` if fantrax projections have been release; otherwise use only `z_score_idx` & `score_idx`
+    let draft_player_score_columns = [fantrax_score_idx, z_score_idx, score_idx];
+    // let draft_player_score_columns = [z_score_idx, score_idx];
     managerSummaryScores.forEach(function(managerSummary) {
         let autoDraftScoreColumnIndex;
         if (managerSummary.manager === 'Banshee') {
