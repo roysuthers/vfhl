@@ -1269,14 +1269,20 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         df.set_index('player_id', inplace=True)
 
         # get The Athletic's projections
-        sktr_prj_athletic = pd.read_sql('select * from AthleticSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
-        goalie_prj_athletic = pd.read_sql('select * from AthleticGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # sktr_prj_athletic = pd.read_sql('select * from AthleticSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # goalie_prj_athletic = pd.read_sql('select * from AthleticGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        sktr_prj_athletic = pd.read_sql('select * from AthleticSkatersDraftList', con=get_db_connection(), index_col='player_id')
+        goalie_prj_athletic = pd.read_sql('select * from AthleticGoaliesDraftList', con=get_db_connection(), index_col='player_id')
         # get Dobber's projections
-        sktr_prj_dobber = pd.read_sql('select * from DobberSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
-        goalie_prj_dobber = pd.read_sql('select * from DobberGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # sktr_prj_dobber = pd.read_sql('select * from DobberSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # goalie_prj_dobber = pd.read_sql('select * from DobberGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        sktr_prj_dobber = pd.read_sql('select * from DobberSkatersDraftList', con=get_db_connection(), index_col='player_id')
+        goalie_prj_dobber = pd.read_sql('select * from DobberGoaliesDraftList', con=get_db_connection(), index_col='player_id')
         # get Fantrax projections
-        sktr_prj_fantrax = pd.read_sql('select * from FantraxSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
-        goalie_prj_fantrax = pd.read_sql('select * from FantraxGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # sktr_prj_fantrax = pd.read_sql('select * from FantraxSkatersDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        # goalie_prj_fantrax = pd.read_sql('select * from FantraxGoaliesDraftList where Games>0', con=get_db_connection(), index_col='player_id')
+        sktr_prj_fantrax = pd.read_sql('select * from FantraxSkatersDraftList', con=get_db_connection(), index_col='player_id')
+        goalie_prj_fantrax = pd.read_sql('select * from FantraxGoaliesDraftList', con=get_db_connection(), index_col='player_id')
 
         if projection_source in ('Athletic', 'Averaged'):
             sktr_prj_all = sktr_prj_athletic
@@ -2148,7 +2154,7 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
         params = (pool_id,)
 
-        df_temp = pd.read_sql(sql, params=params, con=get_db_connection())
+        df_inactive = pd.read_sql(sql, params=params, con=get_db_connection())
 
         # # Define a function to get the primary position for a player
         # def get_primary_position(player_id):
@@ -2176,13 +2182,60 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
             return team_abbr
 
         # Use the apply method to add the primary position information to the df_temp DataFrame
-        df_temp['team_abbr'] = df_temp['player_id'].apply(get_team_abbr)
+        df_inactive['team_abbr'] = df_inactive['player_id'].apply(get_team_abbr)
 
         # merge dataframes
-        df = pd.concat([df, df_temp])
+        df = pd.concat([df, df_inactive])
+
+    # get watch list players not on team rosters
+    columns = ' '.join(textwrap.dedent(f'''\
+        fpi.season_id as seasonID,
+        fpi.player_id,
+        fpi.player_name as name,
+        fpi.pos as pos,
+        fpi.nhl_team as team_abbr,
+        '' as line,
+        '' as pp_line,
+        p.birth_date,
+        p.height,
+        p.weight,
+        p.active,
+        p.roster_status as nhl_roster_status,
+        p.games as career_games,
+        p.injury_status,
+        p.injury_note,
+        '' as poolteam_id,
+        '' as pool_team,
+        '' as status,
+        '' as keeper
+    ''').splitlines())
+
+    select_sql = f'select {columns}'
+
+    # build table joins
+    from_tables = textwrap.dedent('''\
+        from FantraxPlayerInfo fpi
+        left outer join Player p on p.id=fpi.player_id
+        left outer join TeamRosters tr on tr.player_id=fpi.player_id
+    ''')
+
+    where_clause = f'where fpi.season_id=? and fpi.watch_list=1 and tr.player_id is NULL'
+
+    sql = textwrap.dedent(f'''\
+        {select_sql}
+        {from_tables}
+        {where_clause}
+    ''')
+
+    params = (season_id,)
+
+    df_watch_list = pd.read_sql(sql, params=params, con=get_db_connection())
+
+    # merge dataframes
+    df = pd.concat([df, df_watch_list])
 
     # Replace None values in the specified columns with an empty string
-    df[['poolteam_id', 'pool_team', 'status']] = df[['poolteam_id', 'pool_team', 'status']].fillna('')
+    df[['poolteam_id', 'pool_team', 'status', 'keeper']] = df[['poolteam_id', 'pool_team', 'status', 'keeper']].fillna('')
 
     # breakout threshold
     # calculate age
@@ -2203,12 +2256,31 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
     # merge dataframes
     ##################################################
 
-    # drop columns that are duplicates
-    columns_to_drop = list(df.columns)
-    columns_to_drop.remove('player_id')
-    df_stats.drop(columns=columns_to_drop, axis='columns', errors='ignore', inplace=True)
+    # # drop columns that are duplicates
+    # columns_to_drop = list(df.columns)
+    # columns_to_drop.remove('player_id')
+    # df_stats.drop(columns=columns_to_drop, axis='columns', errors='ignore', inplace=True)
 
-    df_stats = pd.merge(df, df_stats, how='left', on=['player_id'])
+    # df_stats = pd.merge(df, df_stats, how='left', on=['player_id'])
+
+    # Merge with indicator
+    merged_df = pd.merge(df_stats, df, how='left', on=['player_id'], indicator=True)
+
+    # Update values for duplicate columns where necessary
+    for col in df.columns:
+        if col != 'player_id' and col in df_stats.columns:
+            merged_df[col] = merged_df.apply(lambda row: row[col + '_x'] if row['_merge'] in ('both', 'left_only') else row[col + '_y'], axis=1)
+
+    # Drop the extra columns
+    columns_to_drop = [col + '_x' for col in df.columns if col != 'player_id'] + [col + '_y' for col in df.columns if col != 'player_id'] + ['_merge']
+    columns_to_drop = [col for col in columns_to_drop if col in merged_df.columns]
+    merged_df = merged_df.drop(columns=columns_to_drop)
+
+    # Identify rows only in df and append them
+    only_in_df = df[~df['player_id'].isin(df_stats['player_id'])]
+
+    # merge dataframes
+    df_stats = pd.concat([merged_df, only_in_df], ignore_index=True)
 
     df_stats.set_index(['player_id'], inplace=True)
     # some players are appearing twice; once for team they were on, and the second with team = (N/A); only want the (N/A) row
