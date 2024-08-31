@@ -10,7 +10,7 @@ from flask_cors import CORS
 from io import StringIO
 from pathlib import Path
 
-from get_player_data import rank_players, calc_z_scores, min_cat, max_cat, mean_cat
+from get_player_data import aggregate_draft_simulations, rank_players, calc_z_scores, min_cat, max_cat, mean_cat
 from fantrax import scrape_draft_picks
 from utils import get_db_connection, process_dict
 
@@ -96,6 +96,54 @@ def create_app():
             with open(file_path, 'w') as f:
                 json.dump(draft_picks, f)
 
+        ###################################################################
+        # New draft order
+        new_order = [
+            "Avovocado", "Banshee", "Camaro SS", "WhatA LoadOfIt", "El Paso Pirates",
+            "Witch King", "Horse Palace 26", "One Man Gang Bang", "Open Team 1",
+            "Urban Legends", "CanDO Know Huang", "Fowler's Flyers", "Wheels On Meals"
+        ]
+
+        # Create a dictionary to map manager to their original pick number
+        original_pick_number = {entry["manager"]: entry["round_pick"] - 1 for entry in draft_picks}
+
+        # Create a table representation of the draft list
+        table = [[None for _ in range(13)] for _ in range(13)]
+        for entry in draft_picks:
+            round_num = entry["draft_round"] - 1
+            pick_num = entry["round_pick"] - 1
+            table[round_num][pick_num] = entry
+
+        # Rearrange the columns based on the new order
+        rearranged_table = [[None for _ in range(13)] for _ in range(13)]
+        for i, manager in enumerate(new_order):
+            old_pick_num = original_pick_number[manager]
+            for round_num in range(13):
+                rearranged_table[round_num][i] = table[round_num][old_pick_num]
+
+        # Reverse the order for each manager in every even-numbered round
+        for round_num in range(1, 13, 2):  # 1, 3, 5, ..., 11 (0-based index for even rounds)
+            rearranged_table[round_num].reverse()
+
+        # Update the draft list with new pick numbers and adjust round_pick and overall_pick
+        draft_picks = []
+        overall_pick = 1
+        for round_num in range(13):
+            for pick_num in range(13):
+                entry = rearranged_table[round_num][pick_num]
+                entry["round_pick"] = pick_num + 1
+                entry["overall_pick"] = overall_pick
+                overall_pick += 1
+                draft_picks.append(entry)
+
+        # Update the managers_pick_number
+        manager_pick_count = {manager: 0 for manager in new_order}
+        for entry in draft_picks:
+            manager = entry["manager"]
+            manager_pick_count[manager] += 1
+            entry["managers_pick_number"] = manager_pick_count[manager]
+        ###################################################################
+
         # Return the data as JSON
         return jsonify(draft_picks)
 
@@ -133,6 +181,9 @@ def create_app():
                             simulation_number = max_simulation_number + 1
 
                     cursor = connection.cursor()
+
+                    #################################################################################################################
+                    # output DraftSimulations table
                     # Iterate through each even & odd row pair
                     for i in range(0, len(df_draft_board), 2):
                         even_row = df_draft_board.iloc[i]
@@ -161,15 +212,104 @@ def create_app():
                             INSERT INTO DraftSimulations (simulation_number, projection_source, round, overall_pick, manager, managers_pick_number, player_name, pos, team)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ''', (simulation_number, projection_source, round_num, overall_pick, manager, managers_pick_number, player_name, pos, team))
+                    #################################################################################################################
 
                     cursor.close()
 
-                df_manager_summary_scores.insert(0, 'simulation_number', simulation_number)
-                df_manager_summary_scores.insert(1, 'projection_source', projection_source)
-                df_manager_summary_scores.insert(2, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
-                # df_manager_summary_scores['rank'] = df_manager_summary_scores['rank'].astype(int)
+                    #################################################################################################################
+                    # output DraftSimulationsManagerScores table
+                    df_manager_summary_scores.insert(0, 'simulation_number', simulation_number)
+                    df_manager_summary_scores.insert(1, 'projection_source', projection_source)
+                    df_manager_summary_scores.insert(2, 'rank', df_manager_summary_scores['score'].rank(method='min', na_option='bottom', ascending=False))
+                    df_manager_summary_scores.to_sql('DraftSimulationsManagerScores', con=connection, index=False, if_exists='append')
+                    #################################################################################################################
 
-                df_manager_summary_scores.to_sql('DraftSimulationsManagerScores', con=connection, index=False, if_exists='append')
+                    # the following line is for debugging, to bypass the 'with block' code
+                    ...
+
+           # the following line is for debugging, to bypass the 'try block' code
+            ...
+
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            ret_val = jsonify({f'status': 'error: {msg}'})
+
+        return ret_val
+
+    @app.route('/draft-summaries')
+    def draft_summaries():
+        """Writes the draft summaries to html."""
+
+        try:
+            ret_val = jsonify({'status': 'success'})
+
+            draftProjectionSource = request.args.get('draftProjectionSource')
+
+            with get_db_connection() as connection:
+
+                #################################################################################################################
+                # output DraftSimulations_agg table
+
+                # read DraftSimulationsManagerScores table
+                if draftProjectionSource == '':
+                    df_DraftSimulations = pd.read_sql('select * from DraftSimulations', con=connection)
+                else:
+                    df_DraftSimulations = pd.read_sql(f'select * from DraftSimulations where projection_source="{draftProjectionSource}"', con=connection)
+
+                df_DraftSimulations_agg = aggregate_draft_simulations(df=df_DraftSimulations)
+
+                df_DraftSimulations_agg.to_sql('DraftSimulations_agg', con=connection, index=False, if_exists='replace')
+                #################################################################################################################
+
+                #################################################################################################################
+                # output DraftSimulationsManagerScores_agg table
+
+                # read DraftSimulationsManagerScores table
+                if draftProjectionSource == '':
+                    df_DraftSimulationsManagerScores = pd.read_sql('select * from DraftSimulationsManagerScores', con=connection)
+                else:
+                    df_DraftSimulationsManagerScores = pd.read_sql(f'select * from DraftSimulationsManagerScores where projection_source="{draftProjectionSource}"', con=connection)
+
+                # Select only numeric columns
+                columns_to_drop = ['simulation_number', 'picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount']
+                df_DraftSimulationsManagerScores.drop(columns=columns_to_drop, inplace=True)
+                numeric_columns  = df_DraftSimulationsManagerScores.select_dtypes(include=['number']).columns
+
+                # Group by 'manager' and calculate the mean for each numeric column
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores.groupby('manager')[numeric_columns].mean().reset_index()
+
+                # Round the mean columns to 1 decimal place
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores_agg.round(1)
+
+                # calculated min & max 'rank'
+                min_ranks = df_DraftSimulationsManagerScores.groupby('manager')[numeric_columns].min().reset_index()
+                max_ranks = df_DraftSimulationsManagerScores.groupby('manager')[numeric_columns].max().reset_index()
+
+                # Merge min_ranks and max_ranks into df_DraftSimulationsManagerScores_agg
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores_agg.merge(min_ranks, on='manager', suffixes=('', '_min'))
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores_agg.merge(max_ranks, on='manager', suffixes=('', '_max'))
+
+                # Reorder columns
+                ordered_columns = ['manager']
+                for col in numeric_columns:
+                    ordered_columns.append(col)
+                    if col + '_min' in df_DraftSimulationsManagerScores_agg.columns:
+                        ordered_columns.append(col + '_min')
+                    if col + '_max' in df_DraftSimulationsManagerScores_agg.columns:
+                        ordered_columns.append(col + '_max')
+
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores_agg[ordered_columns]
+
+                df_DraftSimulationsManagerScores_agg = df_DraftSimulationsManagerScores_agg.sort_values(by=['rank'], ascending=True).reset_index(drop=True)
+
+                df_DraftSimulationsManagerScores_agg.to_sql('DraftSimulationsManagerScores_agg', con=connection, index=False, if_exists='replace')
+                #################################################################################################################
+
+                # the following line is for debugging, to bypass the 'with block' code
+                ...
+
+           # the following line is for debugging, to bypass the 'try block' code
+            ...
 
         except Exception as e:
             msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))

@@ -77,19 +77,19 @@ var baseSearchBuilderCriteria = {
         {
             "condition": "!=",
             "data": "team",
-            "type": "html",
+            "type": "string",
             "value": ["(N/A)"]
         },
         {
             "condition": "<=",
             "data": "age",
-            "type": "int",
+            "type": "num",
             "value": []
         },
         {
             "condition": "contains",
             "data": "name",
-            "type": "str",
+            "type": "html",
             "value": []
         },
     ],
@@ -123,11 +123,11 @@ $('#gameType').on('change', function() {
     // save current gameType (i.e., 'Regular Season')
     $('#gameType').data('current', gameType.value);
 
-    // hide\display startDraftButton as appropriate
+    // hide\display draftButtonsWrapper, as appropriate
     if (gameType.value === 'Projected Season' && $.fn.dataTable.isDataTable('#player_stats')) {
-        $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
+        $('#draftButtonsWrapper').removeClass('hidden').css('display', 'inline-block');
     } else {
-        $('#startDraftButton').addClass('hidden').css('display', 'none');
+        $('#draftButtonsWrapper').addClass('hidden').css('display', 'none');
     }
 })
 
@@ -526,7 +526,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
                             orderSequence: ['asc']
                         },
 
-                        // custom sort for 'fantrax adp', 'line', 'line prj', 'pp unit', 'pp unit prj', 'athletic z-score rank', 'dobber z-score rank', 'fantrax z-score rank' columns
+                        // custom sort for 'prj adp', 'line', 'line prj', 'pp unit', 'pp unit prj', 'athletic z-score rank', 'dobber z-score rank', 'fantrax z-score rank' columns
                         {targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dobber_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, breakout_threshold_idx, prj_draft_round_idx],
                             type: "custom_integer_sort",
                             orderSequence: ['asc']
@@ -1249,6 +1249,26 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
 document.getElementById('autoAssignDraftPicks').addEventListener('click', async () => {
 
+    /////////////////////////////////////////////////////////////////////////////////////////
+    // These are executed when the "Start Draft" button is clicked, but can be manually
+    // changed prior to clicking "Auto-assign Draft Picks" button
+
+    // clear all filters on the entire table
+    playerStatsDataTable.column(position_idx).search('');
+
+    // Reset search panes
+    playerStatsDataTable.searchPanes.clearSelections();
+    managerSearchPaneDataTable.rows(function(idx, data, node) {
+        return data.display.includes('No data');
+    }).select();
+
+    // Reset search builder selections
+    let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
+    if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+        playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////
+
     manually_select_my_picks = document.getElementById('manuallySelectMyPicks').checked;
 
     // Check if DataTable instance exists
@@ -1278,9 +1298,10 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
     document.getElementById("draftMessage").innerHTML = iterations + " simulation(s) completed";
     $('#draftMessage').show();
 
-    if ($('#clearDraftSimulationsTable')[0].checked) {
-        clearDraftSimulationsTable = true;
-    }
+    // if ($('#clearDraftSimulationsTable')[0].checked) {
+    //     clearDraftSimulationsTable = true;
+    // }
+    clearDraftSimulationsTable = initialClearDraftSimulationsTable;
 
     // enable heatmaps
     if (heatmaps_previously_enabled === true) {
@@ -1297,6 +1318,26 @@ document.getElementById('clearDraftSimulationsTable').addEventListener('click', 
     else {
         clearDraftSimulationsTable = false;
     }
+
+})
+
+document.getElementById('draftSummariesButton').addEventListener('click', () => {
+
+    return new Promise((resolve, reject) => {
+
+        writeDraftSummariesToDatabase().then(results => {
+
+            if (results.status === 'error') {
+                alert(results.error)
+                reject(new Error(results.error));
+            }
+
+            resolve(false);
+
+        }).catch(error => {
+            reject(error);
+        });
+    });
 
 })
 
@@ -1388,12 +1429,15 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
 
         // Reset search panes
         playerStatsDataTable.searchPanes.clearSelections();
-
         managerSearchPaneDataTable.rows(function(idx, data, node) {
             return data.display.includes('No data');
         }).select();
 
-        playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+        // Reset search builder selections
+        let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
+        if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+            playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+        }
 
         initDraftContextMenu();
 
@@ -1485,26 +1529,6 @@ function assignDraftPick() {
         // clear all filters on the entire table
         playerStatsDataTable.column(position_idx).search('');
 
-        if (manually_select_my_picks === true && draft_manager === 'Banshee') {
-            // clear all filters on the entire table
-            playerStatsDataTable.column(position_idx).search('').draw();
-
-            // Reset search panes
-            playerStatsDataTable.searchPanes.clearSelections();
-            managerSearchPaneDataTable.rows(function(idx, data, node) {
-                return data.display.includes('No data');
-            }).select();
-
-            // Reset search builder selections
-            let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
-            if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
-                playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
-            }
-
-            return;
-
-   }
-
         let managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager'] === draft_manager)[0];
         let fCount = managerSummaryData['fCount'];
         let dCount = managerSummaryData['dCount'];
@@ -1514,146 +1538,177 @@ function assignDraftPick() {
         let gCount_adj = gCount - mfgmCount;
         let picks_remaining = managerSummaryData['picks'];
 
-        let sktr_score = managerSummaryData['scoreSktr'];
-        let offense_score = managerSummaryData['scoreOffense'];
-        let peripheral_score = managerSummaryData['scorePeripheral'];
-        let g_score = managerSummaryData['scoreG'];
-
-        // Define the weights for each position
-        let fWeight = 13 - fCount;
-        let dWeight = 10 - dCount;
-        let gWeight = 4 - gCount_adj;
-
-        // manager_pick_number = picks_remaining - remaining_draft_picks[0].managers_pick_number + 1;
-
-        // // ensure that 4 goalies are picked, by forcing 'G' picks in the last rounds
-        // if ((picks_remaining === 1 && gCount_adj === 3) || (picks_remaining === 2 && gCount_adj === 2) || (picks_remaining === 3 && gCount_adj === 1) || (picks_remaining === 4 && gCount_adj === 0)) {
-        //     fWeight = 0;
-        //     dWeight = 0;
-        // }
-
-        // // Max out to 4 goalies. Using gCount_adj allows  5 or 6 goalies for a manager, with 1 or 2 being MIN
-        // if (gCount_adj === 4 && gWeight !== 0) {
-        //     gWeight = 0;
-        // }
-
-        if (gCount_adj >= 0 && gCount_adj <= 4) {
-            if (picks_remaining >= 1 && picks_remaining <= 13) {
-                gWeight *= multipliers[gCount_adj][13 - picks_remaining];
-            }
-            if (picks_remaining <= (gCount_adj === 0 ? 4 : gCount_adj === 1 ? 3 : gCount_adj === 2 ? 2 : gCount_adj === 3 ? 1: 0)) {
-                fWeight = 0;
-                dWeight = 0;
-            }
+        let player_name;
+        let overall_pick = remaining_draft_picks[0].overall_pick;
+        if (overall_pick === 1 ) {
+            player_name = 'Macklin Celebrini';
         }
 
-        // Calculate the total weight
-        let totalWeight = fWeight + dWeight + gWeight;
+        let selectedRow;
+        if (player_name) {
+            var playerIndex = nameToIndex[player_name];
+            if (playerIndex.length === 1) {
+                selectedRow = playerIndex[0];
+            }
+        }
+        else {
+            // Define the weights for each position
+            let fWeight = 13 - fCount;
+            let dWeight = 10 - dCount;
+            let gWeight = 4 - gCount_adj;
 
-        // Calculate the probabilities for each position
-        let fProbability = fWeight / totalWeight;
-        let dProbability = dWeight / totalWeight;
-        let gProbability = gWeight / totalWeight;
+            if (gCount_adj >= 0 && gCount_adj <= 4) {
+                if (picks_remaining >= 1 && picks_remaining <= 13) {
+                    gWeight *= multipliers[gCount_adj][13 - picks_remaining];
+                }
+                if (picks_remaining <= (gCount_adj === 0 ? 4 : gCount_adj === 1 ? 3 : gCount_adj === 2 ? 2 : gCount_adj === 3 ? 1: 0)) {
+                    fWeight = 0;
+                    dWeight = 0;
+                }
+                else if (draft_manager === 'Banshee') {
+                    if (picks_remaining >= (gCount_adj === 0 ? 13 : gCount_adj === 1 ? 9 : gCount_adj === 2 ? 7 : gCount_adj === 3 ? 2: 1)) {
+                        gWeight = 0;
+                    }
+                }
+            }
 
-        // Create an array to hold the 100 entries
-        let positionsArray = [];
+            // Calculate the total weight
+            let totalWeight = fWeight + dWeight + gWeight;
 
-        // Calculate the number of 'F', 'D', and 'G' codes based on the probabilities
-        let fs = Math.round(fProbability * 100);
-        let ds = Math.round(dProbability * 100);
-        let gs = Math.round(gProbability * 100);
+            // Calculate the probabilities for each position
+            let fProbability = fWeight / totalWeight;
+            let dProbability = dWeight / totalWeight;
+            let gProbability = gWeight / totalWeight;
 
-        // Adjust the counts to ensure the sum is exactly 100
-        let total = fs + ds + gs;
-        if (total > 100) {
-            let excess = total - 100;
-            if (fProbability >= dProbability && fProbability >= gProbability) {
-                fs -= excess;
-            } else if (dProbability >= fProbability && dProbability >= gProbability) {
-                ds -= excess;
+            // Create an array to hold the 100 entries
+            let positionsArray = [];
+
+            // Calculate the number of 'F', 'D', and 'G' codes based on the probabilities
+            let fs = Math.round(fProbability * 100);
+            let ds = Math.round(dProbability * 100);
+            let gs = Math.round(gProbability * 100);
+
+            // Adjust the counts to ensure the sum is exactly 100
+            let total = fs + ds + gs;
+            if (total > 100) {
+                let excess = total - 100;
+                if (fProbability >= dProbability && fProbability >= gProbability) {
+                    fs -= excess;
+                } else if (dProbability >= fProbability && dProbability >= gProbability) {
+                    ds -= excess;
+                } else {
+                    gs -= excess;
+                }
+            } else if (total < 100) {
+                let deficit = 100 - total;
+                if (gProbability >= dProbability && gProbability >= fProbability) {
+                    gs += deficit;
+                } else if (dProbability >= fProbability && dProbability >= gProbability) {
+                    ds += deficit;
+                } else {
+                    fs += deficit;
+                }
+            }
+
+            // Fill the array with 'F', 'D', and 'G' codes
+            for (let i = 0; i < fs; i++) {
+                positionsArray.push('F');
+            }
+            for (let i = 0; i < ds; i++) {
+                positionsArray.push('D');
+            }
+            for (let i = 0; i < gs; i++) {
+                positionsArray.push('G');
+            }
+
+            // Shuffle the array to randomize the order of 'F', 'D', and 'G' codes
+            positionsArray = positionsArray.sort(() => Math.random() - 0.5);
+
+            // Generate a random number between 0 and 99
+            let randomValue = Math.floor(Math.random() * 100);
+
+            let selectedPosition = positionsArray[randomValue]
+
+            // Use the selected position to filter the playerStatsDataTable
+            playerStatsDataTable.column(position_idx).search(selectedPosition);
+
+            // Determine the column index based on draft_manager and selectedPosition
+            // Find the manager in managerSummaryScores
+            let managersAutoDraftScoreColumn = managerAutoDraftScoreColumns.find(summary => summary.manager === draft_manager);
+            // Get the autoDraftScoreColumnIndex value for the current draft_manager
+            let scoreColumnIndex = managersAutoDraftScoreColumn ? managersAutoDraftScoreColumn['autoDraftScoreColumnIndex'] : null;
+            let sortColumnIndexes;
+            if (draft_manager === 'Banshee') {
+                // scoreColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
+                sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
+            } else if (draft_manager === "Fowler's Flyers") {
+                // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+                sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
+            } else if (writeToDraftSimulationsTable === false) {
+                // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+                sortColumnIndexes = selectedPosition === 'G' ? [[adp_idx, 'asc'], [scoreColumnIndex, 'desc']] : [[adp_idx, 'asc'], [scoreColumnIndex, 'desc']];
             } else {
-                gs -= excess;
+                // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
+                sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
             }
-        } else if (total < 100) {
-            let deficit = 100 - total;
-            if (gProbability >= dProbability && gProbability >= fProbability) {
-                gs += deficit;
-            } else if (dProbability >= fProbability && dProbability >= gProbability) {
-                ds += deficit;
-            } else {
-                fs += deficit;
+
+            playerStatsDataTable.order(sortColumnIndexes).draw();
+
+            if (manually_select_my_picks === true && draft_manager === 'Banshee') {
+                // clear all filters on the entire table
+                playerStatsDataTable.column(position_idx).search('').draw();
+
+                // Reset search panes
+                playerStatsDataTable.searchPanes.clearSelections();
+                managerSearchPaneDataTable.rows(function(idx, data, node) {
+                    return data.display.includes('No data');
+                }).select();
+
+                // Reset search builder selections
+                let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
+                if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+                    playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+                }
+
+                return;
+
             }
-        }
 
-        // Fill the array with 'F', 'D', and 'G' codes
-        for (let i = 0; i < fs; i++) {
-            positionsArray.push('F');
-        }
-        for (let i = 0; i < ds; i++) {
-            positionsArray.push('D');
-        }
-        for (let i = 0; i < gs; i++) {
-            positionsArray.push('G');
-        }
+            let filteredSortedIndexes = playerStatsDataTable.rows({ order: 'current', search: 'applied' }).indexes().toArray();
 
-        // Shuffle the array to randomize the order of 'F', 'D', and 'G' codes
-        positionsArray = positionsArray.sort(() => Math.random() - 0.5);
+            // Get the value of the first row's score, adp, and games
+            let firstRowScore = parseFloat(playerStatsDataTable.cell(filteredSortedIndexes[0], scoreColumnIndex).data());
+            let firstADP = parseFloat(playerStatsDataTable.cell(filteredSortedIndexes[0], adp_idx).data());
+            let firstRowGames = parseFloat(playerStatsDataTable.cell(filteredSortedIndexes[0], games_idx).data());
 
-        // Generate a random number between 0 and 99
-        let randomValue = Math.floor(Math.random() * 100);
-
-        let selectedPosition = positionsArray[randomValue]
-
-        // Use the selected position to filter the playerStatsDataTable
-        playerStatsDataTable.column(position_idx).search(selectedPosition);
-
-        // Determine the column index based on draft_manager and selectedPosition
-        // Find the manager in managerSummaryScores
-        let managersAutoDraftScoreColumn = managerAutoDraftScoreColumns.find(summary => summary.manager === draft_manager);
-        // Get the autoDraftScoreColumnIndex value for the current draft_manager
-        let scoreColumnIndex = managersAutoDraftScoreColumn ? managersAutoDraftScoreColumn['autoDraftScoreColumnIndex'] : null;
-        let sortColumnIndexes;
-        if (draft_manager === 'Banshee') {
-            // scoreColumnIndex = selectedPosition === 'G' ? score_idx : score_idx;
-            sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
-        } else if (draft_manager === "Fowler's Flyers") {
-            // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
-            sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
-        } else {
-            // scoreColumnIndex = selectedPosition === 'G' ? z_score_idx : z_score_idx;
-            sortColumnIndexes = selectedPosition === 'G' ? [[games_idx, 'desc'], [scoreColumnIndex, 'desc']] : [scoreColumnIndex, 'desc'];
-        }
-
-        playerStatsDataTable.order(sortColumnIndexes).draw();
-
-        let filteredSortedIndexes = playerStatsDataTable.rows({ order: 'current', search: 'applied' }).indexes().toArray();
-
-        // Get the value of the first row's score
-        let firstRowScore = playerStatsDataTable.cell(filteredSortedIndexes[0], scoreColumnIndex).data();
-
-        /// Get the value of the first row's games if selectedPosition is 'G'
-        let firstRowGames;
-        if (selectedPosition === 'G') {
-            firstRowGames = playerStatsDataTable.cell(filteredSortedIndexes[0], games_idx).data();
-        }
-
-        // Filter the indexes to include the first row and rows within 10% of the first row's score
-        // Additionally, if selectedPosition is 'G', filter based on games within 8 of firstRowGames
-        let filteredIndexes = filteredSortedIndexes.filter(index => {
-            let score = playerStatsDataTable.cell(index, scoreColumnIndex).data();
+            let score_delta = 1.0;
             if (selectedPosition === 'G') {
-                let games = playerStatsDataTable.cell(index, games_idx).data();
-                return (index === filteredSortedIndexes[0] || Math.abs(score - firstRowScore) <= 0.1 * firstRowScore) &&
-                    Math.abs(games - firstRowGames) <= 8;
-            } else {
-                return index === filteredSortedIndexes[0] || Math.abs(score - firstRowScore) <= 0.1 * firstRowScore;
+                score_delta = 2.0;
             }
-        });
+            let filteredIndexes = filteredSortedIndexes.filter(index => {
+                // Filter on players within 13 or adp, which hopefully means they are relatively close in value
+                if (writeToDraftSimulationsTable === false) {
+                    let adp = parseFloat(playerStatsDataTable.cell(index, adp_idx).data());
+                    return ((index === filteredSortedIndexes[0]) || ((firstADP + 13) >= adp));
+                }
+                else {
+                    // Filter the indexes to include the first row and rows within 10% of the first row's score
+                    // Additionally, if selectedPosition is 'G', filter based on games within 8 of firstRowGames
+                    let score = parseFloat(playerStatsDataTable.cell(index, scoreColumnIndex).data());
+                    if (selectedPosition === 'G') {
+                        let games = playerStatsDataTable.cell(index, games_idx).data();
+                        return ((index === filteredSortedIndexes[0]) || (score >= firstRowScore) || ((Math.abs(score - firstRowScore) <= (score_delta * firstRowScore)) &&
+                            (Math.abs(games - firstRowGames) <= 8)));
+                    } else {
+                        return ((index === filteredSortedIndexes[0]) || (score >= firstRowScore) || (Math.abs(score - firstRowScore) <= (score_delta * firstRowScore)));
+                    }
+                }
+            });
 
-        // Calculate a random index from the filtered indexes
-        let randomIndex = Math.floor(Math.random() * filteredIndexes.length);
-        let selectedRow = filteredIndexes[randomIndex];
-
+            // Calculate a random index from the filtered indexes
+            let randomIndex = Math.floor(Math.random() * filteredIndexes.length);
+            selectedRow = filteredIndexes[randomIndex];
+        }
 
         assignManager(selectedRow, draft_manager).then(result => {
             if (result === false) {
@@ -1932,14 +1987,19 @@ function calcManagerSummaryScores() {
                 fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
                 dCount: (position === 'D') ? 1 : 0,
                 gCount: (position === 'G') ? 1 : 0,
-                // mfCount: (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
                 mfCount: (keeper === 'MIN') ? 1 : 0, // minors (fantasy)
-                mfgmCount: (keeper === 'MIN' && minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
+                mfgmCount: (position === 'G' && keeper === 'MIN' && minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
                 irCount: (ir === 'IR') ? 1 : 0,
                 score: 0,
                 scoreSktr: 0,
-                scoreOffense: 0,
-                scorePeripheral: 0,
+                scoreSktrOffense: 0,
+                scoreSktrPeripheral: 0,
+                scoreF: 0,
+                scoreFOffense: 0,
+                scoreFPeripheral: 0,
+                scoreD: 0,
+                scoreDOffense: 0,
+                scoreDPeripheral: 0,
                 points: 0,
                 goals: 0,
                 assists: 0,
@@ -1949,6 +2009,22 @@ function calcManagerSummaryScores() {
                 hits: 0,
                 takeaways: 0,
                 penaltyMinutes: 0,
+                goals_f: 0,
+                assists_f: 0,
+                powerplayPoints_f: 0,
+                shotsOnGoal_f: 0,
+                blockedShots_f: 0,
+                hits_f: 0,
+                takeaways_f: 0,
+                penaltyMinutes_f: 0,
+                goals_d: 0,
+                assists_d: 0,
+                powerplayPoints_d: 0,
+                shotsOnGoal_d: 0,
+                blockedShots_d: 0,
+                hits_d: 0,
+                takeaways_d: 0,
+                penaltyMinutes_d: 0,
                 scoreG: 0,
                 scoreCountG: 0,
                 scoreRatioG: 0,
@@ -1962,9 +2038,8 @@ function calcManagerSummaryScores() {
             data[index].fCount += (position !== 'G' && position !== 'D') ? 1 : 0;
             data[index].dCount += (position === 'D') ? 1 : 0;
             data[index].gCount += (position === 'G') ? 1 : 0;
-            // data[index].mfCount += (position !== 'G' && careerGames < 160) || (position === 'G' && careerGames < 80) ? 1 : 0,
             data[index].mfCount += (keeper === 'MIN') ? 1 : 0,
-            data[index].mfgmCount += (keeper === 'MIN' && minors === "Yes") ? 1 : 0,
+            data[index].mfgmCount += (position === 'G' && keeper === 'MIN' && minors === "Yes") ? 1 : 0,
             data[index].irCount += (ir === 'IR') ? 1 : 0
             data[index].picks -= 1
         }
@@ -2027,15 +2102,13 @@ function calcManagerSummaryScores() {
     for (let i = 0; i < rosteredPlayers.length; i++) {
         let row = rosteredPlayers[i];
 
-        let player_id = row[id_idx];
-        let player_position = row[position_idx];
+        let position = row[position_idx];
+        if (position === "C" || position === "LW" || position === "RW") {
+            position = "F";
+        }
 
         let manager = row[manager_idx];
 
-        let score = 0;
-        let scoreSktr = 0;
-        let scoreOffense = 0;
-        let scorePeripheral = 0;
         let points = 0;
         let goals = 0;
         let assists = 0;
@@ -2045,19 +2118,28 @@ function calcManagerSummaryScores() {
         let hits = 0;
         let takeaways = 0;
         let penaltyMinutes = 0;
-        let scoreG = 0;
-        let scoreCountG = 0;
-        let scoreRatioG = 0;
+        let goals_f = 0;
+        let assists_f = 0;
+        let powerplayPoints_f = 0;
+        let shotsOnGoal_f = 0;
+        let blockedShots_f = 0;
+        let hits_f = 0;
+        let takeaways_f = 0;
+        let penaltyMinutes_f = 0;
+        let goals_d = 0;
+        let assists_d = 0;
+        let powerplayPoints_d = 0;
+        let shotsOnGoal_d = 0;
+        let blockedShots_d = 0;
+        let hits_d = 0;
+        let takeaways_d = 0;
+        let penaltyMinutes_d = 0;
         let wins = 0;
         let saves = 0;
         let gaa = 0;
         let savePercent = 0;
 
         if (gameType.value === 'Projected Season') {
-            score = parseFloat(row[score_idx]);
-            scoreSktr = parseFloat(row[score_idx]);
-            scoreOffense = parseFloat(row[offense_score_idx]);
-            scorePeripheral = parseFloat(row[peripheral_score_idx]);
             points = parseFloat(row[pts_score_idx]);
             goals = parseFloat(row[g_score_idx]);
             assists = parseFloat(row[a_score_idx]);
@@ -2067,35 +2149,57 @@ function calcManagerSummaryScores() {
             hits = parseFloat(row[hits_score_idx]);
             takeaways = parseFloat(row[tk_score_idx]);
             penaltyMinutes = parseFloat(row[pim_score_idx]);
-            scoreG = parseFloat(row[score_idx]);
-            scoreCountG = parseFloat(row[g_count_score_idx]);
-            scoreRatioG = parseFloat(row[g_ratio_score_idx]);
+            goals_f = parseFloat(row[g_score_idx]);
+            assists_f = parseFloat(row[a_score_idx]);
+            powerplayPoints_f = parseFloat(row[ppp_score_idx]);
+            shotsOnGoal_f = parseFloat(row[sog_score_idx]);
+            blockedShots_f = parseFloat(row[blk_score_idx]);
+            hits_f = parseFloat(row[hits_score_idx]);
+            takeaways_f = parseFloat(row[tk_score_idx]);
+            penaltyMinutes_f = parseFloat(row[pim_score_idx]);
+            goals_d = parseFloat(row[g_score_idx]);
+            assists_d = parseFloat(row[a_score_idx]);
+            powerplayPoints_d = parseFloat(row[ppp_score_idx]);
+            shotsOnGoal_d = parseFloat(row[sog_score_idx]);
+            blockedShots_d = parseFloat(row[blk_score_idx]);
+            hits_d = parseFloat(row[hits_score_idx]);
+            takeaways_d = parseFloat(row[tk_score_idx]);
+            penaltyMinutes_d = parseFloat(row[pim_score_idx]);
             wins = parseFloat(row[w_score_idx]);
             saves = parseFloat(row[sv_score_idx]);
             gaa = parseFloat(row[gaa_score_idx]);
             savePercent = parseFloat(row[save_percent_score_idx]);
         }
 
-        if (isNaN(score)) {score = 0;}
-        if (isNaN(scoreSktr) || row[position_idx] === 'G') {scoreSktr = 0;}
-        if (isNaN(scoreOffense)) {scoreOffense = 0;}
-        if (isNaN(scorePeripheral)) {scorePeripheral = 0;}
-        if (isNaN(points) || row[position_idx] !== 'D') {points = 0;}
-        if (isNaN(goals)) {goals = 0;}
-        if (isNaN(assists)) {assists = 0;}
-        if (isNaN(powerplayPoints)) {powerplayPoints = 0;}
-        if (isNaN(shotsOnGoal)) {shotsOnGoal = 0;}
-        if (isNaN(blockedShots)) {blockedShots = 0;}
-        if (isNaN(hits)) {hits = 0;}
-        if (isNaN(takeaways)) {takeaways = 0;}
-        if (isNaN(penaltyMinutes)) {penaltyMinutes = 0;}
-        if (isNaN(scoreG) || row[position_idx] !== 'G') {scoreG = 0;}
-        if (isNaN(scoreCountG) || row[position_idx] !== 'G') {scoreCountG = 0;}
-        if (isNaN(scoreRatioG) || row[position_idx] !== 'G') {scoreRatioG = 0;}
-        if (isNaN(wins)) {wins = 0;}
-        if (isNaN(saves)) {saves = 0;}
-        if (isNaN(gaa)) {gaa = 0;}
-        if (isNaN(savePercent)) {savePercent = 0;}
+        if (isNaN(points) || position !== 'D') {points = 0;}
+        if (isNaN(goals) || position === 'G') {goals = 0;}
+        if (isNaN(assists) || position === 'G') {assists = 0;}
+        if (isNaN(powerplayPoints) || position === 'G') {powerplayPoints = 0;}
+        if (isNaN(shotsOnGoal) || position === 'G') {shotsOnGoal = 0;}
+        if (isNaN(blockedShots) || position === 'G') {blockedShots = 0;}
+        if (isNaN(hits) || position === 'G') {hits = 0;}
+        if (isNaN(takeaways) || position === 'G') {takeaways = 0;}
+        if (isNaN(penaltyMinutes) || position === 'G') {penaltyMinutes = 0;}
+        if (isNaN(goals_f) || position !== 'F') {goals_f = 0;}
+        if (isNaN(assists_f) || position !== 'F') {assists_f = 0;}
+        if (isNaN(powerplayPoints_f) || position !== 'F') {powerplayPoints_f = 0;}
+        if (isNaN(shotsOnGoal_f) || position !== 'F') {shotsOnGoal_f = 0;}
+        if (isNaN(blockedShots_f) || position !== 'F') {blockedShots_f = 0;}
+        if (isNaN(hits_f) || position !== 'F') {hits_f = 0;}
+        if (isNaN(takeaways_f) || position !== 'F') {takeaways_f = 0;}
+        if (isNaN(penaltyMinutes_f) || position !== 'F') {penaltyMinutes_f = 0;}
+        if (isNaN(goals_d) || position !== 'D') {goals_d = 0;}
+        if (isNaN(assists_d) || position !== 'D') {assists_d = 0;}
+        if (isNaN(powerplayPoints_d) || position !== 'D') {powerplayPoints_d = 0;}
+        if (isNaN(shotsOnGoal_d) || position !== 'D') {shotsOnGoal_d = 0;}
+        if (isNaN(blockedShots_d) || position !== 'D') {blockedShots_d = 0;}
+        if (isNaN(hits_d) || position !== 'D') {hits_d = 0;}
+        if (isNaN(takeaways_d) || position !== 'D') {takeaways_d = 0;}
+        if (isNaN(penaltyMinutes_d) || position !== 'D') {penaltyMinutes_d = 0;}
+        if (isNaN(wins) || position !== 'G') {wins = 0;}
+        if (isNaN(saves) || position !== 'G') {saves = 0;}
+        if (isNaN(gaa) || position !== 'G') {gaa = 0;}
+        if (isNaN(savePercent) || position !== 'G') {savePercent = 0;}
 
         // Find team manager row index
         let index = data.findIndex(function (item) {
@@ -2103,10 +2207,6 @@ function calcManagerSummaryScores() {
         });
 
         // Team manager exists in new data, update row
-        data[index].score += score;
-        data[index].scoreSktr += scoreSktr;
-        data[index].scoreOffense += scoreOffense;
-        data[index].scorePeripheral += scorePeripheral;
         data[index].points += points;
         data[index].goals += goals;
         data[index].assists += assists;
@@ -2116,9 +2216,22 @@ function calcManagerSummaryScores() {
         data[index].hits += hits;
         data[index].takeaways += takeaways;
         data[index].penaltyMinutes += penaltyMinutes;
-        data[index].scoreG += scoreG;
-        data[index].scoreCountG += scoreCountG;
-        data[index].scoreRatioG += scoreRatioG;
+        data[index].goals_f += goals_f;
+        data[index].assists_f += assists_f;
+        data[index].powerplayPoints_f += powerplayPoints_f;
+        data[index].shotsOnGoal_f += shotsOnGoal_f;
+        data[index].blockedShots_f += blockedShots_f;
+        data[index].hits_f += hits_f;
+        data[index].takeaways_f += takeaways_f;
+        data[index].penaltyMinutes_f += penaltyMinutes_f;
+        data[index].goals_d += goals_d;
+        data[index].assists_d += assists_d;
+        data[index].powerplayPoints_d += powerplayPoints_d;
+        data[index].shotsOnGoal_d += shotsOnGoal_d;
+        data[index].blockedShots_d += blockedShots_d;
+        data[index].hits_d += hits_d;
+        data[index].takeaways_d += takeaways_d;
+        data[index].penaltyMinutes_d += penaltyMinutes_d;
         data[index].wins += wins;
         data[index].saves += saves;
         data[index].gaa += gaa;
@@ -2127,7 +2240,7 @@ function calcManagerSummaryScores() {
     }
 
     // rank catetores
-    const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "wins", "saves", "gaa", "savePercent"];
+    const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f", "blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d", "wins", "saves", "gaa", "savePercent"];
     categories.forEach(category => {
         data.sort((a, b) => b[category] - a[category]);
         data.forEach((manager, index) => {
@@ -2139,10 +2252,16 @@ function calcManagerSummaryScores() {
     });
 
     data.forEach(manager => {
-        manager.score = categories.reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.score = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "wins", "saves", "gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreSktr = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes"].reduce((sum, category) => sum + manager[`${category}`], 0);
-        manager.scoreOffense = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal"].reduce((sum, category) => sum + manager[`${category}`], 0);
-        manager.scorePeripheral = ["blockedShots", "hits", "takeaways", "penaltyMinutes"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreSktrOffense = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreSktrPeripheral = ["blockedShots", "hits", "takeaways", "penaltyMinutes"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreF = ["goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f", "blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreFOffense = ["goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreFPeripheral = ["blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreD = ["points", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreDOffense = ["points", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreDPeripheral = ["blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreG = ["wins", "saves", "gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreCountG = ["wins", "saves"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreRatioG = ["gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
@@ -2581,7 +2700,9 @@ function createManagerSummaryTable() {
 
     managerSummaryScores = calcManagerSummaryScores();
 
-    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreOffense', 'scorePeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+    // const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreSktrOffense', 'scoreSktrPeripheral', 'scoreF', 'scoreFOffense', 'scoreFPeripheral', 'scoreD', 'scoreDOffense', 'scoreDPeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+
+    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreSktrOffense', 'scoreSktrPeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
 
     // Initialize new DataTable with calculated managerSummaryScores
     $('#managerSummary').DataTable({
@@ -2597,9 +2718,15 @@ function createManagerSummaryTable() {
             { data: 'mfgmCount', title: 'mfgm\'s' },
             { data: 'irCount', title: 'ir\'s' },
             { data: 'score', title: 'score' },
-            { data: 'scoreSktr', title: 'score' },
-            { data: 'scoreOffense', title: 'offense' },
-            { data: 'scorePeripheral', title: 'peripheral' },
+            { data: 'scoreSktr', title: 'stkr score' },
+            { data: 'scoreSktrOffense', title: 'stkr offense' },
+            { data: 'scoreSktrPeripheral', title: 'stkr peripheral' },
+            // { data: 'scoreF', title: 'f score' },
+            // { data: 'scoreFOffense', title: 'f offense' },
+            // { data: 'scoreFPeripheral', title: 'f peripheral' },
+            // { data: 'scoreD', title: 'd score' },
+            // { data: 'scoreDOffense', title: 'd offense' },
+            // { data: 'scoreDPeripheral', title: 'd peripheral' },
             { data: 'points', title: 'pts' },
             { data: 'goals', title: 'g' },
             { data: 'assists', title: 'a' },
@@ -3001,7 +3128,7 @@ function hidePulsingBarShowTables() {
     if (gameType.value === 'Projected Season') {
         // need to remove the `.hidden` class from the element first, as `display: none` takes precedence over any other `display`
         // declaration, even if it is added dynamically with JavaScript.
-        $('#startDraftButton').removeClass('hidden').css('display', 'inline-block');
+        $('#draftButtonsWrapper').removeClass('hidden').css('display', 'inline-block');
     }
 
     // $('#player_stats').DataTable().columns.adjust().draw();
@@ -3013,7 +3140,7 @@ function hidePulsingBarShowTables() {
 function hideTablesShowPulsingBar() {
 
     if (gameType.value === 'Projected Season') {
-        $('#startDraftButton').addClass('hidden').css('display', 'none');
+        $('#draftButtonsWrapper').addClass('hidden').css('display', 'none');
     }
     $('#autoAssignDraftPicksContainer').hide();
     $('#undoDraftPick').hide();
@@ -3112,7 +3239,7 @@ function setFixedColumn( table ) {
 }
 
 function simulateStartDraftButtonClick() {
-    // document.getElementById('startDraftButton').click();
+
     draft_in_progress = true;
     draft_completed = false;
 
@@ -3251,7 +3378,7 @@ function updateColumnIndexes(columns) {
 
     // column indexes
     a_score_idx = columns.findIndex(column => column.title === 'a score');
-    adp_idx = columns.findIndex(column => column.title === 'fantrax adp');
+    adp_idx = columns.findIndex(column => column.title === 'prj adp');
     age_idx = columns.findIndex(function(column) { return column.title == 'age' });
     assists_idx = columns.findIndex(column => column.title === 'a');
     athletic_zscore_rank_idx = columns.findIndex(column => column.title === 'athletic z-score rank');
@@ -3585,6 +3712,27 @@ function writeDraftBoardToDatabase(draftBoardDataDict, managerSummaryScoresDataD
         .fail(function(jqXHR, textStatus, errorThrown) {
             // Reject the promise with an error message
             reject(new Error("An error occurred while writing draft board to database: " + errorThrown));
+        });
+    });
+}
+
+function writeDraftSummariesToDatabase(draftBoardDataDict, managerSummaryScoresDataDict, callback) {
+
+    return new Promise((resolve, reject) => {
+
+        // Set the base URL for the Flask API endpoint
+        const baseUrl = 'http://localhost:5000/draft-summaries';
+
+        const queryParams = `draftProjectionSource=${draftProjectionSource.value}`;
+
+        // Send a GET request to the Flask API endpoint with the specified query parameters
+        $.get(baseUrl + '?' + queryParams, function(draft_summaries) {
+            // Call the callback function with the draft order
+            resolve(draft_summaries);
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            // Reject the promise with an error message
+            reject(new Error("An error occurred while writing draft summaries to database: " + errorThrown));
         });
     });
 }

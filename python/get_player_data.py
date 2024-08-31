@@ -26,7 +26,7 @@ import PySimpleGUI as sg
 
 import clsSeason as Season
 from constants import  DATABASE, NHL_API_URL
-from utils import calculate_age, process_dict, seconds_to_string_time, split_seasonID_into_component_years, string_to_time
+from utils import assign_player_ids, calculate_age, get_db_connection, process_dict, seconds_to_string_time, split_seasonID_into_component_years, string_to_time
 
 # formatting for ranking tables
 f_0_decimals = compile("lambda x: '' if pd.isna(x) or x in ['', 0] else '{:0.0f}'.format(x)", '<string>', 'eval')
@@ -136,6 +136,54 @@ def add_pre_draft_keeper_list_column_to_df(pool_id: str, df: pd.DataFrame):
     df.reset_index(inplace=True)
 
     return
+
+def aggregate_draft_simulations(df: pd.DataFrame) -> pd.DataFrame:
+
+    # Calculate total picks and probability
+    df['total_picks'] = df.groupby(['round', 'player_name', 'pos', 'team'])['simulation_number'].transform('nunique')
+    total_simulations = df['simulation_number'].nunique()
+    df['probability'] = (df['total_picks'] / total_simulations * 100).round(0).astype(int)
+
+    # Pivot the DataFrame to get probabilities for each round
+    pivot_df = df.pivot_table(index=['player_name', 'pos', 'team'], columns='round', values='probability', aggfunc='max').reset_index()
+
+    # Rename the columns
+    pivot_df.columns = ['player_name', 'pos', 'team'] + [f'round {col}' for col in pivot_df.columns if isinstance(col, int)]
+
+    # Fill NaN values with empty strings for the entire DataFrame
+    pivot_df = pivot_df.fillna('')
+
+    # Convert only the numeric columns to integers
+    for col in pivot_df.columns:
+        if col.startswith('round'):
+            pivot_df[col] = pivot_df[col].replace('', 0).astype(int)
+            # pivot_df[col] = pivot_df[col].replace(0, '')
+
+    # Calculate the sum of total picks
+    total_picks_df = df.groupby(['player_name', 'pos', 'team'])['total_picks'].count().reset_index()
+    total_picks_df.rename(columns={'total_picks': 'times picked'}, inplace=True)
+
+    # Calculated average draft position
+    adp_df = df.groupby(['player_name', 'pos', 'team'])['overall_pick'].mean().round(1).reset_index()
+    adp_df.rename(columns={'overall_pick': 'adp'}, inplace=True)
+
+    # Merge the total picks and adp with the pivoted DataFrame
+    df_DraftSimulations_agg = (
+        total_picks_df
+        .merge(adp_df, on=['player_name', 'pos', 'team'])
+        .merge(pivot_df, on=['player_name', 'pos', 'team'])
+    )
+
+    # Sort the DataFrame by the adp column, and the round columns
+    round_columns = [col for col in df_DraftSimulations_agg.columns if col.startswith('round')]
+
+    # Sort by 'adp' in ascending order first
+    df_DraftSimulations_agg = df_DraftSimulations_agg.sort_values(by='adp', ascending=True)
+
+    # Then sort by round_columns in descending order, while keeping 'adp' sorted in ascending order
+    df_DraftSimulations_agg = df_DraftSimulations_agg.sort_values(by=['adp'] + round_columns, ascending=[True] + [False] * len(round_columns)).reset_index(drop=True)
+
+    return df_DraftSimulations_agg
 
 def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', ewma_span: int=10) -> pd.DataFrame:
 
@@ -625,76 +673,70 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, stat_type: s
 
     return df
 
-def calc_projected_draft_round(df_player_stats: pd.DataFrame):
+def calc_projected_draft_round(df_player_stats: pd.DataFrame, projection_source: str=''):
 
         df_player_stats.set_index('player_id', inplace=True)
 
-        # Find potential draft round using average draft position
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and adp!=0 and team_abbr!="(N/A)"').sort_values('adp')
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr1'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
+        simulations_count = 0
 
-        # Find potential draft round using Fantrax score
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and fantrax_score!=0 and team_abbr!="(N/A)"').sort_values('fantrax_score', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
+        if projection_source != '':
+            # first try Draft Simulations
+            with get_db_connection() as connection:
 
-        # Find potential draft round using z-score
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+                simulations_count = connection.execute(f'select count(distinct simulation_number) from DraftSimulations where projection_source="{projection_source}"').fetchone()[0]
+                if simulations_count >= 50:
+                    df_DraftSimulations = pd.read_sql(f'select * from DraftSimulations where projection_source="{projection_source}"', con=connection)
 
-        # Find potential draft round using z-offense
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+        if simulations_count >= 50:
 
-        # Find potential draft round using z-peripheral
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr5'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+            df_DraftSimulations_agg = aggregate_draft_simulations(df=df_DraftSimulations)
 
-        # get mean, min & max pdr
-        # pdr_columns = ['pdr1', 'pdr2', 'pdr3', 'pdr4', 'pdr5']
-        pdr_columns = ['pdr1', 'pdr2', 'pdr4', 'pdr5']
-        df_player_stats['pdr_min'] = pd.to_numeric(df_player_stats[pdr_columns].min(axis='columns'), errors='coerce').fillna(0).round().astype(int).astype(str)
-        df_player_stats['pdr_max'] = pd.to_numeric(df_player_stats[pdr_columns].max(axis='columns'), errors='coerce').fillna(0).round().astype(int).astype(str)
-        # df_player_stats['pdr_mean'] = pd.to_numeric(df_player_stats[pdr_columns].mean(axis='columns'), errors='coerce').fillna(0).round().astype(int).astype(str)
-        # df_player_stats['pdr_min'] = pd.to_numeric(df_player_stats[pdr_columns].min(axis='columns'), errors='coerce').fillna(0)
-        # df_player_stats['pdr_max'] = pd.to_numeric(df_player_stats[pdr_columns].max(axis='columns'), errors='coerce').fillna(0)
-        df_player_stats['pdr_mean'] = pd.to_numeric(df_player_stats[pdr_columns].mean(axis='columns'), errors='coerce').fillna(0).round(1)
+            # add player id column
+            df_DraftSimulations_agg['player_id'] = assign_player_ids(df=df_DraftSimulations_agg, player_name='player_name', nhl_team='team', pos_code='pos')
 
-        # Set the value of the 'pdr' column based on the calculated values
-        # conditions = [
-        #     ~df_player_stats['pdr_min'].isnull() & ~df_player_stats['pdr_mean'].isnull() & (df_player_stats['pdr_min'] < df_player_stats['pdr_mean']),
-        #     ~df_player_stats['pdr_mean'].isnull() & ~df_player_stats['pdr_max'].isnull() & (df_player_stats['pdr_mean'] < df_player_stats['pdr_max']),
-        #     ~df_player_stats['pdr_min'].isnull(),
-        #     ~df_player_stats['pdr_max'].isnull(),
-        # ]
-        # choices = [
-        #     df_player_stats['pdr_min'] + ' - ' + df_player_stats['pdr_mean'],
-        #     df_player_stats['pdr_mean'] + ' - ' + df_player_stats['pdr_max'],
-        #     # ((df_player_stats['pdr_min'] + df_player_stats['pdr_mean']) / 2).round(1).astype(str),
-        #     # ((df_player_stats['pdr_mean'] + df_player_stats['pdr_max']) / 2).round(1).astype(str),
-        #     df_player_stats['pdr_min'],
-        #     df_player_stats['pdr_max'],
-        #     # df_player_stats['pdr_min'].round(1).astype(str),
-        #     # df_player_stats['pdr_max'].round(1).astype(str),
-        # ]
-        # default = ''
-        # df_player_stats['pdr'] = np.select(conditions, choices, default=default)
-        # df_player_stats['pdr'] = df_player_stats['pdr_mean']
-        df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and pdr_mean>0 and team_abbr!="(N/A)"').sort_values('pdr_mean')
-        df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
-        df_player_stats['pdr'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 14 else 14)
+            df_DraftSimulations_agg.set_index('player_id', inplace=True)
 
-        # if projected draft round is 0, set to ''
-        # df_player_stats['pdr'] = np.where(df_player_stats['pdr'] == '0', '', df_player_stats['pdr'])
-        # df_player_stats['pdr'] = np.where(df_player_stats['pdr'] == '0.0', '', df_player_stats['pdr'])
-        # Connor Bedard will be drafted first
-        # df_player_stats['pdr'] = np.where(df_player_stats['pdr'] == '1.0', '1.1', df_player_stats['pdr'])
-        # df_player_stats['pdr'] = np.where(df_player_stats.index  == 8484144, '1.0', df_player_stats['pdr'])
-        # df_player_stats['pdr'] = np.where(df_player_stats.index  == 8484144, '1.0', df_player_stats['pdr'])
+            df_temp = df_DraftSimulations_agg.groupby(np.arange(len(df_DraftSimulations_agg.index))//14).ngroup() + 1
+            df_player_stats['pdr'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 14 else 14)
+            df_player_stats['adp'] = df_DraftSimulations_agg['adp']
+
+        else:
+
+            # Find potential draft round using average draft position
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and adp!=0 and team_abbr!="(N/A)"').sort_values('adp')
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr1'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
+
+            # Find potential draft round using Fantrax score
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and fantrax_score!=0 and team_abbr!="(N/A)"').sort_values('fantrax_score', ascending=False)
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr2'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 12 else 12)
+
+            # Find potential draft round using z-score
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('score', ascending=False)
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr3'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+
+            # Find potential draft round using z-offense
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('offense', ascending=False)
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr4'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+
+            # Find potential draft round using z-peripheral
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and team_abbr!="(N/A)"').sort_values('peripheral', ascending=False)
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr5'] = df_temp.apply(lambda x: x if x <= 12 else 12)
+
+            # get mean, min & max pdr
+            pdr_columns = ['pdr1', 'pdr2', 'pdr4', 'pdr5']
+            df_player_stats['pdr_min'] = pd.to_numeric(df_player_stats[pdr_columns].min(axis='columns'), errors='coerce').fillna(0).round().astype(int).astype(str)
+            df_player_stats['pdr_max'] = pd.to_numeric(df_player_stats[pdr_columns].max(axis='columns'), errors='coerce').fillna(0).round().astype(int).astype(str)
+            df_player_stats['pdr_mean'] = pd.to_numeric(df_player_stats[pdr_columns].mean(axis='columns'), errors='coerce').fillna(0).round(1)
+
+            # Set the value of the 'pdr' column based on the calculated values
+            df_temp = df_player_stats.query('keeper!="Yes" and keeper!="MIN" and pdr_mean>0 and team_abbr!="(N/A)"').sort_values('pdr_mean')
+            df_temp = df_temp.groupby(np.arange(len(df_temp.index))//14).ngroup() + 1
+            df_player_stats['pdr'] = df_temp.apply(lambda x: int(round(x,0)) if int(round(x,0)) <= 14 else 14)
 
         df_player_stats.reset_index(inplace=True)
 
@@ -2583,7 +2625,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     # potential draft round
     # if game_type == 'Prj' and projection_source in ['Averaged', 'Fantrax']:
     if game_type == 'Prj':
-        calc_projected_draft_round(df_player_stats=df_player_stats)
+        calc_projected_draft_round(df_player_stats=df_player_stats, projection_source=projection_source)
     #####################################################################
     # df_player_stats should not change past this point
 
@@ -2712,6 +2754,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
             {'title': 'minors', 'table column': 'minors', 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': False if game_type=='Prj' else True, 'search_builder': True},
             {'title': 'prj draft round', 'runtime column': 'pdr', 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
+            {'title': 'prj adp', 'runtime column': 'adp', 'format': eval(f_1_decimal), 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
             {'title': 'injury', 'table column': 'injury_status', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'hide': True},
             {'title': 'injury note', 'table column': 'injury_note', 'justify': 'left', 'data_group': 'general', 'hide': False if game_type=='Prj' else True},
             {'title': 'manager', 'table column': 'pool_team', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'search_builder': True},
@@ -2727,7 +2770,6 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
     other_score_columns = {
         'columns': [
             {'title': 'fantrax score', 'runtime column': 'fantrax_score', 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'general', 'hide': True},
-            {'title': 'fantrax adp', 'runtime column': 'adp', 'format': eval(f_1_decimal), 'data_group': 'draft', 'hide': True},
         ],
     }
 

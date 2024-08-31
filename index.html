@@ -172,12 +172,12 @@
                 flex-wrap: wrap;
             }
 
-            #startDraftButton, #autoAssignDraftPicks, #manuallySelectMyPicks, #undoDraftPick {
+            #draftButtonsWrapper, #autoAssignDraftPicks, #manuallySelectMyPicks, #undoDraftPick {
                 display: inline-block!important;
                 font-size: 1em;
             }
 
-            #startDraftButton.hidden, #autoAssignDraftPicksContainer.hidden, #undoDraftPick.hidden {
+            #draftButtonsWrapper.hidden, #autoAssignDraftPicksContainer.hidden, #undoDraftPick.hidden {
                 display: none!important;
             }
 
@@ -352,11 +352,9 @@
 
         </div>
 
-        <div id="toggleCheckboxContainer" style="display: none;" class="indented">
-            <p>
-                <input type="checkbox" id="toggleSummary" onclick="toggleManagerSummary()">Show Manager Summary</input>
-                <input type="checkbox" id="toggleScarcity" onclick="toggleCategoryScarcity()">Show Category Scarcity</input>
-            </p>
+        <div id="toggleCheckboxContainer" style="display: none;" class="indented form-group">
+            <input type="checkbox" id="toggleSummary" onclick="toggleManagerSummary()">SHOW MANAGER SUMMARY</input>
+            <input type="checkbox" id="toggleScarcity" onclick="toggleCategoryScarcity()">SHOW CATEGORY SCARCITY</input>
         </div>
 
         <div id="managerSummaryContainer">
@@ -378,7 +376,18 @@
         </div>
 
         <p>
-            <button id="startDraftButton" class="hidden">Start Draft</button>
+            <div class="hidden form-group" id="draftButtonsWrapper">
+                <button id="startDraftButton" style="font-size: 1.5em;">Start Draft</button>
+                <button id="draftSummariesButton" class="indented" style="font-size: 1.5em;">Get Draft Summary</button>
+                <label class="indented" for="draftProjectionSource">DRAFT SUMMARY SOURCE:</label>
+                <select id="draftProjectionSource" class="trigger_getRawData" style="font-size: 1em;">
+                    <option value="" selected>All</option>
+                    <option value="Averaged">Averaged</option>
+                    <option value="Athletic">The Athletic</option>
+                    <option value="Dobber">Dobber</option>
+                    <option value="Fantrax">Fantrax</option>
+                </select>
+            </div>
         </p>
 
         <p>
