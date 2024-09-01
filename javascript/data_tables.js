@@ -1681,9 +1681,9 @@ function assignDraftPick() {
             let firstADP = parseFloat(playerStatsDataTable.cell(filteredSortedIndexes[0], adp_idx).data());
             let firstRowGames = parseFloat(playerStatsDataTable.cell(filteredSortedIndexes[0], games_idx).data());
 
-            let score_delta = 1.0;
+            let score_delta = 0.1;
             if (selectedPosition === 'G') {
-                score_delta = 2.0;
+                score_delta = 0.2;
             }
             let filteredIndexes = filteredSortedIndexes.filter(index => {
                 // Filter on players within 13 or adp, which hopefully means they are relatively close in value
