@@ -12,7 +12,7 @@ from pathlib import Path
 
 from get_player_data import aggregate_draft_simulations, rank_players, calc_z_scores, min_cat, max_cat, mean_cat
 from fantrax import scrape_draft_picks
-from utils import get_db_connection, process_dict
+from utils import assign_player_ids, get_db_connection, process_dict
 
 
 def create_app():
@@ -180,17 +180,15 @@ def create_app():
                         else:
                             simulation_number = max_simulation_number + 1
 
-                    cursor = connection.cursor()
-
                     #################################################################################################################
                     # output DraftSimulations table
+                    data = []
                     # Iterate through each even & odd row pair
                     for i in range(0, len(df_draft_board), 2):
                         even_row = df_draft_board.iloc[i]
                         odd_row = df_draft_board.iloc[i + 1]
-                        # Iterate through each column in the pair
-                        for col in df_draft_board.columns:
 
+                        for col in df_draft_board.columns:
                             if col == 'Rnd':
                                 round_num = int(even_row[col])
                                 continue
@@ -208,13 +206,27 @@ def create_app():
                                 if match:
                                     player_name, pos, team = match.groups()
 
-                            cursor.execute('''
-                            INSERT INTO DraftSimulations (simulation_number, projection_source, round, overall_pick, manager, managers_pick_number, player_name, pos, team)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ''', (simulation_number, projection_source, round_num, overall_pick, manager, managers_pick_number, player_name, pos, team))
-                    #################################################################################################################
+                                data.append({
+                                    'simulation_number': simulation_number,
+                                    'projection_source': projection_source,
+                                    'round': round_num,
+                                    'overall_pick': overall_pick,
+                                    'manager': manager,
+                                    'managers_pick_number': managers_pick_number,
+                                    'player_name': player_name,
+                                    'pos': pos,
+                                    'team': team
+                                })
 
-                    cursor.close()
+                    # Create a DataFrame from the collected data
+                    df = pd.DataFrame(data)
+
+                    # add playre ids
+                    df.insert(6, 'player_id', assign_player_ids(df=df, player_name='player_name', nhl_team='team', pos_code='pos'))
+
+                    # Write the DataFrame to the database
+                    df.to_sql('DraftSimulations', con=connection, if_exists='append', index=False)
+                    #################################################################################################################
 
                     #################################################################################################################
                     # output DraftSimulationsManagerScores table
