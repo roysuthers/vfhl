@@ -159,7 +159,11 @@ class NHL_API():
                     update_PlayerAlternateNames = True
 
                 if len(idx) == 0 and len(suggestions) > 0:
-                    first_name, last_name = name.split(' ', 1)
+                    names = name.split(' ')
+                    if len(names) == 2:
+                        first_name, last_name = name.split(' ', 1)
+                    else:
+                        ... # what do I do?
 
                     # try using last name
                     idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
