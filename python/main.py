@@ -97,6 +97,9 @@ def create_app():
                 json.dump(draft_picks, f)
 
         ###################################################################
+        # draft order
+        draft_order = [entry["original_owner"] for entry in draft_picks if entry['draft_round'] == 1]
+
         # New draft order
         new_order = [
             "Avovocado", "Banshee", "Camaro SS", "WhatA LoadOfIt", "El Paso Pirates",
@@ -104,37 +107,39 @@ def create_app():
             "Urban Legends", "CanDO Know Huang", "Fowler's Flyers", "Wheels On Meals"
         ]
 
-        # Create a dictionary to map manager to their original pick number
-        original_pick_number = {entry["manager"]: entry["round_pick"] - 1 for entry in draft_picks}
+        if draft_order != new_order:
 
-        # Create a table representation of the draft list
-        table = [[None for _ in range(13)] for _ in range(13)]
-        for entry in draft_picks:
-            round_num = entry["draft_round"] - 1
-            pick_num = entry["round_pick"] - 1
-            table[round_num][pick_num] = entry
+            # Create a dictionary to map manager to their original pick number
+            original_pick_number = {entry["manager"]: entry["round_pick"] - 1 for entry in draft_picks}
 
-        # Rearrange the columns based on the new order
-        rearranged_table = [[None for _ in range(13)] for _ in range(13)]
-        for i, manager in enumerate(new_order):
-            old_pick_num = original_pick_number[manager]
+            # Create a table representation of the draft list
+            table = [[None for _ in range(13)] for _ in range(13)]
+            for entry in draft_picks:
+                round_num = entry["draft_round"] - 1
+                pick_num = entry["round_pick"] - 1
+                table[round_num][pick_num] = entry
+
+            # Rearrange the columns based on the new order
+            rearranged_table = [[None for _ in range(13)] for _ in range(13)]
+            for i, manager in enumerate(new_order):
+                old_pick_num = original_pick_number[manager]
+                for round_num in range(13):
+                    rearranged_table[round_num][i] = table[round_num][old_pick_num]
+
+            # Reverse the order for each manager in every even-numbered round
+            for round_num in range(1, 13, 2):  # 1, 3, 5, ..., 11 (0-based index for even rounds)
+                rearranged_table[round_num].reverse()
+
+            # Update the draft list with new pick numbers and adjust round_pick and overall_pick
+            draft_picks = []
+            overall_pick = 1
             for round_num in range(13):
-                rearranged_table[round_num][i] = table[round_num][old_pick_num]
-
-        # Reverse the order for each manager in every even-numbered round
-        for round_num in range(1, 13, 2):  # 1, 3, 5, ..., 11 (0-based index for even rounds)
-            rearranged_table[round_num].reverse()
-
-        # Update the draft list with new pick numbers and adjust round_pick and overall_pick
-        draft_picks = []
-        overall_pick = 1
-        for round_num in range(13):
-            for pick_num in range(13):
-                entry = rearranged_table[round_num][pick_num]
-                entry["round_pick"] = pick_num + 1
-                entry["overall_pick"] = overall_pick
-                overall_pick += 1
-                draft_picks.append(entry)
+                for pick_num in range(13):
+                    entry = rearranged_table[round_num][pick_num]
+                    entry["round_pick"] = pick_num + 1
+                    entry["overall_pick"] = overall_pick
+                    overall_pick += 1
+                    draft_picks.append(entry)
 
         # Update the managers_pick_number
         manager_pick_count = {manager: 0 for manager in new_order}
