@@ -41,6 +41,7 @@ def scrape_draft_picks(pool_id: int):
                 for j, draft_pick_data in enumerate(table.find_elements(By.TAG_NAME, "tr")[1:]):  # Skip the first row with column headings
                     draft_picks.append({
                         "manager": draft_pick_data.find_elements(By.TAG_NAME, "td")[0].text,
+                        "original_owner": draft_pick_data.find_elements(By.TAG_NAME, "td")[1].text,
                         "draft_round": i + 1,
                         "round_pick": j + 1,
                         "overall_pick": overall_pick,
