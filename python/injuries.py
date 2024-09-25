@@ -9,8 +9,10 @@ import PySimpleGUI as sg
 import ujson as json
 from bs4 import BeautifulSoup
 from openpyxl.utils.dataframe import dataframe_to_rows
+from selenium.webdriver.support.ui import Select, WebDriverWait
 from unidecode import unidecode
 
+from clsBrowser import Browser
 from utils import get_db_connection
 
 
@@ -123,89 +125,98 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         else:
             logger.debug(msg)
 
-        # query the website and return the html to the variable 'page'
-        # page = urlopen(url)
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-        response = requests.get(url, headers=headers)
-        page = response.content
+        # # query the website and return the html to the variable 'page'
+        # # page = urlopen(url)
+        # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        # response = requests.get(url, headers=headers)
+        # page = response.content
 
-        # parse the html using beautiful soup
-        soup = BeautifulSoup(page, "html.parser")
+        with Browser() as browser:
 
-        msg = f'Scraping "{url}"...'
-        if dialog:
-            dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
-            if event == 'Cancel' or event == sg.WIN_CLOSED:
-                return
-        else:
-            logger.debug(msg)
+            # Set default wait time
+            wait = WebDriverWait(browser, 60)
 
-        name = []
-        team = []
-        date_of_injury = []
-        injury_type = []
-        injury_note = []
+            browser.get(url)
 
-        # subtract 2 for "Next" & "Last" links
-        pages_count = len(soup.find_all(name="li", attrs={"class": "pager__item"})) - 2
+            # parse the html using beautiful soup
+            soup = BeautifulSoup(browser.page_source, "html.parser")
 
-        # page numbers start at 0
-        for page_number in range(pages_count):
+            msg = f'Scraping "{url}"...'
+            if dialog:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=10)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+            else:
+                logger.debug(msg)
 
-            if page_number >= 1:
-                # page = urlopen(f'{url}?page={page_number}')
-                response = requests.get(f'{url}?page={page_number}', headers=headers)
-                page = response.content
-                soup = BeautifulSoup(page, "html.parser")
+            name = []
+            team = []
+            date_of_injury = []
+            injury_type = []
+            injury_note = []
 
-            table = soup.find(name="div", attrs={"class": "pp_layout_main"})
+            # subtract 2 for "Next" & "Last" links
+            pages_count = len(soup.find_all(name="li", attrs={"class": "pager__item"})) - 2
 
-            for row in table.findAll(name="div", attrs={"class": "border-b"}):
-                elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
-                # for some reason, elements do not identify a player; i.e. "['OUT | Upper Body', 'Expected Return: Sep 15, 2024']"
-                if len(elements) == 2:
-                    continue
-                inj_type = elements[0].split(' | ', 1)
-                player_name = elements[1]
-                # for some reason, elements do not provide an injury description; i.e. "['DAY-TO-DAY | Upper Body', 'Spencer Stastney', 'Expected Return: Sep 15, 2024']"
-                if len(elements) == 3:
-                    inj_desc = ''
-                    exp_return = elements[2].replace('Expected Return', 'Expected Return ')
-                else:
-                    inj_desc = elements[2]
-                    exp_return = elements[3].replace('Expected Return', 'Expected Return ')
+            # page numbers start at 0
+            for page_number in range(pages_count):
 
-                name.append(player_name)
+                if page_number >= 1:
+                    # # page = urlopen(f'{url}?page={page_number}')
+                    # response = requests.get(f'{url}?page={page_number}', headers=headers)
+                    # page = response.content
 
-                player_info = row.find(name=["a"]).get('href').rsplit('/')
-                if player_info[1] == 'team':
-                    nhl_team = player_info[2]
-                    if nhl_team == 'utah-hc':
-                        team.append('UTA')
+                    browser.get(f'{url}?page={page_number}')
+                    soup = BeautifulSoup(browser.page_source, "html.parser")
+
+                table = soup.find(name="div", attrs={"class": "pp_layout_main"})
+
+                for row in table.findAll(name="div", attrs={"class": "border-b"}):
+                    elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
+                    # for some reason, elements do not identify a player; i.e. "['OUT | Upper Body', 'Expected Return: Sep 15, 2024']"
+                    if len(elements) == 2:
+                        continue
+                    inj_type = elements[0].split(' | ', 1)
+                    player_name = elements[1]
+                    # for some reason, elements do not provide an injury description; i.e. "['DAY-TO-DAY | Upper Body', 'Spencer Stastney', 'Expected Return: Sep 15, 2024']"
+                    if len(elements) == 3:
+                        inj_desc = ''
+                        exp_return = elements[2].replace('Expected Return', 'Expected Return ')
                     else:
-                        team.append(nhl_teams[nhl_team])
-                else:
-                    team.append('N/A')
+                        inj_desc = elements[2]
+                        exp_return = elements[3].replace('Expected Return', 'Expected Return ')
 
-                date_of_injury.append(exp_return)
-                injury_type.append(inj_type[0])
-                injury_note.append(inj_desc)
+                    name.append(player_name)
 
-            # msg = f'Found "{name}" in injury list...'
-            # if dialog:
-            #     dialog['-PROG-'].update(msg)
-            #     event, values = dialog.read(timeout=10)
-            #     if event == 'Cancel' or event == sg.WIN_CLOSED:
-            #         return
-            # else:
-            #     logger.debug(msg)
+                    player_info = row.find(name=["a"]).get('href').rsplit('/')
+                    if player_info[1] == 'team':
+                        nhl_team = player_info[2]
+                        if nhl_team == 'utah-hc':
+                            team.append('UTA')
+                        else:
+                            team.append(nhl_teams[nhl_team])
+                    else:
+                        team.append('N/A')
 
-        df = pd.DataFrame(name,columns=["name"])
-        df['team'] = team
-        df['date'] = date_of_injury
-        df['status'] = injury_type
-        df['note'] = injury_note
+                    date_of_injury.append(exp_return)
+                    injury_type.append(inj_type[0])
+                    injury_note.append(inj_desc)
+
+                # msg = f'Found "{name}" in injury list...'
+                # if dialog:
+                #     dialog['-PROG-'].update(msg)
+                #     event, values = dialog.read(timeout=10)
+                #     if event == 'Cancel' or event == sg.WIN_CLOSED:
+                #         return
+                # else:
+                #     logger.debug(msg)
+
+            df = pd.DataFrame(name,columns=["name"])
+            df['team'] = team
+            df['date'] = date_of_injury
+            df['status'] = injury_type
+            df['note'] = injury_note
 
     except Exception as e:
         msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
