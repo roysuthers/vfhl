@@ -1289,6 +1289,16 @@ class HockeyPool:
                                                                        .replace(' (G)', '')
                                                            )
 
+        # fix team abbr
+        dfDraftList['Team'] = dfDraftList['Team'].apply(lambda x: x.replace('L.A', 'LAK')
+                                                                   .replace('N.J', 'NJD')
+                                                                   .replace('S.J', 'SJS')
+                                                                   .replace('T.B', 'TBL')
+                                                       )
+
+        # fix 'F' position
+        dfDraftList['Pos'] = dfDraftList['Pos'].apply(lambda x: x if x in ('C', 'LW', 'RW', 'D','G') else x.split('/')[0])
+
         # Convert ADP to float
         dfDraftList['ADP'] = pd.to_numeric(dfDraftList['ADP'], errors='coerce')
 
@@ -1354,7 +1364,7 @@ class HockeyPool:
         # Skaters
         ##############################################################################
 
-        excel_columns = ('Player', 'Pos', '3YP', 'Upside', 'Team', 'Games', 'Goals', 'Assists', 'PP Unit', 'PIM', 'Hits', 'BLKS', 'SOG', 'Sleeper', 'Band-Aid Boy')
+        excel_columns = ('Rank', 'Player', 'Pos', '3YP', 'Upside', 'Team', 'Games', 'Goals', 'Assists', 'PP Unit', 'PIM', 'Hits', 'BLKS', 'SOG', 'Sleeper', 'Band-Aid Boy')
 
         dfDraftList_skaters = pd.read_excel(io=excel_path, sheet_name='EVERYTHING (Skaters)', header=5, usecols=excel_columns, engine='openpyxl')
 
@@ -1386,7 +1396,7 @@ class HockeyPool:
         # Goalies
         ##############################################################################
 
-        excel_columns = ('Player', 'Team', 'Proj. Games', 'Wins', 'GAA', 'Band-Aid Boy', 'Notes')
+        excel_columns = ('Rank', 'Player', 'Team', 'Proj. Games', 'Wins', 'GAA', 'Band-Aid Boy', 'Notes')
 
         dfDraftList_goalies = pd.read_excel(io=excel_path, sheet_name='Goaltenders', header=5, usecols=excel_columns, engine='openpyxl')
 
@@ -1607,7 +1617,7 @@ class HockeyPool:
             left outer join Team t on t.id=p.current_team_id
         ''')
 
-        where_clause = f'where pt.pool_id={pool.id} and (ptr.keeper="y" or ptr.keeper="m"'
+        where_clause = f'where pt.pool_id={pool.id} and (ptr.keeper="y" or ptr.keeper="m")'
 
         sql = textwrap.dedent(f'''\
             {select_sql}
@@ -1645,7 +1655,7 @@ class HockeyPool:
         rows.append(
             sg.pin(sg.Column(layout=[
                 [
-                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', '!Unmark as Keeper', '-', 'Mark as Keeper - Minor', '!Unmark as Keeper Minor', '-', 'Player Bio', '-','Remove Player']]),
+                    sg.Table([], headings=headings, auto_size_columns=False, visible_column_map=visible_columns, max_col_width=100, key='__FT_PTR_MCLB__', num_rows=26, justification='center', vertical_scroll_only=False, font=("Helvetica", 12), alternating_row_color='dark slate gray', selected_row_colors=('black', 'SteelBlue2'), bind_return_key=True, enable_click_events=True, right_click_menu=['menu',['Mark as Keeper', 'Mark as Minor', 'Unmark as Keeper/Minor', '-', 'Player Bio', '-','Remove Player']]),
                 ]
             ], visible=True, key='__FT_PTR_MCLB_CNTNR__')
         , vertical_alignment='top'))
@@ -2815,7 +2825,7 @@ class HockeyPool:
                             roster_player = PoolTeamRoster().fetch(**kwargs)
                             roster_player.dialog()
 
-                    elif event in ('Mark as Keeper', 'Unmark as Keeper', 'Mark as Keeper - Minor', 'Unmark as Keeper - Minor'):
+                    elif event in ('Mark as Keeper', 'Mark as Minor', 'Unmark as Keeper/Minor'):
                         if self.web_host == 'Fantrax' and values['Tab'] == '__POOL_TEAMS_TAB__':
                             mclb = window['__FT_PTR_MCLB__']
                         else:
@@ -2828,13 +2838,11 @@ class HockeyPool:
                             p_idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'table column' in x and x['table column']=='player_id'][0]
                             kwargs = {'poolteam_id': sel_poolteam[pt_idx], 'player_id': sel_player[p_idx]}
                             roster_player = PoolTeamRoster().fetch(**kwargs)
-                            if roster_player.keeper == 'y' and event == 'Unmark as Keeper':
+                            if roster_player.keeper in ('y', 'm') and event == 'Unmark as Keeper/Minor':
                                 roster_player.keeper = ''
-                            elif roster_player.keeper in ('', None) and event == 'Mark as Keeper':
+                            elif roster_player.keeper in ('', 'm', None) and event == 'Mark as Keeper':
                                 roster_player.keeper = 'y'
-                            elif roster_player.keeper == 'm' and event == 'Unmark as Keeper - Minor':
-                                roster_player.keeper = ''
-                            elif roster_player.keeper in ('', None) and event == 'Mark as Keeper - Minor':
+                            elif roster_player.keeper in ('','y', None) and event == 'Mark as Minor':
                                 roster_player.keeper = 'm'
                             roster_player.persist()
 
@@ -2960,35 +2968,27 @@ class HockeyPool:
                                 refresh_pool_team_roster_config = True
 
                     elif event == '__FT_PTR_MCLB__+RIGHT_CLICK+':
-                        right_click_menu = ft_ptr_mclb.RightClickMenu
-                        if len(ft_ptr_mclb.SelectedRows) == 1:
-                            selection = ft_ptr_mclb.SelectedRows[0]
-                            sel_poolteam = pt_mclb.get()[pt_mclb.SelectedRows[0]]
+                        def update_right_click_menu(menu, roster_player):
+                            if roster_player.keeper == 'y':
+                                menu[1] = ['Mark as Minor', 'Unmark as Keeper/Minor', '-', 'Player Bio', '-','Remove Player']
+                            elif roster_player.keeper == 'm':
+                                menu[1] = ['Mark as Keeper', 'Unmark as Keeper/Minor', '-', 'Player Bio', '-','Remove Player']
+                            else:
+                                menu[1] = ['Mark as Keeper', 'Mark as Minor', '-', 'Player Bio', '-','Remove Player']
+
+                        right_click_menu = window['__FT_PTR_MCLB__'].RightClickMenu
+                        if len(window['__FT_PTR_MCLB__'].SelectedRows) == 1:
+                            selection = window['__FT_PTR_MCLB__'].SelectedRows[0]
+                            sel_poolteam = window['__FT_PT_MCLB__'].get()[window['__FT_PT_MCLB__'].SelectedRows[0]]
                             pt_idx = [i for i, x in enumerate(pool_team_config['columns']) if 'table column' in x and x['table column']=='id'][0]
-                            sel_player = ft_ptr_mclb.get()[selection]
+                            sel_player = window['__FT_PTR_MCLB__'].get()[selection]
                             p_idx = [i for i, x in enumerate(pool_team_roster_config['columns']) if 'table column' in x and x['table column']=='player_id'][0]
                             kwargs = {'poolteam_id': sel_poolteam[pt_idx], 'player_id': sel_player[p_idx]}
                             roster_player = PoolTeamRoster().fetch(**kwargs)
-                            if roster_player.keeper == 'y':
-                                right_click_menu[1][0] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper'
-                                right_click_menu[1][1] = 'Unmark as Keeper'
-                                right_click_menu[1][3] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper - Minor'
-                                right_click_menu[1][4] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper - Minor'
-                            elif roster_player.keeper == 'm':
-                                right_click_menu[1][0] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper'
-                                right_click_menu[1][1] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper'
-                                right_click_menu[1][3] = sg.MENU_DISABLED_CHARACTER + 'Mark as Keeper - Minor'
-                                right_click_menu[1][4] = 'Unmark as Keeper - Minor'
-                            else:
-                                right_click_menu[1][0] = 'Mark as Keeper'
-                                right_click_menu[1][1] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper'
-                                right_click_menu[1][3] = 'Mark as Keeper - Minor'
-                                right_click_menu[1][4] = sg.MENU_DISABLED_CHARACTER + 'Unmark as Keeper - Minor'
+                            update_right_click_menu(right_click_menu, roster_player)
                         else:
-                            right_click_menu[1][0] = 'Mark as Keeper'
-                            right_click_menu[1][1] = 'Unmark as Keeper'
-                            right_click_menu[1][3] = 'Mark as Keeper - Minor'
-                            right_click_menu[1][4] = 'Unmark as Keeper - Minor'
+                            right_click_menu[1] = ['Mark as Keeper', 'Mark as Minor', 'Unmark as Keeper/Minor']
+                        window['__FT_PTR_MCLB__'].RightClickMenu = right_click_menu
 
                         ft_ptr_mclb.set_right_click_menu(right_click_menu)
 

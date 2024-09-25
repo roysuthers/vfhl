@@ -527,10 +527,12 @@ def calc_breakout_threshold(name: str, height: str, weight: int, career_games: i
     feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
     height_in_feet = int(feet_and_inches[0]) + round(int(feet_and_inches[1])/12, 2)
     # 5' 10" = 5.83 & 6' 2" = 6.17
-    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+    # if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and career_games <= 220:
         breakout_threshold = career_games - 200
     # 5' 9" = 5.75 & 6' 3" = 6.25
-    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+    # elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and career_games <= 420:
         breakout_threshold = career_games - 400
     else:
         breakout_threshold = np.nan
@@ -1376,7 +1378,10 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         df_missing_skaters = pd.DataFrame(columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
         if len(missing_indexes) > 0:
             for player_id in missing_indexes:
-                player = sktr_prj_all.loc[player_id]
+                if sktr_prj_all.index.value_counts().get(player_id, 0) == 1:
+                    player = sktr_prj_all.loc[player_id]
+                else:
+                    player = sktr_prj_all.loc[player_id].iloc[0]
                 df_player = pd.DataFrame(data=[[season_id, player_id, player["Player"], player["Pos"], player["Team"]]], columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
                 df_missing_skaters = pd.concat([df_missing_skaters, df_player])
 
@@ -1385,7 +1390,10 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
         df_missing_goalies = pd.DataFrame(columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
         if len(missing_indexes) > 0:
             for player_id in missing_indexes:
-                player = goalie_prj_all.loc[player_id]
+                if goalie_prj_all.index.value_counts().get(player_id, 0) == 1:
+                    player = goalie_prj_all.loc[player_id]
+                else:
+                    player = goalie_prj_all.loc[player_id].iloc[0]
                 df_player = pd.DataFrame(data=[[season_id, player_id, player["Player"], player["Pos"], player["Team"]]], columns=["seasonID", "player_id", "name", "pos", "team_abbr"])
                 df_missing_goalies = pd.concat([df_missing_goalies, df_player])
 
@@ -1432,6 +1440,7 @@ def calc_player_projected_stats(current_season_stats: bool, season_id: str, proj
             bandaid_boy = sktr_prj_dobber['Band-Aid Boy'].combine_first(goalie_prj_dobber['Band-Aid Boy']),
             pp_unit_prj = sktr_prj_dobber['PP Unit'],
             tier = goalie_prj_dobber['Notes'],
+            dobber_rank = sktr_prj_dobber['Rank'].combine_first(goalie_prj_dobber['Rank']),
         )
         # Rename the 'yp3' column to '3yp'
         df = df.rename(columns={'yp3': '3yp'})
@@ -2771,6 +2780,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
     other_score_columns = {
         'columns': [
             {'title': 'fantrax score', 'runtime column': 'fantrax_score', 'format': eval(f_2_decimals_show_0), 'default order': 'desc', 'data_group': 'general', 'hide': True},
+            {'title': 'dobber rank', 'runtime column': 'dobber_rank', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
         ],
     }
 

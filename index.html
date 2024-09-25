@@ -377,16 +377,20 @@
 
         <p>
             <div class="hidden form-group" id="draftButtonsWrapper">
-                <button id="startDraftButton" style="font-size: 1.5em;">Start Draft</button>
-                <button id="draftSummariesButton" class="indented" style="font-size: 1.5em;">Get Draft Summary</button>
-                <label class="indented" for="draftProjectionSource">DRAFT SUMMARY SOURCE:</label>
-                <select id="draftProjectionSource" class="trigger_getRawData" style="font-size: 1em;">
-                    <option value="" selected>All</option>
-                    <option value="Averaged">Averaged</option>
-                    <option value="Athletic">The Athletic</option>
-                    <option value="Dobber">Dobber</option>
-                    <option value="Fantrax">Fantrax</option>
-                </select>
+                <div>
+                    <label class="indented" for="draftProjectionSource">DRAFT SUMMARY SOURCE:</label>
+                    <select id="draftProjectionSource" class="trigger_getRawData" style="font-size: 1em;">
+                        <option value="" selected>All</option>
+                        <option value="Averaged">Averaged</option>
+                        <option value="Athletic">The Athletic</option>
+                        <option value="Dobber">Dobber</option>
+                        <option value="Fantrax">Fantrax</option>
+                    </select>
+                    <button id="draftSummariesButton" class="indented" style="font-size: 1.5em;">Get Draft Summary</button>
+                </div>
+                <p>
+                    <button class="indented"  id="startDraftButton" style="font-size: 1.5em;">Start Draft</button>
+                </p>
             </div>
         </p>
 

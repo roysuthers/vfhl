@@ -63,6 +63,13 @@ def create_app():
         ##########################################################################################################
         # Upon returning to jquery datatables, if getPlayerData(seasonOrDateRadios, function(playerData) {...} does call back,
         # it's likely because some stats_data columns have np.nan values, which don't jasonify.
+        #
+        # The following code can help find the pd.Series elements in player_data['stats_data']
+        #
+        # for player in player_data['stats_data']:
+        #     for item in player:
+        #         if isinstance(item, pd.Series):
+        #             print(f"Player: {player}, Series: {item}")
         ##########################################################################################################
 
         return jsonify(player_data).get_json()
@@ -98,55 +105,70 @@ def create_app():
 
         ###################################################################
         # draft order
-        draft_order = [entry["original_owner"] for entry in draft_picks if entry['draft_round'] == 1]
+        draft_order = [
+            "One Man Gang Bang", "Open Team 1", "El Paso Pirates", "Urban Legends",
+            "Avovocado", "Open Team 2", "Camaro SS", "WhatA LoadOfIt", "Banshee",
+            "Horse Palace 26", "CanDO Know Huang", "Fowler's Flyers", "Wheels On Meals"
+        ]
 
         # New draft order
         new_order = [
-            "Avovocado", "Banshee", "Camaro SS", "WhatA LoadOfIt", "El Paso Pirates",
-            "Witch King", "Horse Palace 26", "One Man Gang Bang", "Open Team 1",
-            "Urban Legends", "CanDO Know Huang", "Fowler's Flyers", "Wheels On Meals"
+            "One Man Gang Bang", "Open Team 1", "El Paso Pirates", "Urban Legends",
+            "Avovocado", "Open Team 2", "Camaro SS", "WhatA LoadOfIt", "Banshee",
+            "Horse Palace 26", "CanDO Know Huang", "Fowler's Flyers", "Wheels On Meals"
         ]
 
-        if draft_order != new_order:
+        # Create a dictionary to map manager to their original pick number
+        original_pick_number = {name: index for index, name in enumerate(draft_order)}
 
-            # Create a dictionary to map manager to their original pick number
-            original_pick_number = {entry["manager"]: entry["round_pick"] - 1 for entry in draft_picks}
+        # Create a table representation of the draft list
+        table = [[None for _ in range(13)] for _ in range(12)]
+        for entry in draft_picks:
+            round_num = entry["draft_round"] - 1
+            pick_num = entry["round_pick"] - 1
+            table[round_num][pick_num] = entry
 
-            # Create a table representation of the draft list
-            table = [[None for _ in range(13)] for _ in range(13)]
-            for entry in draft_picks:
-                round_num = entry["draft_round"] - 1
-                pick_num = entry["round_pick"] - 1
-                table[round_num][pick_num] = entry
+        # Rearrange the columns based on the new order
+        rearranged_table = [[None for _ in range(13)] for _ in range(12)]
+        for i, manager in enumerate(new_order):
+            old_pick_num = original_pick_number[manager]
+            for round_num in range(12):
+                rearranged_table[round_num][i] = table[round_num][old_pick_num]
 
-            # Rearrange the columns based on the new order
-            rearranged_table = [[None for _ in range(13)] for _ in range(13)]
-            for i, manager in enumerate(new_order):
-                old_pick_num = original_pick_number[manager]
-                for round_num in range(13):
-                    rearranged_table[round_num][i] = table[round_num][old_pick_num]
+        # # Reverse the order for each manager in every even-numbered round
+        # for round_num in range(1, 12, 2):  # 1, 3, 5, ..., 11 (0-based index for even rounds)
+        #     rearranged_table[round_num].reverse()
 
-            # Reverse the order for each manager in every even-numbered round
-            for round_num in range(1, 13, 2):  # 1, 3, 5, ..., 11 (0-based index for even rounds)
-                rearranged_table[round_num].reverse()
-
-            # Update the draft list with new pick numbers and adjust round_pick and overall_pick
-            draft_picks = []
-            overall_pick = 1
-            for round_num in range(13):
-                for pick_num in range(13):
-                    entry = rearranged_table[round_num][pick_num]
-                    entry["round_pick"] = pick_num + 1
-                    entry["overall_pick"] = overall_pick
+        # Update the draft list with new pick numbers and adjust round_pick and overall_pick
+        draft_picks = []
+        overall_pick = 0
+        draft_round = 0
+        for round_num in range(12):
+            draft_round += 1
+            round_pick = 0
+            for pick_num in range(13):
+                entry = rearranged_table[round_num][pick_num]
+                if rearranged_table[round_num][pick_num]['manager'] in ('Open Team 1', 'Open Team 2'):
+                    entry["draft_round"] = draft_round
+                    entry["round_pick"] = 0
+                    entry["overall_pick"] = 0
+                else:
+                    round_pick += 1
                     overall_pick += 1
-                    draft_picks.append(entry)
+                    entry["draft_round"] = draft_round
+                    entry["round_pick"] = round_pick
+                    entry["overall_pick"] = overall_pick
+                draft_picks.append(entry)
 
         # Update the managers_pick_number
         manager_pick_count = {manager: 0 for manager in new_order}
         for entry in draft_picks:
             manager = entry["manager"]
-            manager_pick_count[manager] += 1
-            entry["managers_pick_number"] = manager_pick_count[manager]
+            if manager in ('Open Team 1', 'Open Team 2'):
+                entry["managers_pick_number"] = 0
+            else:
+                manager_pick_count[manager] += 1
+                entry["managers_pick_number"] = manager_pick_count[manager]
         ###################################################################
 
         # Return the data as JSON
@@ -207,21 +229,21 @@ def create_app():
                                     managers_pick_number = int(match.group(2))
                                     overall_pick = int(match.group(3))
 
-                                match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
-                                if match:
-                                    player_name, pos, team = match.groups()
+                                    match = re.match(r'(.+?) \((.+?)/(.+?)\)', player_info)
+                                    if match:
+                                        player_name, pos, team = match.groups()
 
-                                data.append({
-                                    'simulation_number': simulation_number,
-                                    'projection_source': projection_source,
-                                    'round': round_num,
-                                    'overall_pick': overall_pick,
-                                    'manager': manager,
-                                    'managers_pick_number': managers_pick_number,
-                                    'player_name': player_name,
-                                    'pos': pos,
-                                    'team': team
-                                })
+                                        data.append({
+                                            'simulation_number': simulation_number,
+                                            'projection_source': projection_source,
+                                            'round': round_num,
+                                            'overall_pick': overall_pick,
+                                            'manager': manager,
+                                            'managers_pick_number': managers_pick_number,
+                                            'player_name': player_name,
+                                            'pos': pos,
+                                            'team': team
+                                        })
 
                     # Create a DataFrame from the collected data
                     df = pd.DataFrame(data)
@@ -322,8 +344,13 @@ def create_app():
                 df_DraftSimulationsManagerScores_agg.to_sql('DraftSimulationsManagerScores_agg', con=connection, index=False, if_exists='replace')
                 #################################################################################################################
 
-                # the following line is for debugging, to bypass the 'with block' code
-                ...
+                ret_val = jsonify({
+                    'status': 'success',
+                    'draft_simulations_agg': df_DraftSimulations_agg.to_dict(orient='records'),
+                    'draft_simulations_agg_columns': df_DraftSimulations_agg.columns.tolist(),
+                    'draft_simulations_manager_scores_agg': df_DraftSimulationsManagerScores_agg.to_dict(orient='records'),
+                    'draft_simulations_manager_scores_agg_columns': df_DraftSimulationsManagerScores_agg.columns.tolist()
+                })
 
            # the following line is for debugging, to bypass the 'try block' code
             ...
