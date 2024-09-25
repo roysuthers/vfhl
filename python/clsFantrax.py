@@ -413,7 +413,7 @@ class Fantrax:
                                             sql = dedent(f'''\
                                             insert into TeamRosters
                                                 (seasonID, player_id, team_abbr, name, pos)
-                                                values ({self.season.id}, {player.id}, "{team.abbr}", "{player.full_name}", "{player.primary_position}")
+                                                values ({self.season.id}, {player.id}, "{player.current_team_abbr}", "{player.full_name}", "{player.primary_position}")
                                             ''')
                                             connection.execute(sql)
                                             connection.commit()
@@ -863,9 +863,11 @@ class Fantrax:
 
         return dfPoolTeamPlayers
 
-    def scrapePoolTeams(self, pool_team: str=None, dialog: sg.Window=None):
+    def scrapePoolTeams(self, pool_team: str=None, dialog: sg.Window=None) -> pd.DataFrame:
 
         try:
+
+            dfPoolTeams = pd.DataFrame()
 
             logger = logging.getLogger(__name__)
 
@@ -888,7 +890,7 @@ class Fantrax:
 
                 browser.get(self.homePage)
 
-                table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-home/section/div/div[1]/league-home-standings/pane/section/div[2]/div/league-home-standings-content/table')))
+                table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-home/section/div[2]/div[1]/league-home-standings/pane/section/div[2]/div/league-home-standings-content/table')))
 
                 msg = 'Scraping pool team names...'
                 if dialog:
@@ -900,12 +902,10 @@ class Fantrax:
                     logger.debug(msg)
 
                 try:
-                    # don't want 'thead'
-                    table = table.find_element(By.TAG_NAME, 'tbody')
 
                     rows = table.find_elements(By.TAG_NAME, 'tr')
                     teams = []
-                    for row in rows:
+                    for row in rows[1:]: # Skip the first header row
                         # row.text = '1\nOne Man Gang Bang\n131.5'
                         team, points = map(unidecode, row.text.splitlines()[1:])
 
