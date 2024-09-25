@@ -61,7 +61,12 @@ class Browser:
                 options.set_preference("browser.download.dir", self.browser_download_dir)
                 options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream")
 
-            driver_path  = Path(os.getcwd() + '\\python') / DRIVER_NAME
+            driver_path = os.getcwd()
+            if driver_path.endswith('\python') is True:
+                driver_path  = Path(os.getcwd()) / DRIVER_NAME
+            else:
+                driver_path  = Path(os.getcwd() + '\\python') / DRIVER_NAME
+
             self.browser = Firefox(executable_path=str(driver_path) , options=options)
 
             self.browser.set_page_load_timeout(30)  # Set timeout to 10 seconds
