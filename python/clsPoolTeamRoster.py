@@ -1,5 +1,6 @@
 # import python modules
 import sqlite3
+import traceback
 from PySimpleGUI.PySimpleGUI import Tree
 
 import numpy as np
