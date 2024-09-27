@@ -2762,7 +2762,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
             {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
             {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
             {'title': 'minors', 'table column': 'minors', 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': False if game_type=='Prj' else True, 'search_builder': True},
+            {'title': 'watch', 'table column': 'watch_list', 'data_group': 'general', 'hide': True if game_type=='Prj' else True, 'search_builder': True},
             {'title': 'prj draft round', 'runtime column': 'pdr', 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
             {'title': 'prj adp', 'runtime column': 'adp', 'format': eval(f_1_decimal), 'data_group': 'draft', 'hide': False if game_type=='Prj' else True},
             {'title': 'injury', 'table column': 'injury_status', 'justify': 'left', 'data_group': 'general', 'search_pane': True, 'hide': True},
