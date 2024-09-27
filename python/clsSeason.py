@@ -205,7 +205,7 @@ class Season:
         # the 2022-2023 regular season overlaps the pre-season (Nashville & San Jose playing in Europe)
         for idx, row in enumerate(seasons):
             # should never be more than 2
-            if idx > 1:
+            if idx > 1 or (idx == 1 and current_seasons[0].id != row['id']):
                 break
             # Setting self caused problems. The calling method should set the season if it's required.
             # It should not be done here.
