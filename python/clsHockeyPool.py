@@ -466,7 +466,7 @@ class HockeyPool:
             dfCurrentTransactions = pd.read_sql('select * from dfNHLTeamTransactions', con=get_db_connection())
             # Perform a left-join, eliminating duplicates in df2 so that each row of df1 joins with exactly 1 row of df2.
             # Use the parameter indicator to return an extra column indicating which table the row was from.
-            df_all = dfNHLTeamTransactions.merge(dfCurrentTransactions, on=['player_name', 'team_abbr', 'comment'], how='left', indicator=True)
+            df_all = dfNHLTeamTransactions.merge(dfCurrentTransactions, on=['player_name', 'pos', 'team_abbr', 'comment'], how='left', indicator=True)
             data = df_all[df_all['_merge'] == 'left_only']
 
             msg = f'{len(dfNHLTeamTransactions.index)} NHL Team transactions collected. Writing to database...'
@@ -2550,10 +2550,11 @@ class HockeyPool:
             fantrax.updatePoolTeams(pool=self, df=dfPoolTeams, batch=True)
 
         except Exception as e:
+            msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
             if batch:
-                logger.error(repr(e))
+                logger.error(rmsg)
             else:
-                sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
+                sg.popup_error(msg)
 
         finally:
             msg = 'Update of pool teams completed...'

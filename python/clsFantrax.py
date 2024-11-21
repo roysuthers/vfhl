@@ -154,7 +154,7 @@ class Fantrax:
 
                 # for now, only wnat the first table, for the most recent date
                 # I may want to change this, if it seems I'm missing some days
-                table = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'transactionsDateTable')))[0]
+                table = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'sport-transactions-table')))[0]
 
                 msg = 'Scraping NHL team transactions...'
                 if dialog:
@@ -167,14 +167,25 @@ class Fantrax:
 
                 try:
                     # skip first row that is for the table column headings
-                    rows = table.find_elements(By.TAG_NAME, 'tr')[1:]
+                    rows = table.find_elements(By.CLASS_NAME, 'supertable__row')
                     transactions = []
+                    # Define a regex pattern to match the date in the comment, and capture the text after it
+                    pattern = r'(\b\w{3} \d{1,2}, \d{4}\b)(.*)'
                     for row in rows:
-                        data = row.find_elements(By.TAG_NAME, 'td')
-                        (player_name, team_abbr) = data[0].text.split(' - ')
-                        team_abbr = team_abbr.strip()
-                        comment = data[1].text
-                        transactions.append({'player_name': player_name, 'team_abbr': team_abbr, 'comment': comment})
+                        data = row.text.splitlines()
+                        player_name = data[0]
+                        pos = data[1]
+                        team_abbr = data[2].lstrip(' - ')
+
+                        # Use re.search to find the pattern in the text
+                        match = re.search(pattern, data[4])
+                        # Check if a match was found
+                        if match:
+                            comment = match.group(2).strip()  # This is the text after the date
+                        else:
+                            comment = data[4]
+
+                        transactions.append({'player_name': player_name, 'pos': pos, 'team_abbr': team_abbr, 'comment': comment})
                 except Exception as e:
                     msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                     if dialog:
@@ -351,7 +362,7 @@ class Fantrax:
                                     i = 1
 
                                 name = text_parts[i]
-                                nhl_team = text_parts[-1].lstrip('-').lstrip('(').rstrip(')')
+                                nhl_team = text_parts[-1].strip().lstrip('-').lstrip('(').rstrip(')').strip()
                                 team_id = 0
                                 if 'N/A' not in nhl_team:
                                     if '/' in nhl_team:
@@ -449,7 +460,7 @@ class Fantrax:
                                 continue
 
                             try:
-                                next_opp = row2.find_element(By.CLASS_NAME, 'old-link').text
+                                next_opp = row2.find_element(By.CLASS_NAME, 'cell--small').text
                                 if next_opp:
                                     next_opp = next_opp.split()[0]
                             except NoSuchElementException:
@@ -462,7 +473,6 @@ class Fantrax:
                             # try:
                             #     adp = rows2[idx].text.split(' ')[6]
                             # except NoSuchElementException:
-                            #     # next opponent is only for games scheduled for today
                             #     adp = ''
 
                             players.append(
@@ -761,6 +771,9 @@ class Fantrax:
                 fantrax_id = []
                 for team in teams:
 
+                    if team.name.startswith('Open Team'):
+                        continue
+
                     # The first pool team's roster will display (e.g. )
                     url = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={team.fantrax_id}'
 
@@ -834,7 +847,7 @@ class Fantrax:
 
                             text_parts = player.text.splitlines()
                             player_pos = text_parts[2]
-                            nhlteam = text_parts[-1].lstrip('-').lstrip('(').rstrip(')')
+                            nhlteam = text_parts[-1].strip().lstrip('-').lstrip('(').rstrip(')').strip()
                             if '/' in nhlteam and nhlteam != 'N/A':
                                 nhlteam = nhlteam.split('/')[-1]
                             nhl_team.append(nhlteam)

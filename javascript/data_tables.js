@@ -17,7 +17,7 @@ var draft_manager;
 var auto_assign_picks = false;
 var manually_select_my_picks = false;
 var draft_in_progress = false;
-var draft_completed = false;
+var draft_completed = true;
 var draft_order;
 var writeToDraftSimulationsTable = false;
 var clearDraftSimulationsTable = false;
@@ -71,11 +71,18 @@ var playerStatsDataTable;
 var managerSummaryDataTable;
 
 var managerSummaryScores;
+var managerSummaryColumns;
 
 var dateRangePickerSelection;
 
 var baseSearchBuilderCriteria = {
     "criteria": [
+        {
+            "condition": "contains",
+            "data": "name",
+            "type": "html",
+            "value": []
+        },
         {
             "condition": "!=",
             "data": "team",
@@ -89,10 +96,80 @@ var baseSearchBuilderCriteria = {
             "value": []
         },
         {
-            "condition": "contains",
-            "data": "name",
-            "type": "html",
-            "value": []
+            "criteria": [
+                {
+                    "condition": ">=",
+                    "data": "z-offense",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-peripheral",
+                    "type": "num",
+                    "value": []
+                },
+            ],
+            "logic": "OR"
+        },
+        {
+            "criteria": [
+                {
+                    "condition": ">=",
+                    "data": "z-pts",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-g",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-a",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-ppp",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-sog",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-tk",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-hits",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-blk",
+                    "type": "num",
+                    "value": []
+                },
+                {
+                    "condition": ">=",
+                    "data": "z-pim",
+                    "type": "num",
+                    "value": []
+                },
+            ],
+            "logic": "OR"
         },
     ],
     "logic": "AND"
@@ -202,7 +279,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
             return this.id.indexOf('DataTables_Table_') === 0;
         }).each(function() {
             var table = $(this).DataTable();
-            var selectedRows = playerStatsDataTable.rows('.selected');
+            var selectedRows = table.rows('.selected');
             selectedOptions[this.id] = selectedRows.data().toArray().map(function(row) {
                 return row.display;
             });
@@ -303,6 +380,11 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
                 updatePlayerStatsTable(data);
 
+                // Check if DataTable instance exists
+                if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+                    createManagerSummaryTable();
+                }
+
                 if ($.fn.dataTable.isDataTable('#managerSummary') === true) {
                     managerSummaryScores = calcManagerSummaryScores();
                     updateManagerSummaryTable(managerSummaryScores);
@@ -383,7 +465,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
                                         className: 'minors'
                                     },
                                     {
-                                        label: 'Minors (Fantasy)',
+                                        label: 'Minors Fantasy Eligible',
                                         value: function(rowData, rowIdx) {
                                             return (rowData[this.column(position_idx).index()] !== 'G' && rowData[this.column(career_games_idx).index()] < 160) ||
                                                     (rowData[this.column(position_idx).index()] === 'G' && rowData[this.column(career_games_idx).index()] < 80);
@@ -579,8 +661,14 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         },
 
                         // custom sort for 'prj adp', 'line', 'line prj', 'pp unit', 'pp unit prj', 'athletic z-score rank', 'dobber z-score rank', 'fantrax z-score rank' columns
-                        {targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dobber_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, breakout_threshold_idx, prj_draft_round_idx, dobber_rank_idx],
+                        {targets: [adp_idx, line_idx, pp_unit_idx, pp_unit_prj_idx, athletic_zscore_rank_idx, dobber_zscore_rank_idx, fantrax_zscore_rank_idx, draft_position_idx, draft_round_idx, prj_draft_round_idx, dobber_rank_idx],
                             type: "custom_integer_sort",
+                            orderSequence: ['asc']
+                        },
+
+                        // custom sort for breakout_threshold_idx
+                        {targets: [breakout_threshold_idx],
+                            type: "custom_breakout_threshold_sort",
                             orderSequence: ['asc']
                         },
 
@@ -588,6 +676,16 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         {targets: [toi_pg_trend_idx, toi_even_pg_trend_idx, toi_pp_pg_trend_idx, toi_sh_pg_trend_idx],
                          type: "custom_time_delta_sort",
                          orderSequence: ['desc']
+                        },
+
+                        // custom sort for 'height' column
+                        {targets: [height_idx],
+                            type: "custom_height_sort",
+                        },
+
+                        // custom sort for 'height' column
+                        {targets: [shooting_percent_idx],
+                            type: "custom_float_sort",
                         },
 
                     ],
@@ -778,6 +876,27 @@ document.getElementById('applyButton').addEventListener('click', () => {
                             }
                         },
                         {
+                            text: 'Toggle Name Colors',
+                            action: function (e, dt, node, config) {
+                                dt.rows().every(function() {
+                                    var rowData = this.data();
+                                    var rowId = this.index();
+                                    if ($(this.node()).hasClass('colors-off')) {
+                                        rowData[name_idx] = originalColors[rowId];
+                                        $(this.node()).removeClass('colors-off');
+                                    } else {
+                                        // Save the original color if not already saved
+                                        if (!originalColors[rowId]) {
+                                            originalColors[rowId] = rowData[name_idx];
+                                        }
+                                        rowData[name_idx] = rowData[name_idx].replace(/style="color:.*?"/, 'style="color: green"')
+                                        $(this.node()).addClass('colors-off');
+                                    }
+                                    this.data(rowData);
+                                });
+                            }
+                        },
+                        {
                             text: 'Unselect Rows',
                             action: function () {
                                 // $(table.rows().nodes()).removeClass('selected');
@@ -899,6 +1018,16 @@ document.getElementById('applyButton').addEventListener('click', () => {
                     initComplete: function () {
 
                         playerStatsDataTable = $('#player_stats').DataTable();
+
+                        // Check if DataTable instance exists
+                        if ($.fn.dataTable.isDataTable('#managerSummary') == false) {
+                            createManagerSummaryTable();
+                        }
+
+                        if ($.fn.dataTable.isDataTable('#managerSummary') === true) {
+                            managerSummaryScores = calcManagerSummaryScores();
+                            updateManagerSummaryTable(managerSummaryScores);
+                        }
 
                         const api = this.api();
 
@@ -1033,12 +1162,19 @@ document.getElementById('applyButton').addEventListener('click', () => {
 
                     },
 
-                    createdRow: function(row, data, dataIndex) {
-                        if (data[watch_idx] === "Yes") {
-                            $(row).css('color', 'red');
-                        }
-                    }
+                    // createdRow: function(row, data, dataIndex) {
+                    //     if (data[watch_idx] === "Yes") {
+                    //         $(row).css('color', 'red');
+                    //     }
+                    // }
 
+                });
+
+                // Store the original colours using row indices
+                var originalColors = {};
+                table.rows().every(function() {
+                    var rowId = this.index();
+                    originalColors[rowId] = this.data()[name_idx];
                 });
 
                 // Use the order event to update lastSortIdx and lastSortOrder when the table is sorted
@@ -1048,8 +1184,9 @@ document.getElementById('applyButton').addEventListener('click', () => {
                     lastSortOrder = playerStatsDataTable.order()[0][1] === 'desc' ? false : true;
                 });
 
-                // Display the checkboxes & calc z-score options
-                document.getElementById('toggleCheckboxContainer').style.display = 'block';
+                // Display the Show Manager Summary & checkboxes
+                document.getElementById('toggleSummaryCheckboxContainer').style.display = 'block';
+                document.getElementById('toggleScarcityCheckboxContainer').style.display = 'block';
 
                 // *******************************************************************
                 $('#player_stats tbody').on('click', '.row-checkbox', function (event) {
@@ -1134,6 +1271,25 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         return num1 - num2;
                     },
 
+                    // custom ascending sort for breakout threshold columns
+                    "custom_breakout_threshold_sort-asc": function (val1, val2) {
+
+                        if (val1 === val2) {
+                            return 0;
+                        }
+                        const num1 = parseFloat(val1);
+                        const num2 = parseFloat(val2);
+                        if (isNaN(num1)) {
+                            // val1 is not a valid number, sort it to the bottom
+                            return 1;
+                        }
+                        if (isNaN(num2)) {
+                            // val2 is not a valid number, sort it to the bottom
+                            return -1;
+                        }
+                        return Math.abs(num1) - Math.abs(num2);
+                    },
+
                     // custom descending sort for delta time columns (e.g., toi trend)
                     "custom_time_delta_sort-desc": function (val1, val2) {
                         if (val1 === val2) {
@@ -1166,6 +1322,26 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         } else {
                             return 0;
                         }
+                    },
+
+                    // Custom sort for player heights
+                    "custom_height_sort-asc": function (val1, val2) {
+                        return compareHeights(val1, val2);
+                    },
+
+                    // Custom sort for player heights
+                    "custom_height_sort-desc": function (val1, val2) {
+                        return compareHeights(val2, val1); // Reverse comparison for descending
+                    },
+
+                    // Custom sort for player heights
+                    "custom_float_sort-asc": function (val1, val2) {
+                        return compareFloatValues(val1, val2, 'asc');
+                    },
+
+                    // Custom sort for player heights
+                    "custom_float_sort-desc": function (val1, val2) {
+                        return compareFloatValues(val1, val2, 'desc'); // Reverse comparison for descending
                     },
 
                 });
@@ -1237,7 +1413,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
             tableCaption.textContent = caption;
 
             tableCaption = document.querySelector('#managerSummary caption');
-            tableCaption.textContent = caption + ' - Manager Scores';
+            tableCaption.textContent = caption + ' - Strengths & Weaknesses for Current Roster';
             tableCaption.style.fontWeight = 'bold';
             tableCaption.style.textDecoration = 'underline';
 
@@ -1359,6 +1535,9 @@ document.getElementById('autoAssignDraftPicks').addEventListener('click', async 
     // if ($('#clearDraftSimulationsTable')[0].checked) {
     //     clearDraftSimulationsTable = true;
     // }
+
+    // Get initial draft values from HTML
+    let initialClearDraftSimulationsTable = $('#clearDraftSimulationsTable').prop('defaultChecked');
     clearDraftSimulationsTable = initialClearDraftSimulationsTable;
 
     // enable heatmaps
@@ -1448,7 +1627,7 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
             createManagerSummaryTable();
             let caption = updateCaption();
             let tableCaption = document.querySelector('#managerSummary caption');
-            tableCaption.textContent = caption + ' - Manager Scores';
+            tableCaption.textContent = caption + ' - Strengths & Weaknesses for Current Roster';
             tableCaption.style.fontWeight = 'bold';
             tableCaption.style.textDecoration = 'underline';
         } else {
@@ -1461,7 +1640,19 @@ document.getElementById('startDraftButton').addEventListener('click', () => {
         // myCategoryNeeds = getMyCategoryNeeds()
         // updateMyCategoryNeedsTable(myCategoryNeeds);
 
-        document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
+        managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
+
+        document.getElementById("draftMessage").innerHTML =
+            "Round: " + remaining_draft_picks[0].draft_round +
+            "; Pick: " + remaining_draft_picks[0].round_pick +
+            "; Overall: " + remaining_draft_picks[0].overall_pick +
+            "; Manager: " + draft_manager +
+            ' (' + getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)' +
+            "<br>" +
+            "Currently has " + managerSummaryData.fCount +
+            " Fs; " + managerSummaryData.dCount +
+            " Ds; " + managerSummaryData.gCount +
+            " Gs";
 
         createDraftBoardTable(remaining_draft_picks)
 
@@ -1509,7 +1700,7 @@ document.getElementById('statType').addEventListener('change', function() {
     for (var i = 0; i < ewmaElements.length; i++) {
         ewmaElements[i].style.display = this.value === 'EWMA' ? 'flex' : 'none';
     }
-});
+})
 
 document.getElementById('toggleScarcity').addEventListener('click', () => {
 
@@ -1565,6 +1756,18 @@ document.getElementById('toggleScarcity').addEventListener('click', () => {
 
 })
 
+document.getElementById('ManagerSummaryPositions').addEventListener('change', function() {
+
+    layoutManagerSummaryTable()
+
+})
+
+document.getElementById('rosterInfoCheckbox').addEventListener('click', () => {
+
+    layoutManagerSummaryTable()
+
+})
+
 document.getElementById('undoDraftPick').addEventListener('click', () => {
 
     undoDraftPick();
@@ -1599,6 +1802,7 @@ function assignDraftPick() {
             let gCount = managerSummaryData['gCount'];
             // let mfCount = managerSummaryData['mfCount'];
             let mfgmCount = managerSummaryData['mfgmCount']; // minors fantasy goalies in minors
+            // let mCount = managerSummaryData['mCount']; // minors
             let gCount_adj = gCount - mfgmCount;
             let picks_remaining = managerSummaryData['picks'];
 
@@ -1710,7 +1914,8 @@ function assignDraftPick() {
                 let sortColumnIndexes;
                 if (draft_manager === 'Banshee') {
                     // sortColumnIndexAndSeq = selectedPosition === 'G' ? score_idx : score_idx;
-                    sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], sortColumnIndexAndSeq] : sortColumnIndexAndSeq;
+                    // sortColumnIndexes = selectedPosition === 'G' ? [[tier_idx, 'asc'], sortColumnIndexAndSeq] : sortColumnIndexAndSeq;
+                    sortColumnIndexes = selectedPosition === 'G' ? [[dobber_rank_idx, 'asc']] : sortColumnIndexAndSeq;
                 } else if (draft_manager === "Fowler's Flyers") {
                     // sortColumnIndexAndSeq = selectedPosition === 'G' ? z_score_idx : z_score_idx;
                     sortColumnIndexes = selectedPosition === 'G' ? sortColumnIndexAndSeq : sortColumnIndexAndSeq;
@@ -1725,25 +1930,48 @@ function assignDraftPick() {
                 playerStatsDataTable.order(sortColumnIndexes).draw();
 
                 if (manually_select_my_picks === true && draft_manager === 'Banshee') {
+
+                    // Show pulsing bar
+                    document.getElementById('pulsing-bar').style.display = 'block';
+
+                    // Need a timeout for the pulsing bar display
+                    setTimeout(function() {
+
+                        playerStatsDataTable.columns.adjust().draw();
+
                     // clear all filters on the entire table
-                    playerStatsDataTable.column(position_idx).search('').draw();
+                        playerStatsDataTable.column(position_idx).search('').draw();
 
-                    // Reset search panes
-                    playerStatsDataTable.searchPanes.clearSelections();
-                    managerSearchPaneDataTable.rows(function(idx, data, node) {
-                        return data.display.includes('No data');
-                    }).select();
+                        // Reset search panes
+                        playerStatsDataTable.searchPanes.clearSelections();
+                        managerSearchPaneDataTable.rows(function(idx, data, node) {
+                            return data.display.includes('No data');
+                        }).select();
 
-                    additionalFiltersSearchPaneDataTable.rows(function(idx, data, node) {
-                        return data.display.includes('On watch list');
-                    }).select();
+                        // additionalFiltersSearchPaneDataTable.rows(function(idx, data, node) {
+                        //     return data.display.includes('On watch list');
+                        // }).select();
 
-                    // Reset search builder selections
-                    let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
-                    if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
-                        playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
-                    }
+                        // Reset search builder selections
+                        let currentSearchBuilderDetails = playerStatsDataTable.searchBuilder.getDetails();
+                        if (JSON.stringify(currentSearchBuilderDetails) !== JSON.stringify(baseSearchBuilderCriteria)) {
+                            playerStatsDataTable.searchBuilder.rebuild(baseSearchBuilderCriteria);
+                        }
+                        // currentSearchBuilderDetails.criteria[2].criteria[0].value = [27];
+                        // currentSearchBuilderDetails.criteria[2].criteria[1].value = ["Yes"];
+                        // playerStatsDataTable.searchBuilder.rebuild(currentSearchBuilderDetails);
 
+                        // // show "Undo Previous Pick" button
+                        // if ($('#undoDraftPick').hasClass('hidden')) {
+                        //     $('#undoDraftPick').removeClass('hidden').css('display', 'inline-block');
+                        // }
+
+                        // Hide pulsing bar
+                        document.getElementById('pulsing-bar').style.display = 'none';
+
+                    }, 2000);
+
+                    resolve();
                     return;
 
                 }
@@ -1892,6 +2120,17 @@ function assignManager(rowIndex, manager) {
             let cell = tableData.cell(rowIdx + 1, colIdx); // Get the cell object
             cell.data(playerName);
 
+            // Check if playerName contains '(G/' and set background color
+            if (playerName.includes('(G/')) {
+                $(cell.node()).css('background-color', '#1E90FF'); // DodgerBlue
+            }
+            else if (playerName.includes('(D/')) {
+                $(cell.node()).css('background-color', '#BA55D3'); // MediumOrchid
+            }
+            else if (playerName.includes('(F/')) {
+                $(cell.node()).css('background-color', '#228B22'); // ForestGreen
+            }
+
             managerSummaryScores = calcManagerSummaryScores();
             updateManagerSummaryTable(managerSummaryScores);
 
@@ -1912,13 +2151,32 @@ function assignManager(rowIndex, manager) {
         completed_draft_picks.push(completedPick);
         if (remaining_draft_picks.length > 0) {
             draft_manager = remaining_draft_picks[0].manager;
+            while (remaining_draft_picks.length > 0 && (draft_manager === 'Open Team 1' || draft_manager === 'Open Team 2')) {
+                completedPick = remaining_draft_picks.shift();
+                completed_draft_picks.push(completedPick);
+                if (remaining_draft_picks.length > 0) {
+                    draft_manager = remaining_draft_picks[0].manager;
+                }
+            }
         }
 
         if (remaining_draft_picks.length > 0) {
 
             managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
-            document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
-            resolve(true);;
+
+            document.getElementById("draftMessage").innerHTML =
+                "Round: " + remaining_draft_picks[0].draft_round +
+                "; Pick: " + remaining_draft_picks[0].round_pick +
+                "; Overall: " + remaining_draft_picks[0].overall_pick +
+                "; Manager: " + draft_manager +
+                ' (' + getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)' +
+                "<br>" +
+                "Currently has " + managerSummaryData.fCount +
+                " Fs; " + managerSummaryData.dCount +
+                " Ds; " + managerSummaryData.gCount +
+                " Gs";
+
+            resolve(true);
 
         } else {
 
@@ -2087,9 +2345,9 @@ function calcManagerSummaryScores() {
     // Filter out rows with no team manager
     let rosteredPlayers = originalPlayerStatsTableData.filter(function (row) {
         if (draft_in_progress === true || draft_completed === true) {
-            return row[manager_idx] !== "";
+            return row[manager_idx] !== "" && row[manager_idx] !== null;
         } else {
-            return row[manager_idx] !== "" && (row[keeper_idx] === 'Yes' || row[keeper_idx] === 'MIN');
+            return row[manager_idx] !== "" && row[manager_idx] !== null && (row[keeper_idx] === 'Yes' || row[keeper_idx] === 'MIN');
         }
     });
 
@@ -2110,6 +2368,7 @@ function calcManagerSummaryScores() {
         }
 
         let keeper = row[keeper_idx];
+        let fantrax_roster_status = row[fantrax_roster_status_idx]
         let minors = row[minors_idx];
         let ir = row[fantrax_roster_status_idx];
 
@@ -2126,8 +2385,9 @@ function calcManagerSummaryScores() {
                 fCount: (position !== 'G' && position !== 'D') ? 1 : 0,
                 dCount: (position === 'D') ? 1 : 0,
                 gCount: (position === 'G') ? 1 : 0,
-                mfCount: (keeper === 'MIN') ? 1 : 0, // minors (fantasy)
-                mfgmCount: (position === 'G' && keeper === 'MIN' && minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
+                mfCount: ((draft_completed === false && keeper === 'MIN') || (draft_completed === true && fantrax_roster_status === 'Min')) ? 1 : 0, // minors (fantasy)
+                mfgmCount: (position === 'G' && ((draft_completed === false && keeper === 'MIN') || (draft_completed === true && fantrax_roster_status === 'Min')) && minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
+                mCount: (minors === "Yes") ? 1 : 0, // minors (fantasy) - goalie in minors
                 irCount: (ir === 'IR') ? 1 : 0,
                 score: 0,
                 scoreSktr: 0,
@@ -2156,6 +2416,7 @@ function calcManagerSummaryScores() {
                 hits_f: 0,
                 takeaways_f: 0,
                 penaltyMinutes_f: 0,
+                points_d: 0,
                 goals_d: 0,
                 assists_d: 0,
                 powerplayPoints_d: 0,
@@ -2177,31 +2438,36 @@ function calcManagerSummaryScores() {
             data[index].fCount += (position !== 'G' && position !== 'D') ? 1 : 0;
             data[index].dCount += (position === 'D') ? 1 : 0;
             data[index].gCount += (position === 'G') ? 1 : 0;
-            data[index].mfCount += (keeper === 'MIN') ? 1 : 0,
-            data[index].mfgmCount += (position === 'G' && keeper === 'MIN' && minors === "Yes") ? 1 : 0,
+            data[index].mfCount += ((draft_completed === false && keeper === 'MIN') || (draft_completed === true && fantrax_roster_status === 'Min')) ? 1 : 0,
+            data[index].mfgmCount += (position === 'G' && ((draft_completed === false && keeper === 'MIN') || (draft_completed === true && fantrax_roster_status === 'Min')) && minors === "Yes") ? 1 : 0,
+            data[index].mCount += (minors === "Yes") ? 1 : 0,
             data[index].irCount += (ir === 'IR') ? 1 : 0
             data[index].picks -= 1
         }
     }
 
     for(let i = 0; i < data.length; i++) {
-        if(data[i].picks < 0) {
+        if (draft_completed === true) {
             data[i].picks = 0;
         }
-        // adjust for managers without MIN players
-        if(data[i].mfCount < 2) {
-            data[i].picks = data[i].picks - (2 - data[i].mfCount);
+        else {
+            if(data[i].picks < 0) {
+                data[i].picks = 0;
+            }
+            // adjust for managers without MIN players
+            if(data[i].mfCount < 2) {
+                data[i].picks = data[i].picks - (2 - data[i].mfCount);
+            }
         }
     }
 
     // Group data by manager_idx and position_idx
     let groupedData = rosteredPlayers.reduce(function (r, a) {
 
-        // I think 'IR' & 'Min' players should be included in player counts, so comnenting this out for now
-        // // When using season projections, exclude rows with 'IR' or 'Min' in fantrax_roster_status_idx
-        // if (gameType.value !== 'Projected Season' && (a[fantrax_roster_status_idx] === 'IR' || a[fantrax_roster_status_idx] === 'Min')) {
-        //     return r;
-        // }
+        // When using season projections, exclude rows with 'IR' in fantrax roster status, or player is in minors
+        if (gameType.value !== 'Projected Season' && (a[fantrax_roster_status_idx] === 'IR' || a[minors_idx] === 'Yes')) {
+            return r;
+        }
 
         r[a[manager_idx]] = r[a[manager_idx]] || {};
         let position = ['LW', 'C', 'RW'].includes(a[position_idx]) ? 'F' : a[position_idx];
@@ -2265,6 +2531,7 @@ function calcManagerSummaryScores() {
         let hits_f = 0;
         let takeaways_f = 0;
         let penaltyMinutes_f = 0;
+        let points_d = 0;
         let goals_d = 0;
         let assists_d = 0;
         let powerplayPoints_d = 0;
@@ -2278,37 +2545,36 @@ function calcManagerSummaryScores() {
         let gaa = 0;
         let savePercent = 0;
 
-        if (gameType.value === 'Projected Season') {
-            points = parseFloat(row[pts_score_idx]);
-            goals = parseFloat(row[g_score_idx]);
-            assists = parseFloat(row[a_score_idx]);
-            powerplayPoints = parseFloat(row[ppp_score_idx]);
-            shotsOnGoal = parseFloat(row[sog_score_idx]);
-            blockedShots = parseFloat(row[blk_score_idx]);
-            hits = parseFloat(row[hits_score_idx]);
-            takeaways = parseFloat(row[tk_score_idx]);
-            penaltyMinutes = parseFloat(row[pim_score_idx]);
-            goals_f = parseFloat(row[g_score_idx]);
-            assists_f = parseFloat(row[a_score_idx]);
-            powerplayPoints_f = parseFloat(row[ppp_score_idx]);
-            shotsOnGoal_f = parseFloat(row[sog_score_idx]);
-            blockedShots_f = parseFloat(row[blk_score_idx]);
-            hits_f = parseFloat(row[hits_score_idx]);
-            takeaways_f = parseFloat(row[tk_score_idx]);
-            penaltyMinutes_f = parseFloat(row[pim_score_idx]);
-            goals_d = parseFloat(row[g_score_idx]);
-            assists_d = parseFloat(row[a_score_idx]);
-            powerplayPoints_d = parseFloat(row[ppp_score_idx]);
-            shotsOnGoal_d = parseFloat(row[sog_score_idx]);
-            blockedShots_d = parseFloat(row[blk_score_idx]);
-            hits_d = parseFloat(row[hits_score_idx]);
-            takeaways_d = parseFloat(row[tk_score_idx]);
-            penaltyMinutes_d = parseFloat(row[pim_score_idx]);
-            wins = parseFloat(row[w_score_idx]);
-            saves = parseFloat(row[sv_score_idx]);
-            gaa = parseFloat(row[gaa_score_idx]);
-            savePercent = parseFloat(row[save_percent_score_idx]);
-        }
+        points = parseFloat(row[points_score_idx]);
+        goals = parseFloat(row[goals_score_idx]);
+        assists = parseFloat(row[assists_score_idx]);
+        powerplayPoints = parseFloat(row[ppp_score_idx]);
+        shotsOnGoal = parseFloat(row[sog_score_idx]);
+        blockedShots = parseFloat(row[blk_score_idx]);
+        hits = parseFloat(row[hits_score_idx]);
+        takeaways = parseFloat(row[tk_score_idx]);
+        penaltyMinutes = parseFloat(row[pim_score_idx]);
+        goals_f = parseFloat(row[goals_score_idx]);
+        assists_f = parseFloat(row[assists_score_idx]);
+        powerplayPoints_f = parseFloat(row[ppp_score_idx]);
+        shotsOnGoal_f = parseFloat(row[sog_score_idx]);
+        blockedShots_f = parseFloat(row[blk_score_idx]);
+        hits_f = parseFloat(row[hits_score_idx]);
+        takeaways_f = parseFloat(row[tk_score_idx]);
+        penaltyMinutes_f = parseFloat(row[pim_score_idx]);
+        points_d = parseFloat(row[points_score_idx]);
+        goals_d = parseFloat(row[goals_score_idx]);
+        assists_d = parseFloat(row[assists_score_idx]);
+        powerplayPoints_d = parseFloat(row[ppp_score_idx]);
+        shotsOnGoal_d = parseFloat(row[sog_score_idx]);
+        blockedShots_d = parseFloat(row[blk_score_idx]);
+        hits_d = parseFloat(row[hits_score_idx]);
+        takeaways_d = parseFloat(row[tk_score_idx]);
+        penaltyMinutes_d = parseFloat(row[pim_score_idx]);
+        wins = parseFloat(row[wins_scoreidx]);
+        saves = parseFloat(row[saves_score_idx]);
+        gaa = parseFloat(row[gaa_score_idx]);
+        savePercent = parseFloat(row[save_percent_score_idx]);
 
         if (isNaN(points) || position !== 'D') {points = 0;}
         if (isNaN(goals) || position === 'G') {goals = 0;}
@@ -2327,6 +2593,7 @@ function calcManagerSummaryScores() {
         if (isNaN(hits_f) || position !== 'F') {hits_f = 0;}
         if (isNaN(takeaways_f) || position !== 'F') {takeaways_f = 0;}
         if (isNaN(penaltyMinutes_f) || position !== 'F') {penaltyMinutes_f = 0;}
+        if (isNaN(points_d) || position !== 'D') {points_d = 0;}
         if (isNaN(goals_d) || position !== 'D') {goals_d = 0;}
         if (isNaN(assists_d) || position !== 'D') {assists_d = 0;}
         if (isNaN(powerplayPoints_d) || position !== 'D') {powerplayPoints_d = 0;}
@@ -2363,6 +2630,7 @@ function calcManagerSummaryScores() {
         data[index].hits_f += hits_f;
         data[index].takeaways_f += takeaways_f;
         data[index].penaltyMinutes_f += penaltyMinutes_f;
+        data[index].points_d += points_d;
         data[index].goals_d += goals_d;
         data[index].assists_d += assists_d;
         data[index].powerplayPoints_d += powerplayPoints_d;
@@ -2379,14 +2647,27 @@ function calcManagerSummaryScores() {
     }
 
     // rank catetores
-    const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f", "blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d", "wins", "saves", "gaa", "savePercent"];
+    const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f", "blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f", "points_d", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d", "wins", "saves", "gaa", "savePercent"];
+    // const categories = ["points", "goals", "assists", "powerplayPoints", "shotsOnGoal", "blockedShots", "hits", "takeaways", "penaltyMinutes", "wins", "saves", "gaa", "savePercent"];
     categories.forEach(category => {
         data.sort((a, b) => b[category] - a[category]);
+
+        // Temporary array to store ranks before applying them
+        let tempRanks = new Array(data.length);
+
         data.forEach((manager, index) => {
             const sameRankManagers = data.filter(m => m[category] === manager[category]);
-            const rankSum = sameRankManagers.reduce((sum, m) => sum + (13 - data.indexOf(m)), 0);
+            const rankSum = sameRankManagers.reduce((sum, m) => sum + (11 - data.indexOf(m)), 0);
             const averageRank = rankSum / sameRankManagers.length;
-            manager[`${category}`] = averageRank;
+
+            sameRankManagers.forEach(m => {
+                tempRanks[data.indexOf(m)] = averageRank;
+            });
+        });
+
+        // Apply the calculated ranks to the actual data
+        data.forEach((manager, index) => {
+            manager[`${category}`] = tempRanks[index];
         });
     });
 
@@ -2398,8 +2679,8 @@ function calcManagerSummaryScores() {
         manager.scoreF = ["goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f", "blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreFOffense = ["goals_f", "assists_f", "powerplayPoints_f", "shotsOnGoal_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreFPeripheral = ["blockedShots_f", "hits_f", "takeaways_f", "penaltyMinutes_f"].reduce((sum, category) => sum + manager[`${category}`], 0);
-        manager.scoreD = ["points", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
-        manager.scoreDOffense = ["points", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreD = ["points_d", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d", "blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
+        manager.scoreDOffense = ["points_d", "goals_d", "assists_d", "powerplayPoints_d", "shotsOnGoal_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreDPeripheral = ["blockedShots_d", "hits_d", "takeaways_d", "penaltyMinutes_d"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreG = ["wins", "saves", "gaa", "savePercent"].reduce((sum, category) => sum + manager[`${category}`], 0);
         manager.scoreCountG = ["wins", "saves"].reduce((sum, category) => sum + manager[`${category}`], 0);
@@ -2488,6 +2769,22 @@ function colourizeCell(cellNode, column_idx, rowData) {
                 $(cellNode).colourize({ min, max, center });
             }
         }
+        if (goalie_category_score_heatmap_columns.has(column_idx)) {
+            if ( position === 'G' ) {
+                const min = min_cat[`${category}`];
+                const max = max_cat[`${category}`];
+                const center = mean_cat[`${category}`];
+                $(cellNode).colourize({ min, max, center });
+            }
+        }
+        // if (goalie_score_summary_heatmap_columns.has(column_idx)) {
+        //     if ( position === 'G' ) {
+        //         const min = min_cat[`${category}`];
+        //         const max = max_cat[`${category}`];
+        //         const center = mean_cat[`${category}`];
+        //         $(cellNode).colourize({ min, max, center });
+        //     }
+        // }
         if (sktr_category_heatmap_columns.has(column_idx)) {
             // const category = categoryLookup[column_idx];
             if (position !== 'G') {
@@ -2522,6 +2819,31 @@ function colourizeCell(cellNode, column_idx, rowData) {
                 }
             }
         }
+        if (sktr_category_score_heatmap_columns.has(column_idx)) {
+            if (position !== 'G') {
+                if (column_idx === points_score_idx) {
+                    if (position === 'D') {
+                        const min = min_cat[`d ${category}`];
+                        const max = max_cat[`d ${category}`];
+                        const center = mean_cat[`d ${category}`];
+                        $(cellNode).colourize({ min, max, center });
+                    }
+                } else {
+                    const min = min_cat[`sktr ${category}`];
+                    const max = max_cat[`sktr ${category}`];
+                    const center = mean_cat[`sktr ${category}`];
+                    $(cellNode).colourize({ min, max, center });
+                }
+            }
+        }
+        // if (sktr_score_summary_heatmap_columns.has(column_idx)) {
+        //     if (position !== 'G') {
+        //         const min = min_cat[`${category}`];
+        //         const max = max_cat[`${category}`];
+        //         const center = mean_cat[`${category}`];
+        //         $(cellNode).colourize({ min, max, center });
+        //     }
+        // }
         if (score_summary_heatmap_columns.has(column_idx)) {
             // const category = categoryLookup[column_idx];
             if ( column_idx === score_idx || column_idx == z_score_idx ) {
@@ -2540,7 +2862,23 @@ function colourizeCell(cellNode, column_idx, rowData) {
                 const center = mean_cat[`g ${category}`];
                 $(cellNode).colourize({ min, max, center });
             }
-}
+        }
+        if (sktr_time_heatmap_columns.has(column_idx)) {
+            if (position !== 'G') {
+                const min = 0;
+                const max = max_cat[`sktr ${category}`];
+                const center = mean_cat[`sktr ${category}`];
+                $(cellNode).colourize({ min, max, center });
+            }
+        }
+        if (sktr_percent_heatmap_columns.has(column_idx)) {
+            if (position !== 'G') {
+                const min = 0;
+                const max = max_cat[`sktr ${category}`];
+                const center = mean_cat[`sktr ${category}`];
+                $(cellNode).colourize({ min, max, center });
+            }
+        }
     }
 }
 
@@ -2631,6 +2969,70 @@ function columnVisibility() {
     $('#gameType').data('previous', current_game_type);
     $('#DataTables_Table_0').data('previous', current_positon);
 
+}
+
+// Function to compare floats
+function compareFloatValues(val1, val2, order) {
+    // Trim the strings to handle white spaces
+    let trimmedVal1 = $.trim(val1);
+    let trimmedVal2 = $.trim(val2);
+
+    // Handle empty cell cases
+    if (trimmedVal1 === '' && trimmedVal2 === '') {
+        return 0; // both are empty, considered equal
+    }
+    if (trimmedVal1 === '') {
+        return 1; // val1 (empty) goes to the end
+    }
+    if (trimmedVal2 === '') {
+        return -1; // val2 (empty) goes to the end
+    }
+
+    // Parse the floats
+    let float1 = parseFloat(trimmedVal1);
+    let float2 = parseFloat(trimmedVal2);
+
+    // Handle NaN cases (if the values are not numbers)
+    if (isNaN(float1) && isNaN(float2)) {
+        return 0; // both are non-numeric, considered equal
+    }
+    if (isNaN(float1)) {
+        return 1; // non-numeric goes to the end
+    }
+    if (isNaN(float2)) {
+        return -1; // non-numeric goes to the end
+    }
+
+    // Numeric comparison
+    if (order === 'asc') {
+        return float1 - float2; // will return negative if float1 < float2, positive if float1 > float2
+    } else {
+        return float2 - float1; // will return negative if float2 < float1, positive if float2 > float1
+    }
+}
+
+// Function to compare heights
+function compareHeights(val1, val2) {
+    let height1InInches = extractHeightInInches(val1);
+    let height2InInches = extractHeightInInches(val2);
+
+    // Handle cases where one or both heights are invalid
+    if (isNaN(height1InInches)) return 1; // Sort invalid height to bottom
+    if (isNaN(height2InInches)) return -1; // Sort invalid height to bottom
+
+    // Return the difference for comparison
+    return height1InInches - height2InInches;
+}
+
+// Function to extract height in inches from a string
+function extractHeightInInches(heightString) {
+    const match = heightString.match(/(\d+)' *(\d+)"/);
+    if (match) {
+        const feet = parseInt(match[1], 10);
+        const inches = parseInt(match[2], 10);
+        return (feet * 12) + inches; // convert to total inches
+    }
+    return NaN; // Return NaN for invalid formats
 }
 
 function createCategoryScarcityTable(data_dict) {
@@ -2730,12 +3132,12 @@ function createDraftBoardTable(remaining_draft_picks) {
     // Create a mapping of original manager names to new names
     // Names are ordered by the manager's draft position
     var managerMapping = {
-        "One Man Gang Bang": "One Man",
-        "Open Team 1": "Open 1",
-        "El Paso Pirates": "El Paso",
+        "One Man Gang Bang": "OMGB",
+        "Open Team 1": "OT1",
+        "El Paso Pirates": "EPP",
         "Urban Legends": "UL",
-        "Avovocado": "Avovocado",
-        "Open Team 2": "Open 2",
+        "Avovocado": "Avocado",
+        "Open Team 2": "OT2",
         "Camaro SS": "Camaro",
         "WhatA LoadOfIt": "WhatA",
         "Banshee": "Banshee",
@@ -2785,7 +3187,7 @@ function createDraftBoardTable(remaining_draft_picks) {
 
     // build column titles
     column_titles = [{title: "Rnd"}].concat(Object.keys(managerMapping).map((key, i) => ({
-        title: '<div style="text-align: center;">Pick ' + (i + 1) + '<br>(' + managerMapping[key] + ')</div>'
+        title: '<div style="text-align: center;">' + (i + 1) + '<br>(' + managerMapping[key] + ')</div>'
     })));
 
     // Initialize DataTable
@@ -2794,7 +3196,7 @@ function createDraftBoardTable(remaining_draft_picks) {
         columns: column_titles, // Generate column titles
         ordering: false,
         autoWidth: false,
-        stripeClasses: ['odd-row', 'even-row'],
+        // stripeClasses: ['odd-row', 'even-row'],
         dom: 't',
         pageLength: 28,
         createdRow: function(row, data, dataIndex) {
@@ -2804,8 +3206,38 @@ function createDraftBoardTable(remaining_draft_picks) {
                 $(this).css('text-align', 'center');
 
                 // If the cell contains "Banshee", change its color
-                if (this.innerText.includes('Banshee')) {
-                    $(this).css('background-color', 'yellow');  // Change 'yellow' to your desired color
+                if (this.innerText.includes('Avocado')) {
+                    $(this).css('color', '#00ffcc');
+                }
+                else if (this.innerText.includes('Banshee')) {
+                    $(this).css('color', '#ffff00');
+                }
+                else if (this.innerText.includes('CanDO')) {
+                    $(this).css('color', '#00cc00');
+                }
+                else if (this.innerText.includes('Camaro')) {
+                    $(this).css('color', '#ff0000');
+                }
+                else if (this.innerText.includes('EPP')) {
+                    $(this).css('color', '#800080');
+                }
+                else if (this.innerText.includes('FF')) {
+                    $(this).css('color', '#FFA07A');
+                }
+                else if (this.innerText.includes('Horsey')) {
+                    $(this).css('color', '#663300');
+                }
+                else if (this.innerText.includes('OMGB')) {
+                    $(this).css('color', '#0099ff');
+                }
+                else if (this.innerText.includes('WhatA')) {
+                    $(this).css('color', '#003399');
+                }
+                else if (this.innerText.includes('Wheels')) {
+                    $(this).css('color', '#99ffcc');
+                }
+                else if (this.innerText.includes('UL')) {
+                    $(this).css('color', '#6600cc');
                 }
 
                 // If it's a player row, hide the round number
@@ -2868,56 +3300,104 @@ function createCategoryScarcityByZScoreRangeTable(data_dict) {
 
 function createManagerSummaryTable() {
 
-    // getMaxCategoryValuesAndZScores();
-
     managerSummaryScores = calcManagerSummaryScores();
 
-    // const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreSktrOffense', 'scoreSktrPeripheral', 'scoreF', 'scoreFOffense', 'scoreFPeripheral', 'scoreD', 'scoreDOffense', 'scoreDPeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+    // Determine the title for 'picks' column based on draft_completed
+    let picksTitle = draft_completed ? 'players' : 'picks';
 
-    const properties = ['picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount', 'score', 'scoreSktr', 'scoreSktrOffense', 'scoreSktrPeripheral', 'points', 'goals', 'assists', 'powerplayPoints', 'shotsOnGoal', 'blockedShots', 'hits', 'takeaways' ,'penaltyMinutes', 'scoreG', 'scoreCountG', 'scoreRatioG', 'wins', 'saves', 'gaa', 'savePercent'];
+    data = managerSummaryScores;
+
+    managerSummaryColumns = [
+        // Here's the complete list of keys you can use when defining a jQuery DataTable:
+        //     data: Specifies the data source for the column.
+        //     title: Sets the column's title.
+        //     render: Allows custom rendering of column data.
+        //     className: Assigns a CSS class to the column.
+        //     defaultContent: Defines default content for the column when data is null.
+        //     visible: Controls column visibility (true or false).
+        //     orderable: Allows sorting on the column (true or false).
+        //     searchable: Enables searching on the column (true or false).
+        //     width: Sets the width of the column.
+        //     type: Defines the column's type, like num, date, etc.
+        //     createdCell: Executes a function when a cell is created.
+        //     contentPadding: Adds padding to the column’s content.
+        //     cellType: Defines the cell type (td or th).
+        //     name: Sets a name for the column, which can be useful for column visibility toggling.
+        //     orderData: Specifies alternative data to be used for ordering.
+        //     orderDataType: Sets the data type for ordering purposes.
+        //     orderSequence: Defines the sorting order (asc, desc).
+        //     orderFixed: Fixes the ordering of this column.
+        //     autoWidth: Auto-adjusts the width of the column based on content.
+        { data: 'manager', title: 'manager', name: 'manager', group: 'all' },
+        { data: 'score', title: 'score', name: 'score', group: 'compact' },
+        { data: 'scoreSktr', title: 'score', name: 'scoreSktr', group: 'summaryScoreSktr' },
+        { data: 'scoreSktrOffense', title: 'offense', name: 'scoreSktrOffense', group: 'summaryScoreSktr' },
+        { data: 'scoreSktrPeripheral', title: 'peripheral', name: 'scoreSktrPeripheral', group: 'summaryScoreSktr' },
+        { data: 'scoreF', title: 'score', name: 'scoreF', group: 'summaryScoreF' },
+        { data: 'scoreFOffense', title: 'offense', name: 'scoreFOffense', group: 'summaryScoreF' },
+        { data: 'scoreFPeripheral', title: 'peripheral', name: 'scoreFPeripheral', group: 'summaryScoreF' },
+        { data: 'scoreD', title: 'score', name: 'scoreD', group: 'summaryScoreD' },
+        { data: 'scoreDOffense', title: 'offense', name: 'scoreDOffense', group: 'summaryScoreD' },
+        { data: 'scoreDPeripheral', title: 'peripheral', name: 'scoreDPeripheral', group: 'summaryScoreD' },
+        { data: 'scoreG', title: 'score', name: 'scoreG', group: 'summaryScoreG' },
+        { data: 'scoreCountG', title: 'count', name: 'scoreCountG', group: 'summaryScoreG' },
+        { data: 'scoreRatioG', title: 'ratio', name: 'scoreRatioG', group: 'summaryScoreG' },
+        {
+            data: null,
+            title: picksTitle,
+            name: 'picksPlayersCount',
+            render: function(data, type, row) {
+                return draft_completed ? row['fCount'] + row['dCount'] + row['gCount'] : row['picks'];
+            },
+            group: 'roster'
+        },
+        { data: 'fCount', title: 'f', name: 'fCount', group: 'roster' },
+        { data: 'dCount', title: 'd', name: 'dCount', group: 'roster' },
+        { data: 'gCount', title: 'g', name: 'gCount', group: 'roster' },
+        { data: 'mfCount', title: 'mf', name: 'mfCount', group: 'roster' },
+        // { data: 'mfgmCount', title: 'mfgm\'s', name: 'mfgmCount', group: 'roster' },
+        { data: 'mCount', title: 'minors', name: 'mCount', group: 'roster' },
+        { data: 'irCount', title: 'ir', name: 'irCount', group: 'roster' },
+        { data: 'points', title: 'pts', name: 'points', group: 'categoryScoreSktr' },
+        { data: 'goals', title: 'g', name: 'goals', group: 'categoryScoreSktr' },
+        { data: 'assists', title: 'a', name: 'assists', group: 'categoryScoreSktr' },
+        { data: 'powerplayPoints', title: 'ppp', name: 'powerplayPoints', group: 'categoryScoreSktr' },
+        { data: 'shotsOnGoal', title: 'sog', name: 'shotsOnGoal', group: 'categoryScoreSktr' },
+        { data: 'blockedShots', title: 'blk', name: 'blockedShots', group: 'categoryScoreSktr' },
+        { data: 'hits', title: 'hits', name: 'hits', group: 'categoryScoreSktr' },
+        { data: 'takeaways', title: 'tk', name: 'takeaways', group: 'categoryScoreSktr' },
+        { data: 'penaltyMinutes', title: 'pim', name: 'penaltyMinutes', group: 'categoryScoreSktr' },
+        { data: 'goals_f', title: 'g', name: 'goals_f', group: 'categoryScoreF' },
+        { data: 'assists_f', title: 'a', name: 'assists_f', group: 'categoryScoreF' },
+        { data: 'powerplayPoints_f', title: 'ppp', name: 'powerplayPoints_f', group: 'categoryScoreF' },
+        { data: 'shotsOnGoal_f', title: 'sog', name: 'shotsOnGoal_f', group: 'categoryScoreF' },
+        { data: 'blockedShots_f', title: 'blk', name: 'blockedShots_f', group: 'categoryScoreF' },
+        { data: 'hits_f', title: 'hits', name: 'hits_f', group: 'categoryScoreF' },
+        { data: 'takeaways_f', title: 'tk', name: 'takeaways_f', group: 'categoryScoreF' },
+        { data: 'penaltyMinutes_f', title: 'pim', name: 'penaltyMinutes_f', group: 'categoryScoreF' },
+        { data: 'points_d', title: 'pts', name: 'points_d', group: 'categoryScoreD' },
+        { data: 'goals_d', title: 'g', name: 'goals_d', group: 'categoryScoreD' },
+        { data: 'assists_d', title: 'a', name: 'assists_d', group: 'categoryScoreD' },
+        { data: 'powerplayPoints_d', title: 'ppp', name: 'powerplayPoints_d', group: 'categoryScoreD' },
+        { data: 'shotsOnGoal_d', title: 'sog', name: 'shotsOnGoal_d', group: 'categoryScoreD' },
+        { data: 'blockedShots_d', title: 'blk', name: 'blockedShots_d', group: 'categoryScoreD' },
+        { data: 'hits_d', title: 'hits', name: 'hits_d', group: 'categoryScoreD' },
+        { data: 'takeaways_d', title: 'tk', name: 'takeaways_d', group: 'categoryScoreD' },
+        { data: 'penaltyMinutes_d', title: 'pim', name: 'penaltyMinutes_d', group: 'categoryScoreD' },
+        { data: 'wins', title: 'w', name: 'wins', group: 'categoryScoreG' },
+        { data: 'saves', title: 'sv', name: 'saves', group: 'categoryScoreG' },
+        { data: 'gaa', title: 'gaa', name: 'gaa', group: 'categoryScoreG' },
+        { data: 'savePercent', title: 'sv%', name: 'savePercent', group: 'categoryScoreG' }
+    ];
 
     // Initialize new DataTable with calculated managerSummaryScores
     $('#managerSummary').DataTable({
-        data: managerSummaryScores,
+        data: data,
         dom: 't',
-        columns: [
-            { data: 'manager', title: 'manager' },
-            { data: 'picks', title: 'picks' },
-            { data: 'fCount', title: 'f\'s' },
-            { data: 'dCount', title: 'd\'s' },
-            { data: 'gCount', title: 'g\'s' },
-            { data: 'mfCount', title: 'mf\'s' },
-            { data: 'mfgmCount', title: 'mfgm\'s' },
-            { data: 'irCount', title: 'ir\'s' },
-            { data: 'score', title: 'score' },
-            { data: 'scoreSktr', title: 'stkr score' },
-            { data: 'scoreSktrOffense', title: 'stkr offense' },
-            { data: 'scoreSktrPeripheral', title: 'stkr peripheral' },
-            // { data: 'scoreF', title: 'f score' },
-            // { data: 'scoreFOffense', title: 'f offense' },
-            // { data: 'scoreFPeripheral', title: 'f peripheral' },
-            // { data: 'scoreD', title: 'd score' },
-            // { data: 'scoreDOffense', title: 'd offense' },
-            // { data: 'scoreDPeripheral', title: 'd peripheral' },
-            { data: 'points', title: 'pts' },
-            { data: 'goals', title: 'g' },
-            { data: 'assists', title: 'a' },
-            { data: 'powerplayPoints', title: 'ppp' },
-            { data: 'shotsOnGoal', title: 'sog' },
-            { data: 'blockedShots', title: 'blk' },
-            { data: 'hits', title: 'hits' },
-            { data: 'takeaways', title: 'tk' },
-            { data: 'penaltyMinutes', title: 'pim' },
-            { data: 'scoreG', title: 'score' },
-            { data: 'scoreCountG', title: 'count' },
-            { data: 'scoreRatioG', title: 'ratio' },
-            { data: 'wins', title: 'w' },
-            { data: 'saves', title: 'sv' },
-            { data: 'gaa', title: 'gaa' },
-            { data: 'savePercent', title: 'sv%' },
-        ],
-        order: [[8, "desc"]],
-        pageLength: 13,
+        columns: managerSummaryColumns,
+        order: [[1, "desc"]],
+        pageLength: 11,
+        autoWidth: false,
         columnDefs: [
             // default is center-align all colunns, header & body
             {className: 'dt-center', targets: '_all'},
@@ -2929,6 +3409,8 @@ function createManagerSummaryTable() {
         drawCallback: function(settings) {
             const api = this.api();
             let data = api.rows({ page: 'current' }).data().toArray();
+
+            const properties = managerSummaryColumns.filter(column => column.name !== 'manager').map(column => column.name);
 
             properties.forEach(function(property, index) {
                 let values = data.map(function(obj) { return parseFloat(obj[property]); });
@@ -2947,11 +3429,16 @@ function createManagerSummaryTable() {
 
         },
         initComplete: function () {
-            let header = '<tr><th colspan="2"></th><th colspan="6"></th><th colspan="1"></th><th colspan="12">Skaters</th><th colspan="7">Goalies</th>';
+
+            let header = `<tr></tr>`;
             if ($("#managerSummary thead tr").length === 1) {
                 $("#managerSummary thead").prepend(header);
             }
+
             managerSummaryDataTable = $('#managerSummary').DataTable();
+
+            layoutManagerSummaryTable();
+
         },
     });
 
@@ -2986,7 +3473,7 @@ function createMyCategoryNeedsTable() {
                 { data: 'category', title: 'category' },
                 { data: 'value', title: 'rank' },
             ],
-            order: [[1, "desc"]],
+            order: [[1, "asc"]],
             pageLength: 13,
             columnDefs: [
                 {className: 'dt-center', targets: '_all'},
@@ -3047,6 +3534,18 @@ function destroyDraftContextMenu() {
     $.contextMenu('destroy', '#player_stats td');
 }
 
+// Function to extract height in inches from string
+function extractHeightInInches(heightString) {
+    const match = heightString.match(/(\d+)' *(\d+)"/);
+    if (match) {
+        const feet = parseInt(match[1], 10);
+        const inches = parseInt(match[2], 10);
+        // Convert everything to inches for comparison
+        return (feet * 12) + inches;
+    }
+    return NaN; // Return NaN for invalid formats
+}
+
 function getAllPlayers() {
 
     // Get the data for all rows in the table
@@ -3076,22 +3575,22 @@ function getAllPlayers() {
                 gaa: parseFloat(rowData[z_gaa_idx]),
                 savePercent: parseFloat(rowData[z_saves_percent_idx]),
             },
-            categoryValues: {
-                points: parseFloat(rowData[points_idx]),
-                goals: parseFloat(rowData[goals_idx]),
-                assists: parseFloat(rowData[assists_idx]),
-                powerplayPoints: parseFloat(rowData[ppp_idx]),
-                shotsOnGoal: parseFloat(rowData[sog_idx]),
-                hits: parseFloat(rowData[hits_idx]),
-                blockedShots: parseFloat(rowData[blk_idx]),
-                takeaways: parseFloat(rowData[tk_idx]),
-                penaltyMinutes: parseFloat(rowData[pim_idx]),
-                wins: parseFloat(rowData[wins_idx]),
-                saves: parseFloat(rowData[saves_idx]),
-                goalsAgainst: parseFloat(rowData[goals_against_idx]),
-                toiSec: parseFloat(rowData[toi_sec_idx]),
-                shotsAgainst: parseFloat(rowData[shots_against_idx]),
-            }
+            // categoryValues: {
+            //     points: parseFloat(rowData[points_idx]),
+            //     goals: parseFloat(rowData[goals_idx]),
+            //     assists: parseFloat(rowData[assists_idx]),
+            //     powerplayPoints: parseFloat(rowData[ppp_idx]),
+            //     shotsOnGoal: parseFloat(rowData[sog_idx]),
+            //     hits: parseFloat(rowData[hits_idx]),
+            //     blockedShots: parseFloat(rowData[blk_idx]),
+            //     takeaways: parseFloat(rowData[tk_idx]),
+            //     penaltyMinutes: parseFloat(rowData[pim_idx]),
+            //     wins: parseFloat(rowData[wins_idx]),
+            //     saves: parseFloat(rowData[saves_idx]),
+            //     goalsAgainst: parseFloat(rowData[goals_against_idx]),
+            //     toiSec: parseFloat(rowData[toi_sec_idx]),
+            //     shotsAgainst: parseFloat(rowData[shots_against_idx]),
+            // }
         };
 
         allPlayers.push(player);
@@ -3195,12 +3694,13 @@ function getMyCategoryNeeds() {
 
     // Otherwise, proceed with the original code
     const categoryNeeds = categories.reduce((acc, category) => {
-        // Get all scores for the current category
-        const allZScores = managerSummaryScores.map(manager => manager[category]);
-        // Sort the scores in descending order
-        allZScores.sort((a, b) => b - a);
-        // Find the rank of mySummaryZScores[category] in allZScores
-        acc[category] = allZScores.indexOf(mySummaryZScores[category]);
+        // // Get all scores for the current category
+        // const allZScores = managerSummaryScores.map(manager => manager[category]);
+        // // Sort the scores in descending order
+        // allZScores.sort((a, b) => b - a);
+        // // Find the rank of mySummaryZScores[category] in allZScores
+        // acc[category] = allZScores.indexOf(mySummaryZScores[category]);
+        acc[category] = mySummaryZScores[category];
         return acc;
     }, {});
 
@@ -3438,6 +3938,107 @@ function openDataTablesInNewTab(draftSimulationsAgg, draftSimulationsAggColumns,
 
 }
 
+function layoutManagerSummaryTable() {
+
+    let managerSummaryPositionsSelection = $('#ManagerSummaryPositions')[0].value;
+    let rosterInfoCheckbox = $('#rosterInfoCheckbox')[0];
+
+    let managerSummaryTable = $('#managerSummary').DataTable();
+    let columns = managerSummaryColumns;
+    let rosterInfoColumns = columns.filter(column => ['roster'].includes(column.group)).map(column => column.name);
+
+    let visibleColumns = [];
+    let hiddenColumns = [];
+    let header = '';
+    let managerScoreColspan2 = '<th colspan="2"></th>';
+    let managerScoreColspan4 = '<th colspan="4"></th>';
+    let rosterColspan7 = '<th colspan="7" style="background-color: cyan;">Roster</th>';
+    let skatersColspan9 = '<th colspan="9" style="background-color: darkcyan;">Skaters</th>';
+    let skatersColspan11 = '<th colspan="11" style="background-color: darkcyan;">Skaters</th>';
+    let forwardsColspan11 = '<th colspan="11" style="background-color: darkcyan;">Forwards</th>';
+    let defenseColspan11 = '<th colspan="11" style="background-color: darkcyan;">Defense</th>';
+    let goaliesColspan4 = '<th colspan="4" style="background-color: lightgreen;">Goalies</th>';
+    let goaliesColspan7 = '<th colspan="7" style="background-color: lightgreen;">Goalies</th>';
+
+    // Change the sort column and order dynamically
+    let sortColumnName = '';
+
+    if (managerSummaryPositionsSelection === 'Sktr&G') {
+        visibleColumns = columns.filter(column => ['all', 'compact', 'categoryScoreSktr', 'summaryScoreG', 'categoryScoreG'].includes(column.group)).map(column => column.name);
+        hiddenColumns = columns.filter(column => ['summaryScoreSktr', 'summaryScoreF', 'categoryScoreF', 'summaryScoreD', 'categoryScoreD', 'summaryScoreG'].includes(column.group)).map(column => column.name);
+        if (rosterInfoCheckbox.checked === true) {
+            header = `${managerScoreColspan2}${rosterColspan7}${skatersColspan9}${goaliesColspan4}`;
+        } else {
+            header = `${managerScoreColspan2}${skatersColspan9}${goaliesColspan4}`;
+        }
+        sortColumnName = 'score';
+    }
+    else if (managerSummaryPositionsSelection === 'Sktr') {
+        visibleColumns = columns.filter(column => ['all', 'summaryScoreSktr', 'categoryScoreSktr'].includes(column.group)).map(column => column.name);
+        hiddenColumns = columns.filter(column => ['compact', 'summaryScoreF', 'categoryScoreF', 'summaryScoreD', 'categoryScoreD', 'summaryScoreG', 'categoryScoreG'].includes(column.group)).map(column => column.name);
+        if (rosterInfoCheckbox.checked === true) {
+            header = `${managerScoreColspan4}${rosterColspan7}${skatersColspan11}`;
+        } else {
+            header = `${managerScoreColspan4}${skatersColspan11}`;
+        }
+        sortColumnName = 'scoreSktr';
+    }
+    else if (managerSummaryPositionsSelection === 'F') {
+        visibleColumns = columns.filter(column => ['all', 'summaryScoreF', 'categoryScoreF'].includes(column.group)).map(column => column.name);
+        hiddenColumns = columns.filter(column => ['compact', 'summaryScoreSktr', 'categoryScoreSktr', 'summaryScoreD', 'categoryScoreD', 'summaryScoreG', 'categoryScoreG'].includes(column.group)).map(column => column.name);
+        if (rosterInfoCheckbox.checked === true) {
+            header = `${managerScoreColspan4}${rosterColspan7}${forwardsColspan11}`;
+        } else {
+            header = `${managerScoreColspan4}${forwardsColspan11}`;
+        }
+        sortColumnName = 'scoreF';
+    }
+    else if (managerSummaryPositionsSelection === 'D') {
+        visibleColumns = columns.filter(column => ['all', 'summaryScoreD', 'categoryScoreD'].includes(column.group)).map(column => column.name);
+        hiddenColumns = columns.filter(column => ['compact', 'summaryScoreSktr', 'categoryScoreSktr', 'summaryScoreF', 'categoryScoreF', 'summaryScoreG', 'categoryScoreG'].includes(column.group)).map(column => column.name);
+        if (rosterInfoCheckbox.checked === true) {
+            header = `${managerScoreColspan4}${rosterColspan7}${defenseColspan11}`;
+        } else {
+            header = `${managerScoreColspan4}${defenseColspan11}`;
+        }
+        sortColumnName = 'scoreD';
+    }
+    else if (managerSummaryPositionsSelection === 'G') {
+        visibleColumns = columns.filter(column => ['all', 'summaryScoreG', 'categoryScoreG'].includes(column.group)).map(column => column.name);
+        hiddenColumns = columns.filter(column => ['compact', 'summaryScoreSktr', 'categoryScoreSktr', 'summaryScoreF', 'categoryScoreF', 'summaryScoreD', 'categoryScoreD'].includes(column.group)).map(column => column.name);
+        if (rosterInfoCheckbox.checked === true) {
+            header = `${managerScoreColspan4}${rosterColspan7}${goaliesColspan7}`;
+        } else {
+            header = `${managerScoreColspan4}${goaliesColspan7}`;
+        }
+        sortColumnName = 'scoreG';
+    }
+
+    if (rosterInfoCheckbox.checked === true) {
+        visibleColumns = [... visibleColumns, ...rosterInfoColumns]
+    } else {
+        hiddenColumns = [... hiddenColumns, ...rosterInfoColumns]
+    }
+
+    visibleColumns.forEach(function(name) {
+        managerSummaryTable.columns(name + ':name').visible(true);
+    });
+
+    hiddenColumns.forEach(function(name) {
+        managerSummaryTable.columns(name + ':name').visible(false);
+    });
+
+    $('#managerSummary thead tr:first-child').html(header);
+
+    // Find the index of the column by its name
+    let columnIdx = managerSummaryDataTable.column(sortColumnName + ':name').index();
+    // Set the sorting order for the specified column
+    managerSummaryDataTable.order([columnIdx, 'desc']);
+
+    managerSummaryTable.columns.adjust().draw();
+
+}
+
 function restoreColVisColumns( table, columns ){
     // hide columns
     columns_to_hide = columns.filter(elem => initially_hidden_column_names.includes(elem) && manually_unhidden_columns.includes(elem));
@@ -3602,7 +4203,7 @@ function updateCategoryScarcityByZScoreRangeTable(data_dict) {
 function updateColumnIndexes(columns) {
 
     // column indexes
-    a_score_idx = columns.findIndex(column => column.title === 'a score');
+    assists_score_idx = columns.findIndex(column => column.title === 'a score');
     adp_idx = columns.findIndex(column => column.title === 'prj adp');
     age_idx = columns.findIndex(function(column) { return column.title == 'age' });
     assists_idx = columns.findIndex(column => column.title === 'a');
@@ -3624,7 +4225,7 @@ function updateColumnIndexes(columns) {
     fantrax_zscore_rank_idx = columns.findIndex(column => column.title === 'fantrax z-score rank');
     g_count_score_idx = columns.findIndex(column => column.title === 'count score');
     g_ratio_score_idx = columns.findIndex(column => column.title === 'ratio score');
-    g_score_idx = columns.findIndex(column => column.title === 'g score');
+    goals_score_idx = columns.findIndex(column => column.title === 'g score');
     gaa_idx = columns.findIndex(column => column.title === 'gaa');
     gaa_score_idx = columns.findIndex(column => column.title === 'gaa score');
     game_today_idx = columns.findIndex(column => column.title === 'game today');
@@ -3632,6 +4233,7 @@ function updateColumnIndexes(columns) {
     goalie_starts_idx = columns.findIndex(column => column.title === 'goalie starts');
     goals_against_idx = columns.findIndex(column => column.title === 'goals against');
     goals_idx = columns.findIndex(column => column.title === 'g');
+    height_idx = columns.findIndex(column => column.title === 'height');
     hits_idx = columns.findIndex(column => column.title === 'hits');
     hits_score_idx = columns.findIndex(column => column.title === 'hits score');
     id_idx = columns.findIndex(column => column.title === 'id');
@@ -3658,6 +4260,7 @@ function updateColumnIndexes(columns) {
     pp_goals_p120_idx = columns.findIndex(column => column.title === 'pp g/120');
     pp_ipp_idx = columns.findIndex(column => column.title === 'pp ipp');
     pp_percent_idx = columns.findIndex(column => column.title === '%pp');
+    pp_percent_ewm_idx = columns.findIndex(column => column.title === '%pp (ewm)');
     pp_points_p120_idx = columns.findIndex(column => column.title === 'pp pts/120');
     pp_unit_idx = columns.findIndex(column => column.title === 'pp unit');
     pp_unit_prj_idx = columns.findIndex(column => column.title === 'pp unit prj');
@@ -3665,7 +4268,7 @@ function updateColumnIndexes(columns) {
     ppp_score_idx = columns.findIndex(column => column.title === 'ppp score');
     predraft_keeper_idx = columns.findIndex(column => column.title === 'pre-draft keeper');
     prj_draft_round_idx = columns.findIndex(column => column.title === 'prj draft round');
-    pts_score_idx = columns.findIndex(column => column.title === 'pts score');
+    points_score_idx = columns.findIndex(column => column.title === 'pts score');
     qualtity_starts_idx = columns.findIndex(column => column.title === 'qs');
     qualtity_starts_percent_idx = columns.findIndex(column => column.title === 'qs %');
     really_bad_starts_idx = columns.findIndex(column => column.title === 'rbs');
@@ -3683,24 +4286,29 @@ function updateColumnIndexes(columns) {
     sog_pp_idx = columns.findIndex(column => column.title === 'pp sog');
     sog_score_idx = columns.findIndex(column => column.title === 'sog score');
     sort_rank_idx = columns.findIndex(column => column.title === 'sort rank');
-    sv_score_idx = columns.findIndex(column => column.title === 'sv score');
+    saves_score_idx = columns.findIndex(column => column.title === 'sv score');
     team_idx = columns.findIndex(column => column.title === 'team');
     three_yp_idx = columns.findIndex(column => column.title === '3yp');
     tier_idx = columns.findIndex(column => column.title === 'tier');
     tk_idx = columns.findIndex(column => column.title === 'tk');
     tk_score_idx = columns.findIndex(column => column.title === 'tk score');
     toi_even_pg_idx = columns.findIndex(column => column.title === 'toi even pg');
+    toi_even_pg_ewm_idx = columns.findIndex(column => column.title === 'toi even pg (ewm)');
+    toi_pp_pg_ewm_idx = columns.findIndex(column => column.title === 'toi pp pg (ewm)');
+    toi_sh_pg_ewm_idx = columns.findIndex(column => column.title === 'toi sh pg (ewm)');
     toi_even_pg_trend_idx = columns.findIndex(column => column.title === 'toi even pg (trend)');
     toi_minutes_idx = columns.findIndex(column => column.title === 'toi (min)');
+    toi_pg_idx = columns.findIndex(column => column.title === 'toi pg');
+    toi_pg_ewm_idx = columns.findIndex(column => column.title === 'toi pg (ewm)');
     toi_pg_trend_idx = columns.findIndex(column => column.title === 'toi pg (trend)');
     toi_pp_percent_3gm_avg_idx = columns.findIndex(column => column.title === 'toi pp % (rolling avg)');
     toi_pp_percent_idx = columns.findIndex(column => column.title === 'toi pp %');
     toi_pp_pg_idx = columns.findIndex(column => column.title === 'toi pp pg');
     toi_pp_pg_trend_idx = columns.findIndex(column => column.title === 'toi pp pg (trend)');
-    toi_sec_idx = columns.findIndex(column => column.title === 'toi (sec)');
+    // toi_sec_idx = columns.findIndex(column => column.title === 'toi (sec)');
     toi_sh_pg_trend_idx = columns.findIndex(column => column.title === 'toi sh pg (trend)');
     upside_idx = columns.findIndex(column => column.title === 'upside');
-    w_score_idx = columns.findIndex(column => column.title === 'w score');
+    wins_scoreidx = columns.findIndex(column => column.title === 'w score');
     watch_idx = columns.findIndex(column => column.title === 'watch');
     wins_idx = columns.findIndex(column => column.title === 'w');
     z_assists_idx = columns.findIndex(column => column.title === 'z-a');
@@ -3733,40 +4341,71 @@ function updateColumnIndexes(columns) {
 
     sktr_category_heatmap_columns = new Set([points_idx, goals_idx, assists_idx, ppp_idx, sog_idx, sog_pp_idx, tk_idx, hits_idx, blk_idx, pim_idx, penalties_idx]);
     goalie_category_heatmap_columns = new Set([wins_idx, saves_idx, gaa_idx, saves_percent_idx]);
+
     sktr_category_z_score_heatmap_columns = new Set([z_points_idx, z_goals_idx, z_assists_idx, z_ppp_idx, z_sog_idx, z_tk_idx, z_hits_idx, z_blk_idx, z_pim_idx, z_penalties_idx]);
     goalie_category_z_score_heatmap_columns = new Set([z_wins_idx, z_saves_idx, z_gaa_idx, z_saves_percent_idx]);
-    score_summary_heatmap_columns = new Set([z_score_idx, z_offense_idx, z_peripheral_idx, z_g_count_idx, z_g_ratio_idx]);
+
+    sktr_category_score_heatmap_columns = new Set([points_score_idx, goals_score_idx, assists_score_idx, ppp_score_idx, sog_score_idx, tk_score_idx, hits_score_idx, blk_score_idx, pim_score_idx, penalties_score_idx]);
+    goalie_category_score_heatmap_columns = new Set([wins_scoreidx, saves_score_idx, gaa_score_idx, save_percent_score_idx]);
+
     sktr_score_summary_heatmap_columns = new Set([score_idx, offense_score_idx, peripheral_score_idx, z_score_idx, z_offense_idx, z_peripheral_idx]);
     goalie_score_summary_heatmap_columns = new Set([score_idx, g_count_score_idx, g_ratio_score_idx, z_score_idx, z_g_count_idx, z_g_ratio_idx]);
+    score_summary_heatmap_columns = new Set([...sktr_score_summary_heatmap_columns, ...goalie_score_summary_heatmap_columns]);
 
-    heatmap_columns = [...Array.from(score_summary_heatmap_columns), ...Array.from(sktr_category_heatmap_columns), ...Array.from(goalie_category_heatmap_columns), ...Array.from(sktr_category_z_score_heatmap_columns), ...Array.from(goalie_category_z_score_heatmap_columns)]
+    sktr_time_heatmap_columns = new Set([toi_pg_idx, toi_pg_ewm_idx, toi_even_pg_ewm_idx, toi_pp_pg_ewm_idx, toi_sh_pg_ewm_idx]);
+
+    sktr_percent_heatmap_columns = new Set([corsi_for_percent_idx, pp_percent_ewm_idx]);
+
+    heatmap_columns = [...Array.from(score_summary_heatmap_columns), ...Array.from(sktr_category_heatmap_columns), ...Array.from(goalie_category_heatmap_columns), ...Array.from(sktr_category_z_score_heatmap_columns), ...Array.from(goalie_category_z_score_heatmap_columns), ...Array.from(sktr_category_score_heatmap_columns), ...Array.from(goalie_category_score_heatmap_columns), ...Array.from(sktr_time_heatmap_columns), ...Array.from(sktr_percent_heatmap_columns)]
+
     combo_columns = [z_combo_idx, z_offense_combo_idx, z_peripheral_combo_idx, z_g_count_combo_idx, z_g_ratio_combo_idx];
 
     categoryLookup = {
         [assists_idx]: 'assists',
+        [assists_score_idx]: 'assists_score',
         [blk_idx]: 'blocked',
+        [blk_score_idx]: 'blocked_score',
+        [corsi_for_percent_idx]: 'corsi_for_%',
         [g_count_score_idx]: 'g_count',
         [g_ratio_score_idx]: 'g_ratio',
         [gaa_idx]: 'gaa',
+        [gaa_score_idx]: 'gaa_score',
         [goals_idx]: 'goals',
+        [goals_score_idx]: 'goals_score',
         [hits_idx]: 'hits',
+        [hits_score_idx]: 'hits_score',
         [offense_score_idx]: 'offense',
         [penalties_idx]: 'penalties',
+        [penalties_score_idx]: 'penalties_score',
         [peripheral_score_idx]: 'peripheral',
         [pim_idx]: 'pim',
+        [pim_score_idx]: 'pim_score',
         [points_idx]: 'points',
+        [points_score_idx]: 'points_score',
         [ppp_idx]: 'points_pp',
+        [pp_percent_ewm_idx]: 'toi_pp_pg_ratio_ewm',
+        [ppp_score_idx]: 'points_pp_score',
+        [save_percent_score_idx]: 'save%_score',
         [saves_idx]: 'saves',
         [saves_percent_idx]: 'save%',
+        [saves_score_idx]: 'saves_score',
         [score_idx]: 'score',
         [sog_idx]: 'shots',
         [sog_pp_idx]: 'shots_powerplay',
+        [sog_score_idx]: 'shots_score',
         [tk_idx]: 'takeaways',
+        [tk_score_idx]: 'takeaways_score',
+        [toi_even_pg_ewm_idx]: 'toi_even_pg_ewm',
+        [toi_pg_ewm_idx]: 'toi_pg_ewm',
+        [toi_pg_idx]: 'toi_pg',
+        [toi_pp_pg_ewm_idx]: 'toi_pp_pg_ewm',
+        [toi_sh_pg_ewm_idx]: 'toi_sh_pg_ewm',
         [wins_idx]: 'wins',
+        [wins_scoreidx]: 'wins_score',
         [z_assists_idx]: 'z_assists',
         [z_blk_idx]: 'z_blocked',
-        [z_g_count_idx]: 'z_count',
-        [z_g_ratio_idx]: 'z_ratio',
+        [z_g_count_idx]: 'z_g_count',
+        [z_g_ratio_idx]: 'z_g_ratio',
         [z_gaa_idx]: 'z_gaa',
         [z_goals_idx]: 'z_goals',
         [z_hits_idx]: 'z_hits',
@@ -3865,6 +4504,13 @@ function undoDraftPick() {
 
         // get most reacent draft pick
         let last_pick = completed_draft_picks.pop();
+
+        // need to skip managers that have left the league
+        while (completed_draft_picks.length > 0 && (last_pick.manager === 'Open Team 1' || last_pick.manager === 'Open Team 2')) {
+            remaining_draft_picks.unshift(last_pick);
+            last_pick = completed_draft_picks.pop();
+        }
+
         if (last_pick) {
             var playerIndex = nameToIndex[last_pick.drafted_player];
             if (playerIndex.length === 1) {
@@ -3876,16 +4522,37 @@ function undoDraftPick() {
                 playerStatsDataTable.cell(rowIndex, draft_overall_pick_idx).data('');
                 playerStatsDataTable.cell(rowIndex, picked_by_idx).data('');
 
+                playerStatsDataTable.draw();
+
                 // add the last drafted player back to remaining_draft_picks array
                 last_pick.drafted_player = '';
                 remaining_draft_picks.unshift(last_pick);
 
-                let round = remaining_draft_picks[0].draft_round;  // The round number
-                let pick = remaining_draft_picks[0].round_pick;  // The pick number
+                let round = last_pick.draft_round;  // The round number
+                let pick = last_pick.round_pick;  // The pick number
                 let tableData = $('#draftBoard').DataTable();
+
+                // Filter the completed_draft_picks array to get the elements that match the criteria
+                let filteredPicks = completed_draft_picks.filter(pick =>
+                    pick.draft_round === round &&
+                    (pick.manager === "Open Team 1" || pick.manager === "Open Team 2")
+                );
+                // Get the count of the filtered elements
+                let skippedCells = filteredPicks.length;
+
                 // Find the corresponding cell in tableData and update it
-                let cell = tableData.cell((round - 1) * 2 + 1, pick); // Get the cell object
+                let cell;
+                if (round % 2 === 1) { // Check if round is odd
+                    cell = tableData.cell((round - 1) * 2 + 1, (pick + skippedCells)); // Get the cell object for odd rounds
+                } else { // round is even
+                    cell = tableData.cell((round - 1) * 2 + 1, (14 - (pick + skippedCells))); // Get the cell object for even rounds
+                }
                 cell.data('');
+
+                // remove background colour from cell
+                $(cell.node()).css('background-color', '');
+                // Redraw the table to ensure the changes take effect
+                tableData.draw();
 
                 managerSummaryScores = calcManagerSummaryScores();
                 updateManagerSummaryTable(managerSummaryScores);
@@ -3896,7 +4563,17 @@ function undoDraftPick() {
                 draft_manager = remaining_draft_picks[0].manager;
                 managerSummaryData = managerSummaryDataTable.data().filter(row => row['manager']===draft_manager)[0];
 
-                document.getElementById("draftMessage").innerHTML = "Round: " + remaining_draft_picks[0].draft_round + "; Pick: " + remaining_draft_picks[0].round_pick + "; Overall: " + remaining_draft_picks[0].overall_pick + "; Manager: " + draft_manager + ' (' +  getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)';
+                document.getElementById("draftMessage").innerHTML =
+                    "Round: " + remaining_draft_picks[0].draft_round +
+                    "; Pick: " + remaining_draft_picks[0].round_pick +
+                    "; Overall: " + remaining_draft_picks[0].overall_pick +
+                    "; Manager: " + draft_manager +
+                    ' (' + getOrdinalString(remaining_draft_picks[0].managers_pick_number) + ' selection)' +
+                    "<br>" +
+                    "Currently has " + managerSummaryData.fCount +
+                    " Fs; " + managerSummaryData.dCount +
+                    " Ds; " + managerSummaryData.gCount +
+                    " Gs";
 
             } else {
                 alert('Undo of most recent draft pick failed! "' + last_pick.drafted_player + '" not found in nameToIndex array.')
@@ -4013,10 +4690,19 @@ function writeDraftSummariesToDatabase() {
         //   5:'#c26f6d'
         var settings = $.extend({
             parse: function(e) {
-                if (isNaN(parseFloat(e.html())) || !isFinite(parseFloat(e.html()))) {
-                    return 0;
+                var text = e.html();
+                if (text.includes(':')) {
+                    var time = text.split(':');
+                    var minutes = parseInt(time[0], 10);
+                    var seconds = parseInt(time[1], 10);
+                    return (minutes * 60) + seconds;
                 } else {
-                    return parseFloat(e.html());
+                    var value = parseFloat(text);
+                    if (isNaN(value) || !isFinite(value)) {
+                        return 0;
+                    } else {
+                        return value;
+                    }
                 }
             },
             min: 0,

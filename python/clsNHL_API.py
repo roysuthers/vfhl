@@ -159,14 +159,20 @@ class NHL_API():
                     update_PlayerAlternateNames = True
 
                 if len(idx) == 0 and len(suggestions) > 0:
-                    names = name.split(' ')
-                    if len(names) == 2:
-                        first_name, last_name = name.split(' ', 1)
-                    else:
-                        ... # what do I do?
 
-                    # try using last name
-                    idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
+                    names = name.split(' ')
+                    first_name = names[0]
+                    last_name_options = []
+
+                    # Generate possible last name combinations
+                    for i in range(1, len(names)):
+                        last_name_options.append(' '.join(names[i:]))
+
+                    # Try using each last name option
+                    for last_name in last_name_options:
+                        idx = [i for i, x in enumerate(suggestions) if unidecode(suggestions[i]['name']).lower().endswith(unidecode(last_name).lower())]
+                        if idx:
+                            break  # Stop if a match is found
 
                     if len(idx) > 1:
                         # try name starting with first name & ending with last name
@@ -289,34 +295,73 @@ class NHL_API():
 
         return None
 
-    def fetch_data(self, url):
-        response = requests.get(url)
-        if response.status_code == 404:
-            return response.status_code
-        else:
-            return response.json()
+    def fetch_data(self, url, params: dict={}):
 
-    def process_player(self, player, roster_status):
-        player_id = player.get('id')
-        first_name = j.search('firstName.default', player)
-        last_name = j.search('lastName.default', player)
-        player = self.fetch_data(f'{NHL_API_URL}/player/{player_id}/landing')
-        position = player.get('position')
+        if params:
+            response = requests.get(url, params)
+        else:
+            response = requests.get(url)
+        if response.status_code == 200:
+            # Process the player as usual
+            return response.json()
+        else:
+            # Handle different status codes
+            if response.status_code == 404:
+                print(f'URL "{url}" not found.')
+            elif response.status_code == 500:
+                print(f'Server error while processing URL "{url}".')
+            else:
+                print(f'Unexpected status code {response.status_code} for URL "{url}".')
+            return None
+
+    def process_player(self, player):
+        if 'id' in player:
+            player_id = player.get('id')
+            first_name = j.search('firstName.default', player)
+            last_name = j.search('lastName.default', player)
+        else:
+            player_id = int(player.get('playerId'))
+        landing = self.fetch_data(f'{NHL_API_URL}/player/{player_id}/landing')
+        if landing is None:
+            first_name = ''
+            last_name = ''
+            position = ''
+            birth_date = ''
+            height = ''
+            weight = ''
+            active_status = ''
+            roster_status = ''
+            current_team_id = ''
+            current_team_abbr = ''
+            games = ''
+        else:
+            first_name = j.search('firstName.default', landing)
+            last_name = j.search('lastName.default', landing)
+            position = landing.get('position')
+            primary_position = 'LW' if position == 'L' else 'RW' if position == 'R' else position
+            birth_date = landing.get('birthDate')
+            height = inches_to_feet(landing.get('heightInInches')) if 'heightInInches' in landing else ''
+            weight = landing.get('weightInPounds') if 'weightInPounds' in landing else ''
+            active_status = landing.get('isActive')
+            roster_status = 'Y' if player_id in [p['playerId'] for p in j.search('currentTeamRoster', landing)] else 'N'
+            current_team_id = landing.get('currentTeamId')
+            current_team_abbr = landing.get('currentTeamAbbrev')
+            games = j.search('careerTotals.regularSeason.gamesPlayed', landing)
         return {
             'id': player_id,
             'fantrax_id': '',
             'first_name': first_name,
             'last_name': last_name,
             'full_name': first_name + ' ' + last_name,
-            'birth_date': player.get('birthDate'),
-            'height': inches_to_feet(player.get('heightInInches')) if 'heightInInches' in player else '',
-            'weight': player.get('weightInPounds') if 'weightInPounds' in player else '',
-            'active': player.get('isActive'),
+            'birth_date': birth_date,
+            'height': height,
+            'weight': weight,
+            'active': active_status,
             'roster_status': roster_status,
-            'current_team_id': player.get('currentTeamId'),
-            'current_team_abbr': player.get('currentTeamAbbrev'),
-            'primary_position': 'LW' if position == 'L' else 'RW' if position == 'R' else position,
-            'games': j.search('careerTotals.regularSeason.gamesPlayed', player),
+            'current_team_id': current_team_id,
+            'current_team_abbr': current_team_abbr,
+            'primary_position': primary_position,
+            'games': games,
         }
 
     def get_players(self, season: Season, batch: bool=False):
@@ -342,6 +387,21 @@ class NHL_API():
                 # create the dialog
                 dialog = sg.Window(f'Update Players', layout, modal=True, finalize=True)
 
+            params = NHL_API_SEARCH_SUGGESTIONS_PARAMS.copy()
+            params['limit'] = 99999
+            del params['active']
+            all_ever_players = self.fetch_data(NHL_API_SEARCH_SUGGESTIONS_URL, params)
+            if all_ever_players == 404:
+                error_msg = all_ever_players['text']
+                msg = f'API request failed: Error message "{error_msg}"...'
+                if batch:
+                    logger.debug(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=10)
+                request_error = True
+                return
+
             with ThreadPoolExecutor() as executor:
                 # There is no api to get a list of teams (for now), so using the current standings
                 # As of May 15, 2024, getting standings by date returns an empty list
@@ -351,10 +411,16 @@ class NHL_API():
                 # standings = self.fetch_data(f'{NHL_API_URL}/standings/now')
 
                 # standings by date works now
-                standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
+                # standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
 
-                if standings == 404:
-                    error_msg = standings['text']
+                # https://records.nhl.com/site/api/franchise?cayenneExp=teams.active=%22Y%22&include=teamAbbrev
+                # https://records.nhl.com/site/api/franchise?cayenneExp=(lastSeasonId=20232024 or (firstSeasonId<=20232024 and lastSeasonId=null))&include=teamAbbrev
+                response = self.fetch_data(f'https://records.nhl.com/site/api/franchise?cayenneExp=(lastSeasonId={season.id} or (firstSeasonId<={season.id} and lastSeasonId=null))&include=teamAbbrev')
+
+                # if standings == 404:
+                #     error_msg = standings['text']
+                if response == 404:
+                    error_msg = response['text']
                     msg = f'API request failed: Error message "{error_msg}"...'
                     if batch:
                         logger.debug(msg)
@@ -364,7 +430,8 @@ class NHL_API():
                     request_error = True
                     return
 
-                teams = [x for x in j.search('standings[*].teamAbbrev.default', standings)]
+                # teams = [x for x in j.search('standings[*].teamAbbrev.default', standings)]
+                teams = [x for x in j.search('data[*].teamAbbrev', response)]
 
                 # https://api-web.nhle.com/v1/roster/TOR/current
                 # https://api-web.nhle.com/v1/roster/TOR/20222023
@@ -420,10 +487,14 @@ class NHL_API():
                     # Only add prospect_players that are not in roster_players
                     all_players_dict.update({player['id']: player for player in prospect_players if player['id'] not in all_players_dict})
 
+                    # Only add prospect_players that are not in roster_players
+                    all_players_on_team = [p for p in all_ever_players if p['teamAbbrev'] == team_abbr]
+                    all_players_dict.update({int(player['playerId']): player for player in all_players_on_team if int(player['playerId']) not in all_players_dict})
+
                     # Convert the dictionary back to a list
                     all_players = list(all_players_dict.values())
 
-                    players.extend(executor.map(self.process_player, all_players, ['Y'] * len(roster_players) + ['N'] * len(prospect_players)))
+                    players.extend(executor.map(self.process_player, all_players))
 
             msg = 'Convert team players from json to dataframe...'
             if batch:
@@ -594,22 +665,6 @@ class NHL_API():
                 # create the dialog
                 dialog = sg.Window(f'Get Player Statistics', layout, modal=True, finalize=True)
 
-            season_start_date: date = datetime.strptime(season.start_date, '%Y-%m-%d').date()
-            season_end_date: date = datetime.strptime(season.end_date, '%Y-%m-%d').date()
-            season_started: bool = season_start_date <= date.today()
-            season_over: bool = season_end_date < date.today()
-            if season_started is False:
-                return
-            elif season_over is False:
-                end_date = YESTERDAY
-            elif season.id == season.getCurrent()[0].id and season.type == season.getCurrent()[0].type:
-                # though the season is over, allow a few days for stats to be complete
-                end_date = season_end_date + timedelta(days=2)
-            else:
-                # though the season is over, allow a few days for stats to be complete
-                end_date = season_end_date
-            end_date = date.strftime(end_date, '%Y-%m-%d')
-
             ####################################################################
             # get count of total game dates and currently completed game dates
             switch_to_api_nhle_com = True
@@ -622,20 +677,24 @@ class NHL_API():
             #         logger.warning(f'ConnectionError: Max retries exceeded for url host: "{NHL_API_URL}" Switching to "api.nhle.com"')
 
             if (switch_to_api_nhle_com):
-                url_base = 'https://api.nhle.com/stats/rest/en/team/summary'
+                # url_base = 'https://api.nhle.com/stats/rest/en/team/summary'
+                url_base = 'https://api.nhle.com/stats/rest/en/game'
 
                 game_type_id = '3' if season.type == 'P' else '2'
 
                 # set request parameters
+                # params = {
+                #     "isAggregate": 'false',
+                #     "isGame": 'true',
+                #     "sort": '[{"property" : "gameDate", "direction": "ASC"}, {"property" : "teamId", "direction": "ASC"}]',
+                #     "start": 0,
+                #     # Setting limit = 0 returns all games for game date
+                #     "limit": 0,
+                #     "factCayenneExp": 'gamesPlayed>=1',
+                #     "cayenneExp": f'seasonId={season.id} and gameTypeId={game_type_id}'
+                # }
                 params = {
-                    "isAggregate": 'false',
-                    "isGame": 'true',
-                    "sort": '[{"property" : "gameDate", "direction": "ASC"}, {"property" : "teamId", "direction": "ASC"}]',
-                    "start": 0,
-                    # Setting limit = 0 returns all games for game date
-                    "limit": 0,
-                    "factCayenneExp": 'gamesPlayed>=1',
-                    "cayenneExp": f'seasonId={season.id} and gameTypeId={game_type_id}'
+                    "cayenneExp": f'season={season.id} and gameType={game_type_id}'
                 }
 
                 # Send a GET request to the API endpoint with the parameters
@@ -645,8 +704,33 @@ class NHL_API():
                 if response.status_code == 200:
                     # Extract the data from the JSON response
                     data = response.json()['data']
-                    season.count_of_total_game_dates = 183 # hardcoding for now, 'til I figure out how to get this when statsapi.web.nhl.com is not available
-                    season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+                    # data contains rows with the following data structure
+                    # {
+                    #     "id": 2024020001,
+                    #     "easternStartTime": "2024-10-04T13:00:00",
+                    #     "gameDate": "2024-10-04",
+                    #     "gameNumber": 1,
+                    #     "gameScheduleStateId": 1,
+                    #     "gameStateId": 7,
+                    #     "gameType": 2,
+                    #     "homeScore": 1,
+                    #     "homeTeamId": 7,
+                    #     "period": 3,
+                    #     "season": 20242025,
+                    #     "visitingScore": 4,
+                    #     "visitingTeamId": 1
+                    # },
+
+                    # gameStateId is 7 for completed games, and 1 for games yet to be played
+
+                    season.start_date = [d['gameDate'] for d in data if 'gameDate' in d][0]
+                    season.end_date = [d['gameDate'] for d in data if 'gameDate' in d][-1]
+
+                    # season.count_of_total_game_dates = 183 # hardcoding for now, 'til I figure out how to get this when statsapi.web.nhl.com is not available
+                    season.count_of_total_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+
+                    # season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+                    season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d and d['gameStateId']==7))
                 else:
                     # Handle any errors
                     msg = f'Error: {response.status_code}'
@@ -663,7 +747,23 @@ class NHL_API():
 
             season.persist()
 
-            ####################################################################
+            season_start_date: date = datetime.strptime(season.start_date, '%Y-%m-%d').date()
+            season_end_date: date = datetime.strptime(season.end_date, '%Y-%m-%d').date()
+            season_started: bool = season_start_date <= date.today()
+            season_over: bool = season_end_date < date.today()
+            if season_started is False:
+                return
+            elif season_over is False:
+                end_date = YESTERDAY
+            elif season.id == season.getCurrent()[0].id and season.type == season.getCurrent()[0].type:
+                # though the season is over, allow a few days for stats to be complete
+                end_date = season_end_date + timedelta(days=2)
+            else:
+                # though the season is over, allow a few days for stats to be complete
+                end_date = season_end_date
+            end_date = date.strftime(end_date, '%Y-%m-%d')
+
+           ####################################################################
             # Get teams to save in dictionary
             dfTeams = self.get_team_stats(season=season, game_type=season.type, batch=batch)
             if dfTeams is None: # this is usually true for upcoming season for which API call return "object not found" error

@@ -139,11 +139,11 @@
             }
 
             .odd-row {
-                color: white;  /* Change 'black' to your desired color for odd rows */
+                color: white;
             }
 
             .even-row {
-                color: red;  /* Change 'red' to your desired color for even rows */
+                color: red;
             }
 
             #managerSummary, #categoryScarcity , #categoryScarcityByZScoreRange, #draftBoard {
@@ -152,18 +152,22 @@
                 white-space: nowrap;
             }
 
-            #managerSummary tr:first-child th[colspan="12"] {
+            /* #managerSummary tr:first-child th[colspan="12"] {
                 background-color: darkcyan;
             }
 
             #managerSummary tr:first-child th[colspan="7"] {
                 background-color: lightgreen;
+            } */
+
+            #managerSummary th[colspan] {
+                text-align: center;
+                padding-left: 4px;
+                padding-right: 4px;
+                white-space: normal; /* Allow wrapping */
             }
 
-            #managerSummary .centered-header th,
-            #managerSummary th[colspan],
-            #categoryScarcityByZScoreRange th[colspan="9"],
-            #categoryScarcityByZScoreRange th[colspan="4"] {
+            #categoryScarcityByZScoreRange th[colspan="9"], #categoryScarcityByZScoreRange th[colspan="4"] {
                 text-align: center;
             }
 
@@ -352,15 +356,35 @@
 
         </div>
 
-        <div id="toggleCheckboxContainer" style="display: none;" class="indented form-group">
-            <input type="checkbox" id="toggleSummary" onclick="toggleManagerSummary()">SHOW MANAGER SUMMARY</input>
-            <input type="checkbox" id="toggleScarcity" onclick="toggleCategoryScarcity()">SHOW CATEGORY SCARCITY</input>
+        <div id="toggleSummaryCheckboxContainer" style="display: none;" class="indented form-group">
+            <div>
+                <input type="checkbox" id="toggleSummary" onclick="toggleManagerSummary()">SHOW MANAGER SUMMARY</input>
+            </div>
+            <div  id="toggleSummaryDisplayParametersContainer" style="display: none;" class="indented form-group">
+                <p>
+                    <input type="checkbox" id="rosterInfoCheckbox" checked class="indented form-group">Include Roster Info</input>
+                    <label for="ManagerSummaryPositions" class="indented form-group">Positions:</label>
+                    <select id="ManagerSummaryPositions" class="indented form-group">
+                        <option value='Sktr&G' selected>Skaters & Goalies</option>
+                        <option value='Sktr'>Skaters</option>
+                        <option value='F'>Forwards</option>
+                        <option value='D'>Defense</option>
+                        <option value='G'>Goalies</option>
+                    </select>
+                </p>
+            </div>
         </div>
 
         <div id="managerSummaryContainer">
-            <table id="managerSummary" class="display cell-border hover compact">
-                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Manager Scores</u></b></caption>
+            <table id="managerSummary" class="display cell-border hover">
+                <caption style="caption-side: top; margin-bottom: 10px;"><b><u>Strengths & Weaknesses for Current Roster</u></b></caption>
             </table>
+        </div>
+
+        <div id="toggleScarcityCheckboxContainer" style="display: none;" class="indented form-group">
+            <p>
+                <input type="checkbox" id="toggleScarcity" onclick="toggleCategoryScarcity()">SHOW CATEGORY SCARCITY</input>
+            </p>
         </div>
 
         <div id="categoryScarcityContainer">
@@ -717,8 +741,10 @@
                 var managerSummaryContainer = document.getElementById("managerSummaryContainer");
                 if (checkBox.checked == true){
                     managerSummaryContainer.style.display = "flex";
+                    toggleSummaryDisplayParametersContainer.style.display = "flex";
                 } else {
                     managerSummaryContainer.style.display = "none";
+                    toggleSummaryDisplayParametersContainer.style.display = "none";
                 }
             }
         </script>

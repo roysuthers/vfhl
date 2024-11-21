@@ -50,12 +50,12 @@ def calc_player_breakout_threshold(df: pd.DataFrame) -> pd.Series:
 def calculate_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
 
     feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
-    height_in_feet = int(feet_and_inches[0]) + round(int(feet_and_inches[1])/12, 2)
-    # 5' 10" = 5.83 & 6' 2" = 6.17
-    if ((height_in_feet >= 5.83 and height_in_feet <= 6.17) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+    height_in_inches = int(feet_and_inches[0]) * 12 + int(feet_and_inches[1])
+    # 5' 10" = 70" & 6' 2" = 74"
+    if ((height_in_inches >= 70 and height_in_inches <= 74) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
         breakout_threshold = career_games - 200
-    # 5' 9" = 5.75 & 6' 3" = 6.25
-    elif (height_in_feet <= 5.75 or weight <= 170 or height_in_feet >= 6.25 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+    # 5' 9" = 69" & 6' 3" = 75"
+    elif (height_in_inches <= 69 or height_in_inches >= 75 or weight <= 170 or weight >= 215) and (career_games >= 320 and career_games <= 480):
         breakout_threshold = career_games - 400
     else:
         breakout_threshold = np.nan
@@ -236,6 +236,7 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
 
         games_played = []
         pace_games_per_day = []
+        target_over_under = []
         pace_games = []
         pace_over_under = []
         remaining = []
@@ -263,6 +264,7 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
                 F_max_games = pool_team.F_maximum_games
                 games_per_day_target = '{:0.2f}'.format(F_max_games / total_game_dates)
                 F_L0_header = f'Forward (Max={F_max_games}, Avg={games_per_day_target})'
+                target_over_under.append(pool_team.F_games_played - int(game_dates_completed * float(games_per_day_target)))
 
             elif data_group == 'defense':
                 games_played.append(pool_team.D_games_played)
@@ -279,6 +281,7 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
                 D_max_games = pool_team.D_maximum_games
                 games_per_day_target = '{:0.2f}'.format(D_max_games / total_game_dates)
                 D_L0_header = f'Defense (Max={D_max_games}, Avg={games_per_day_target})'
+                target_over_under.append(pool_team.D_games_played - int(game_dates_completed * float(games_per_day_target)))
 
             elif data_group == 'skater':
                 games_played.append(pool_team.Skt_games_played)
@@ -295,6 +298,7 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
                 Skt_max_games = pool_team.Skt_maximum_games
                 games_per_day_target = '{:0.2f}'.format(Skt_max_games / total_game_dates)
                 Skt_L0_header = f'Skater (Max={Skt_max_games}, Avg={games_per_day_target})'
+                target_over_under.append(pool_team.Skt_games_played - int(game_dates_completed * float(games_per_day_target)))
 
             elif data_group == 'goalie':
                 games_played.append(pool_team.G_games_played)
@@ -313,7 +317,7 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
                 G_max_games = pool_team.G_maximum_games
                 games_per_day_target = '{:0.2f}'.format(G_max_games / total_game_dates)
                 G_L0_header = f'Goalie (Min={G_min_games}\Max={G_max_games}, Avg={games_per_day_target})'
-
+                target_over_under.append(pool_team.G_games_played - int(game_dates_completed * float(games_per_day_target)))
 
         if data_group == 'manager':
             data = {'Manager': manager, 'Points': points}
@@ -321,21 +325,21 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
             df_managers.columns = pd.MultiIndex.from_tuples([('', '', 'Manager'), ('', '', 'Points')])
 
         elif data_group == 'goalie':
-            data = {'GP': games_played, 'PacePerDay': pace_games_per_day, 'PaceGames': pace_games, '+\-': pace_over_under, 'Remaining': remaining}
+            data = {'GP': games_played, 'PacePerDay': pace_games_per_day, 'Target_+/-': target_over_under, 'GamesPace': pace_games, '+/-': pace_over_under, 'Remaining': remaining}
             df_goalie_games_played = pd.DataFrame(data)
-            df_goalie_games_played.columns = pd.MultiIndex.from_tuples([(G_L0_header,'Games Played', 'Total'), (G_L0_header,'Games Played', 'Per Day'), (G_L0_header, 'Projected Games', 'Total'), (G_L0_header, 'Projected Games', '+\-'), (G_L0_header, '', 'Remaining')])
+            df_goalie_games_played.columns = pd.MultiIndex.from_tuples([(G_L0_header,'Games Played', 'Total'), (G_L0_header,'Games Played', 'Pace'), (G_L0_header, 'Games Played', 'Pace +/-'), (G_L0_header, 'Projected Games', 'Total'), (G_L0_header, 'Projected Games', '+/-'), (G_L0_header, '', 'Remaining')])
 
         else:
-            data = {'GP': games_played, 'PacePerDay': pace_games_per_day, 'PaceGames': pace_games, '+\-': pace_over_under, 'Remaining': remaining}
+            data = {'GP': games_played, 'PacePerDay': pace_games_per_day, 'Target_+/-': target_over_under, 'GamesPace': pace_games, '+/-': pace_over_under, 'Remaining': remaining}
             if data_group == 'forward':
                 df_forward_games_played = pd.DataFrame(data)
-                df_forward_games_played.columns = pd.MultiIndex.from_tuples([(F_L0_header,'Games Played', 'Total'), (F_L0_header,'Games Played', 'Per Day'), (F_L0_header, 'Projected Games', 'Total'), (F_L0_header, 'Projected Games', '+\-'), (F_L0_header, '', 'Remaining')])
+                df_forward_games_played.columns = pd.MultiIndex.from_tuples([(F_L0_header,'Games Played', 'Total'), (F_L0_header,'Games Played', 'Pace'), (F_L0_header, 'Games Played', 'Pace +/-'), (F_L0_header, 'Projected Games', 'Total'), (F_L0_header, 'Projected Games', '+/-'), (F_L0_header, '', 'Remaining')])
             elif data_group == 'defense':
                 df_defense_games_played = pd.DataFrame(data)
-                df_defense_games_played.columns = pd.MultiIndex.from_tuples([(D_L0_header,'Games Played', 'Total'), (D_L0_header,'Games Played', 'Per Day'), (D_L0_header, 'Projected Games', 'Total'), (D_L0_header, 'Projected Games', '+\-'), (D_L0_header, '', 'Remaining')])
+                df_defense_games_played.columns = pd.MultiIndex.from_tuples([(D_L0_header,'Games Played', 'Total'), (D_L0_header,'Games Played', 'Pace'), (D_L0_header, 'Games Played', 'Pace +/-'), (D_L0_header, 'Projected Games', 'Total'), (D_L0_header, 'Projected Games', '+/-'), (D_L0_header, '', 'Remaining')])
             elif data_group == 'skater':
                 df_skater_games_played = pd.DataFrame(data)
-                df_skater_games_played.columns = pd.MultiIndex.from_tuples([(Skt_L0_header,'Games Played', 'Total'), (Skt_L0_header,'Games Played', 'Per Day'), (Skt_L0_header, 'Projected Games', 'Total'), (Skt_L0_header, 'Projected Games', '+\-'), (Skt_L0_header, '', 'Remaining')])
+                df_skater_games_played.columns = pd.MultiIndex.from_tuples([(Skt_L0_header,'Games Played', 'Total'), (Skt_L0_header,'Games Played', 'Pace'), (Skt_L0_header, 'Games Played', 'Pace +/-'), (Skt_L0_header, 'Projected Games', 'Total'), (Skt_L0_header, 'Projected Games', '+/-'), (Skt_L0_header, '', 'Remaining')])
 
     # merge dataframes
     df_games_played_per_position = df_managers.merge(df_forward_games_played, left_index=True, right_index=True)
@@ -349,10 +353,10 @@ def create_gp_per_positiion_table(pool: 'HockeyPool', season: Season):
     styler.set_table_styles(setCSS_TableStyles2())
 
     styler.set_properties(subset=[['', '', 'Points']], **{'text-align': 'center'})
-    styler.set_properties(subset=[[F_L0_header, 'Games Played', 'Total'], [F_L0_header, 'Games Played', 'Per Day'], [F_L0_header, 'Projected Games', 'Total'], [F_L0_header, 'Projected Games', '+\-'], [F_L0_header, '', 'Remaining']], **{'text-align': 'center'})
-    styler.set_properties(subset=[[D_L0_header, 'Games Played', 'Total'], [D_L0_header, 'Games Played', 'Per Day'], [D_L0_header, 'Projected Games', 'Total'], [D_L0_header, 'Projected Games', '+\-'], [D_L0_header, '', 'Remaining']], **{'text-align': 'center'})
-    styler.set_properties(subset=[[Skt_L0_header, 'Games Played', 'Total'], [Skt_L0_header, 'Games Played', 'Per Day'], [Skt_L0_header, 'Projected Games', 'Total'], [Skt_L0_header, 'Projected Games', '+\-'], [Skt_L0_header, '', 'Remaining']], **{'text-align': 'center'})
-    styler.set_properties(subset=[[G_L0_header, 'Games Played', 'Total'], [G_L0_header, 'Games Played', 'Per Day'], [G_L0_header, 'Projected Games', 'Total'], [G_L0_header, 'Projected Games', '+\-'], [G_L0_header, '', 'Remaining']], **{'text-align': 'center'})
+    styler.set_properties(subset=[[F_L0_header, 'Games Played', 'Total'], [F_L0_header, 'Games Played', 'Pace'], [F_L0_header, 'Games Played', 'Pace +/-'], [F_L0_header, 'Projected Games', 'Total'], [F_L0_header, 'Projected Games', '+/-'], [F_L0_header, '', 'Remaining']], **{'text-align': 'center'})
+    styler.set_properties(subset=[[D_L0_header, 'Games Played', 'Total'], [D_L0_header, 'Games Played', 'Pace'], [D_L0_header, 'Games Played', 'Pace +/-'], [D_L0_header, 'Projected Games', 'Total'], [D_L0_header, 'Projected Games', '+/-'], [D_L0_header, '', 'Remaining']], **{'text-align': 'center'})
+    styler.set_properties(subset=[[Skt_L0_header, 'Games Played', 'Total'], [Skt_L0_header, 'Games Played', 'Pace'], [Skt_L0_header, 'Games Played', 'Pace +/-'], [Skt_L0_header, 'Projected Games', 'Total'], [Skt_L0_header, 'Projected Games', '+/-'], [Skt_L0_header, '', 'Remaining']], **{'text-align': 'center'})
+    styler.set_properties(subset=[[G_L0_header, 'Games Played', 'Total'], [G_L0_header, 'Games Played', 'Pace'], [G_L0_header, 'Games Played', 'Pace +/-'], [G_L0_header, 'Projected Games', 'Total'], [G_L0_header, 'Projected Games', '+/-'], [G_L0_header, '', 'Remaining']], **{'text-align': 'center'})
 
     games_played_per_position_table = styler.hide(axis='index').to_html()
 

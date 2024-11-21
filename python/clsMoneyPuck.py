@@ -96,12 +96,12 @@ class MoneyPuck:
                 else:
                     logger.debug(msg)
 
-                skaters_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[17]/td[2]/a')))
-                goalies_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[17]/td[3]/a')))
-                lines_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[17]/td[4]/a')))
+                # skaters_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[18]/td[2]/a')))
+                # goalies_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[18]/td[3]/a')))
+                # lines_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/table/tbody/tr[18]/td[4]/a')))
                 all_teams_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/h3[4]/a')))
                 all_players_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/h3[7]/a')))
-                shots_2023_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/h3[8]/div/a[19]')))
+                shots_2024_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page-content-wrapper"]/div[1]/h3[8]/div/a[20]')))
 
                 msg = 'Downloading data...'
                 if dialog:
@@ -115,7 +115,8 @@ class MoneyPuck:
                 try:
 
                     # List of all links
-                    links = [skaters_link, goalies_link, lines_link, all_players_link, all_teams_link, shots_2023_link]
+                    # links = [skaters_link, goalies_link, lines_link, all_players_link, all_teams_link, shots_2024_link]
+                    links = [all_players_link, all_teams_link, shots_2024_link]
 
                     # List to store all file paths
                     file_paths = []
@@ -293,33 +294,33 @@ class MoneyPuck:
                     conn.execute(f"DELETE FROM MoneypuckGoalieStats WHERE season = {season.id}")
                 df_goalies.to_sql('MoneypuckGoalieStats', con=conn, if_exists='append', index=False)
 
-            if batch:
-                logger.debug('Loading "skaters.csv" into dataframe...')
-            df = pd.read_csv(self.browser_download_dir + '\\skaters.csv')
-            df['season'] = season.id
-            # save the skaters data to the database
-            if batch:
-                logger.debug(f'Updating "MoneypuckSkaters" table...')
-            with get_db_connection() as conn:
-                table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckSkaters';"
-                table_exists = conn.execute(table_check_query).fetchone() is not None
-                if table_exists:
-                    conn.execute(f"DELETE FROM MoneypuckSkaters WHERE season = {season.id}")
-                df.to_sql('MoneypuckSkaters', con=conn, if_exists='append', index=False)
+            # if batch:
+            #     logger.debug('Loading "skaters.csv" into dataframe...')
+            # df = pd.read_csv(self.browser_download_dir + '\\skaters.csv')
+            # df['season'] = season.id
+            # # save the skaters data to the database
+            # if batch:
+            #     logger.debug(f'Updating "MoneypuckSkaters" table...')
+            # with get_db_connection() as conn:
+            #     table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckSkaters';"
+            #     table_exists = conn.execute(table_check_query).fetchone() is not None
+            #     if table_exists:
+            #         conn.execute(f"DELETE FROM MoneypuckSkaters WHERE season = {season.id}")
+            #     df.to_sql('MoneypuckSkaters', con=conn, if_exists='append', index=False)
 
-            if batch:
-                logger.debug('Loading "goalies.csv" into dataframe...')
-            df = pd.read_csv(self.browser_download_dir + '\\goalies.csv')
-            df['season'] = season.id
-            # save the goalies data to the database
-            if batch:
-                logger.debug(f'Updating "MoneypuckGoalies" table...')
-            with get_db_connection() as conn:
-                table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckGoalies';"
-                table_exists = conn.execute(table_check_query).fetchone() is not None
-                if table_exists:
-                    conn.execute(f"DELETE FROM MoneypuckGoalies WHERE season = {season.id}")
-                df.to_sql('MoneypuckGoalies', con=conn, if_exists='append', index=False)
+            # if batch:
+            #     logger.debug('Loading "goalies.csv" into dataframe...')
+            # df = pd.read_csv(self.browser_download_dir + '\\goalies.csv')
+            # df['season'] = season.id
+            # # save the goalies data to the database
+            # if batch:
+            #     logger.debug(f'Updating "MoneypuckGoalies" table...')
+            # with get_db_connection() as conn:
+            #     table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='MoneypuckGoalies';"
+            #     table_exists = conn.execute(table_check_query).fetchone() is not None
+            #     if table_exists:
+            #         conn.execute(f"DELETE FROM MoneypuckGoalies WHERE season = {season.id}")
+            #     df.to_sql('MoneypuckGoalies', con=conn, if_exists='append', index=False)
 
         except Exception as e:
             if dialog:

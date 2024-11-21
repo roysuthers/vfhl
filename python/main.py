@@ -310,7 +310,7 @@ def create_app():
                     df_DraftSimulationsManagerScores = pd.read_sql(f'select * from DraftSimulationsManagerScores where projection_source="{draftProjectionSource}"', con=connection)
 
                 # Select only numeric columns
-                columns_to_drop = ['simulation_number', 'picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'irCount']
+                columns_to_drop = ['simulation_number', 'picks', 'fCount', 'dCount', 'gCount', 'mfCount', 'mfgmCount', 'mCount', 'irCount']
                 df_DraftSimulationsManagerScores.drop(columns=columns_to_drop, inplace=True)
                 numeric_columns  = df_DraftSimulationsManagerScores.select_dtypes(include=['number']).columns
 
