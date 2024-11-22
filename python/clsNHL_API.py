@@ -403,22 +403,10 @@ class NHL_API():
                 return
 
             with ThreadPoolExecutor() as executor:
-                # There is no api to get a list of teams (for now), so using the current standings
-                # As of May 15, 2024, getting standings by date returns an empty list
-                # https://api-web.nhle.com/v1/standings/{date}
-                # standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
-                # # https://api-web.nhle.com/v1/standings/now
-                # standings = self.fetch_data(f'{NHL_API_URL}/standings/now')
-
-                # standings by date works now
-                # standings = self.fetch_data(f'{NHL_API_URL}/standings/{season.start_date}')
-
                 # https://records.nhl.com/site/api/franchise?cayenneExp=teams.active=%22Y%22&include=teamAbbrev
                 # https://records.nhl.com/site/api/franchise?cayenneExp=(lastSeasonId=20232024 or (firstSeasonId<=20232024 and lastSeasonId=null))&include=teamAbbrev
                 response = self.fetch_data(f'https://records.nhl.com/site/api/franchise?cayenneExp=(lastSeasonId={season.id} or (firstSeasonId<={season.id} and lastSeasonId=null))&include=teamAbbrev')
 
-                # if standings == 404:
-                #     error_msg = standings['text']
                 if response == 404:
                     error_msg = response['text']
                     msg = f'API request failed: Error message "{error_msg}"...'
@@ -430,7 +418,6 @@ class NHL_API():
                     request_error = True
                     return
 
-                # teams = [x for x in j.search('standings[*].teamAbbrev.default', standings)]
                 teams = [x for x in j.search('data[*].teamAbbrev', response)]
 
                 # https://api-web.nhle.com/v1/roster/TOR/current
