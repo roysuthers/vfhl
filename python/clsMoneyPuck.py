@@ -28,7 +28,8 @@ class MoneyPuck:
         self.homePage = 'https://moneypuck.com/index.html'
         self.dataPage = 'https://moneypuck.com/data.htm'
         self.season = season
-        self.browser_download_dir = os.path.abspath(f'./python/input/moneyPuck/{season.id}')
+        # self.browser_download_dir = os.path.abspath(f'./python/input/moneyPuck/{season.id}')
+        self.browser_download_dir = os.path.abspath(f'./input/moneyPuck/{season.id}')
 
         return
 

@@ -16,51 +16,51 @@ from constants import NHL_API_URL
 from utils import calculate_age, get_db_connection, setCSS_TableStyles, setCSS_TableStyles2, split_seasonID_into_component_years
 from constants import generated_html_path
 
-def calc_player_ages(df: pd.DataFrame) -> pd.Series:
+# def calc_player_ages(df: pd.DataFrame) -> pd.Series:
 
-    # calculate player's current age
-    # if there are no stats, the following has problem. So do't do it if there are now rows in df_player_stats
-    if len(df.index) == 0:
-        ages: pd.Series = np.nan
-    else:
-        ages: pd.Series = df.apply(lambda x: np.nan if (pd.isna(x['birth_date']) or x['birth_date']=='') else calculate_age(x['birth_date']), axis='columns')
+#     # calculate player's current age
+#     # if there are no stats, the following has problem. So do't do it if there are now rows in df_player_stats
+#     if len(df.index) == 0:
+#         ages: pd.Series = np.nan
+#     else:
+#         ages: pd.Series = df.apply(lambda x: np.nan if (pd.isna(x['birth_date']) or x['birth_date']=='') else calculate_age(x['birth_date']), axis='columns')
 
-    return ages
+#     return ages
 
-def calc_player_breakout_threshold(df: pd.DataFrame) -> pd.Series:
+# def calc_player_breakout_threshold(df: pd.DataFrame) -> pd.Series:
 
-    if len(df.index) == 0:
-        breakout_thresholds: pd.Series = np.nan
-    else:
-        breakout_thresholds: pd.Series = df.apply(lambda x: np.nan
-                                                 if (
-                                                        pd.isna(x['height'])
-                                                        or x['height']==''
-                                                        or pd.isna(x['weight'])
-                                                        or x['weight']==''
-                                                        or pd.isna(x['career_games'])
-                                                        or x['career_games']==''
-                                                        or x['pos'] == 'G'
-                                                    )
-                                                 else calculate_breakout_threshold(name=x['name'], height=x['height'], weight=x['weight'], career_games=x['career_games']),
-                                                 axis='columns')
+#     if len(df.index) == 0:
+#         breakout_thresholds: pd.Series = np.nan
+#     else:
+#         breakout_thresholds: pd.Series = df.apply(lambda x: np.nan
+#                                                  if (
+#                                                         pd.isna(x['height'])
+#                                                         or x['height']==''
+#                                                         or pd.isna(x['weight'])
+#                                                         or x['weight']==''
+#                                                         or pd.isna(x['career_games'])
+#                                                         or x['career_games']==''
+#                                                         or x['pos'] == 'G'
+#                                                     )
+#                                                  else calculate_breakout_threshold(name=x['name'], height=x['height'], weight=x['weight'], career_games=x['career_games']),
+#                                                  axis='columns')
 
-    return breakout_thresholds
+#     return breakout_thresholds
 
-def calculate_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
+# def calculate_breakout_threshold(name: str, height: str, weight: int, career_games: int) -> int:
 
-    feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
-    height_in_inches = int(feet_and_inches[0]) * 12 + int(feet_and_inches[1])
-    # 5' 10" = 70" & 6' 2" = 74"
-    if ((height_in_inches >= 70 and height_in_inches <= 74) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
-        breakout_threshold = career_games - 200
-    # 5' 9" = 69" & 6' 3" = 75"
-    elif (height_in_inches <= 69 or height_in_inches >= 75 or weight <= 170 or weight >= 215) and (career_games >= 320 and career_games <= 480):
-        breakout_threshold = career_games - 400
-    else:
-        breakout_threshold = np.nan
+#     feet_and_inches = height.replace("'", '').replace('"', '').split(' ')
+#     height_in_inches = int(feet_and_inches[0]) * 12 + int(feet_and_inches[1])
+#     # 5' 10" = 70" & 6' 2" = 74"
+#     if ((height_in_inches >= 70 and height_in_inches <= 74) or (weight >= 171 and weight <= 214)) and (career_games >= 120 and career_games <= 280):
+#         breakout_threshold = career_games - 200
+#     # 5' 9" = 69" & 6' 3" = 75"
+#     elif (height_in_inches <= 69 or height_in_inches >= 75 or weight <= 170 or weight >= 215) and (career_games >= 320 and career_games <= 480):
+#         breakout_threshold = career_games - 400
+#     else:
+#         breakout_threshold = np.nan
 
-    return breakout_threshold
+#     return breakout_threshold
 
 def create_stat_summary_table(df: pd.DataFrame, max_cat: Dict, min_cat: Dict, mean_cat: Dict, std_cat: Dict, stat_type: str='Cumulative', position: str='Forwards'):
 
@@ -432,164 +432,164 @@ def get_player_stats(season: Season, pool: 'HockeyPool', historical: bool=False,
 
     return df_player_stats
 
-def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats: pd.DataFrame) -> pd.DataFrame:
+# def merge_with_current_players_info(season: Season, pool: 'HockeyPool', df_stats: pd.DataFrame) -> pd.DataFrame:
 
-    # get players on nhl team rosters
-    columns = [
-        'tr.seasonID',
-        'tr.player_id',
-        'tr.name',
-        'tr.pos',
-        'tr.team_abbr',
-        'tr.line',
-        'tr.pp_line',
-        'p.birth_date',
-        'p.height',
-        'p.weight',
-        'p.active',
-        'p.roster_status as nhl_roster_status',
-        'p.games as career_games',
-        'p.injury_status',
-        'p.injury_note',
-    ]
+#     # get players on nhl team rosters
+#     columns = [
+#         'tr.seasonID',
+#         'tr.player_id',
+#         'tr.name',
+#         'tr.pos',
+#         'tr.team_abbr',
+#         'tr.line',
+#         'tr.pp_line',
+#         'p.birth_date',
+#         'p.height',
+#         'p.weight',
+#         'p.active',
+#         'p.roster_status as nhl_roster_status',
+#         'p.games as career_games',
+#         'p.injury_status',
+#         'p.injury_note',
+#     ]
 
-    subquery_columns = {
-        'poolteam_id': f'(select pt.id from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
-        'pool_team': f'(select pt.name from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
-        'status': f'(select ptr.status from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
-        'keeper': f'(select ptr.keeper from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
-    }
+#     subquery_columns = {
+#         'poolteam_id': f'(select pt.id from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
+#         'pool_team': f'(select pt.name from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
+#         'status': f'(select ptr.status from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
+#         'keeper': f'(select ptr.keeper from PoolTeamRoster ptr join PoolTeam pt on pt.id=ptr.poolteam_id where pt.pool_id={pool.id} and ptr.player_id=tr.player_id)',
+#     }
 
-    select_sql = ', '.join([
-        ' '.join(['select', ', '.join(columns)]),
-        ', '.join([f'{v} as {k}' for k,v in subquery_columns.items()])
-    ])
+#     select_sql = ', '.join([
+#         ' '.join(['select', ', '.join(columns)]),
+#         ', '.join([f'{v} as {k}' for k,v in subquery_columns.items()])
+#     ])
 
-    # build table joins
-    from_tables = textwrap.dedent('''\
-        from TeamRosters tr
-             left outer join Player p on p.id=tr.player_id
-    ''')
+#     # build table joins
+#     from_tables = textwrap.dedent('''\
+#         from TeamRosters tr
+#              left outer join Player p on p.id=tr.player_id
+#     ''')
 
-    # exclude players with p.roster_status!="N" (e.g., include p.roster_status=="Y" or p.roster_status=="I")
-    where_clause = f'where tr.seasonID={season.id} and (p.roster_status!="N" or pool_team>=1)'
+#     # exclude players with p.roster_status!="N" (e.g., include p.roster_status=="Y" or p.roster_status=="I")
+#     where_clause = f'where tr.seasonID={season.id} and (p.roster_status!="N" or pool_team>=1)'
 
-    df = pd.read_sql(f'{select_sql} {from_tables} {where_clause}', con=get_db_connection())
+#     df = pd.read_sql(f'{select_sql} {from_tables} {where_clause}', con=get_db_connection())
 
-    # get inactive nhl players on pool team rosters
-    columns = [
-        f'{season.id} as seasonID',
-        'ptr.player_id',
-        'p.full_name as name',
-        'p.primary_position as pos',
-        '\'(N/A)\' as team_abbr',
-        '\'\' as line',
-        '\'\' as pp_line',
-        'p.birth_date',
-        'p.height',
-        'p.weight',
-        'p.active',
-        'p.roster_status as nhl_roster_status',
-        'p.games as career_games',
-        'p.injury_status',
-        'p.injury_note',
-        'ptr.poolteam_id',
-        'pt.name as pool_team',
-        'ptr.status',
-        'ptr.keeper'
-    ]
+#     # get inactive nhl players on pool team rosters
+#     columns = [
+#         f'{season.id} as seasonID',
+#         'ptr.player_id',
+#         'p.full_name as name',
+#         'p.primary_position as pos',
+#         '\'(N/A)\' as team_abbr',
+#         '\'\' as line',
+#         '\'\' as pp_line',
+#         'p.birth_date',
+#         'p.height',
+#         'p.weight',
+#         'p.active',
+#         'p.roster_status as nhl_roster_status',
+#         'p.games as career_games',
+#         'p.injury_status',
+#         'p.injury_note',
+#         'ptr.poolteam_id',
+#         'pt.name as pool_team',
+#         'ptr.status',
+#         'ptr.keeper'
+#     ]
 
-    select_sql = ', '.join([
-        ' '.join(['select', ', '.join(columns)]),
-    ])
+#     select_sql = ', '.join([
+#         ' '.join(['select', ', '.join(columns)]),
+#     ])
 
-    # build table joins
-    from_tables = textwrap.dedent('''\
-        from PoolTeamRoster ptr
-        left outer join Player p on p.id=ptr.player_id
-        left outer join PoolTeam pt ON pt.id=ptr.poolteam_id
-    ''')
+#     # build table joins
+#     from_tables = textwrap.dedent('''\
+#         from PoolTeamRoster ptr
+#         left outer join Player p on p.id=ptr.player_id
+#         left outer join PoolTeam pt ON pt.id=ptr.poolteam_id
+#     ''')
 
-    where_clause = f'where pt.pool_id={pool.id} and p.active!=1'
+#     where_clause = f'where pt.pool_id={pool.id} and p.active!=1'
 
-    sql = textwrap.dedent(f'''\
-        {select_sql}
-        {from_tables}
-        {where_clause}
-    ''')
+#     sql = textwrap.dedent(f'''\
+#         {select_sql}
+#         {from_tables}
+#         {where_clause}
+#     ''')
 
-    df_temp = pd.read_sql(sql, con=get_db_connection())
+#     df_temp = pd.read_sql(sql, con=get_db_connection())
 
-    # iterate to get player's primary position
-    for idx, row in df_temp.iterrows():
-        primary_position = ''
-        team_abbr = '(N/A)'
-        try:
-            player = requests.get(f'{NHL_API_URL}/player/{row.player_id}/landing').json()
-            primary_position = player['position']
-            team_abbr = player['currentTeamAbbrev'] if 'currentTeamAbbrev' in player else '(N/A)'
-        except Exception as e:
-            player_id = df_temp.loc[idx, 'player_id']
-            if player_id == 8470860: # Halak
-                primary_position = 'G'
-            elif player_id == 8470638: # Bergeron
-                primary_position = 'C'
-            elif player_id == 8474141: # Patrick Kane
-                primary_position = 'C'
-        df_temp.loc[idx, 'pos'] = f'{primary_position}W' if primary_position in ('L', 'R') else primary_position
-        df_temp.loc[idx, 'team_abbr'] = team_abbr
+#     # iterate to get player's primary position
+#     for idx, row in df_temp.iterrows():
+#         primary_position = ''
+#         team_abbr = '(N/A)'
+#         try:
+#             player = requests.get(f'{NHL_API_URL}/player/{row.player_id}/landing').json()
+#             primary_position = player['position']
+#             team_abbr = player['currentTeamAbbrev'] if 'currentTeamAbbrev' in player else '(N/A)'
+#         except Exception as e:
+#             player_id = df_temp.loc[idx, 'player_id']
+#             if player_id == 8470860: # Halak
+#                 primary_position = 'G'
+#             elif player_id == 8470638: # Bergeron
+#                 primary_position = 'C'
+#             elif player_id == 8474141: # Patrick Kane
+#                 primary_position = 'C'
+#         df_temp.loc[idx, 'pos'] = f'{primary_position}W' if primary_position in ('L', 'R') else primary_position
+#         df_temp.loc[idx, 'team_abbr'] = team_abbr
 
 
-    # First, ensure that 'seasonID' and 'player_id' are set as the index for both dataframes
-    df.set_index(['seasonID', 'player_id'], inplace=True)
-    df_temp.set_index(['seasonID', 'player_id'], inplace=True)
-    # Find the rows in df_temp that are not in df
-    df_temp = df_temp.loc[~df_temp.index.isin(df.index)]
-    # Concatenate df and df_temp
-    df = pd.concat([df, df_temp])
-    # Reset the index
-    df.reset_index(inplace=True)
+#     # First, ensure that 'seasonID' and 'player_id' are set as the index for both dataframes
+#     df.set_index(['seasonID', 'player_id'], inplace=True)
+#     df_temp.set_index(['seasonID', 'player_id'], inplace=True)
+#     # Find the rows in df_temp that are not in df
+#     df_temp = df_temp.loc[~df_temp.index.isin(df.index)]
+#     # Concatenate df and df_temp
+#     df = pd.concat([df, df_temp])
+#     # Reset the index
+#     df.reset_index(inplace=True)
 
-    # set None column values to empty
-    df['poolteam_id'] = df['poolteam_id'].apply(lambda x: '' if x is None else x)
-    df['pool_team'] = df['pool_team'].apply(lambda x: '' if x is None else x)
-    df['status'] = df['status'].apply(lambda x: '' if x is None else x)
-    df['keeper'] = df['keeper'].apply(lambda x: 'Yes' if x == 'y' else ('MIN' if x == 'm' else ''))
+#     # set None column values to empty
+#     df['poolteam_id'] = df['poolteam_id'].apply(lambda x: '' if x is None else x)
+#     df['pool_team'] = df['pool_team'].apply(lambda x: '' if x is None else x)
+#     df['status'] = df['status'].apply(lambda x: '' if x is None else x)
+#     df['keeper'] = df['keeper'].apply(lambda x: 'Yes' if x == 'y' else ('MIN' if x == 'm' else ''))
 
-    # reposition columns
-    df['poolteam_id'] = df.pop('poolteam_id')
-    df['pool_team'] = df.pop('pool_team')
-    df['status'] = df.pop('status')
+#     # reposition columns
+#     df['poolteam_id'] = df.pop('poolteam_id')
+#     df['pool_team'] = df.pop('pool_team')
+#     df['status'] = df.pop('status')
 
-    # calculate age
-    df['age'] = calc_player_ages(df=df)
+#     # calculate age
+#     df['age'] = calc_player_ages(df=df)
 
-    # breakout threshold
-    df['breakout_threshold'] = calc_player_breakout_threshold(df=df)
+#     # breakout threshold
+#     df['breakout_threshold'] = calc_player_breakout_threshold(df=df)
 
-    # a player's nhl team roster status, if not blank, will be one of 'Y' = active roster (e.g., 23 man roster), 'N' = full roster, not active roster, 'I' = IR
-    df['nhl_roster_status'] = df['nhl_roster_status'].apply(lambda x: '' if x in ('N','') else 'ir' if x=='I' else 'y')
+#     # a player's nhl team roster status, if not blank, will be one of 'Y' = active roster (e.g., 23 man roster), 'N' = full roster, not active roster, 'I' = IR
+#     df['nhl_roster_status'] = df['nhl_roster_status'].apply(lambda x: '' if x in ('N','') else 'ir' if x=='I' else 'y')
 
-    # change active status from 1 to Y
-    df['active'] = df['active'].apply(lambda x: 'y' if x == 1 else '')
+#     # change active status from 1 to Y
+#     df['active'] = df['active'].apply(lambda x: 'y' if x == 1 else '')
 
-    ##################################################
-    # merge dataframes
-    ##################################################
+#     ##################################################
+#     # merge dataframes
+#     ##################################################
 
-    # drop columns that are duplicates
-    columns_to_drop = list(df.columns)
-    columns_to_drop.remove('player_id')
-    df_stats.drop(columns=columns_to_drop, axis='columns', inplace=True, errors='ignore')
+#     # drop columns that are duplicates
+#     columns_to_drop = list(df.columns)
+#     columns_to_drop.remove('player_id')
+#     df_stats.drop(columns=columns_to_drop, axis='columns', inplace=True, errors='ignore')
 
-    df_stats = pd.merge(df, df_stats, how='left', on=['player_id'])
+#     df_stats = pd.merge(df, df_stats, how='left', on=['player_id'])
 
-    df_stats.reset_index(inplace=True)
+#     df_stats.reset_index(inplace=True)
 
-    # reposition player_id
-    df_stats['player_id'] = df_stats.pop('player_id')
+#     # reposition player_id
+#     df_stats['player_id'] = df_stats.pop('player_id')
 
-    return df_stats
+#     return df_stats
 
 def manager_game_pace(season: Season, pool: 'HockeyPool'):
 

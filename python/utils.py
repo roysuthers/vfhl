@@ -98,8 +98,17 @@ def get_player_id(team_ids: Dict, player_ids: Dict, nhl_api: 'NHL_API', name: st
     if key_name in player_ids:
         if len(player_ids[key_name]) == 1:
             player_id = player_ids[key_name][0]['id']
-
-        else: # first check fantrax_id if passed in
+        elif len(player_ids[key_name]) > 1:
+            potential_players = [player for player in player_ids[key_name] if player['active_status'] == 1]
+            if len(potential_players) == 1:
+                player_id = potential_players[0]['id']
+            elif len(potential_players) > 1:
+                potential_players = [player for player in player_ids[key_name] if player['active_status'] == 1 and player['roster_status'] == 'Y']
+                if len(potential_players) == 1:
+                    player_id = potential_players[0]['id']
+                else:
+                    ...
+        if player_id == 0: # first check fantrax_id if passed in
             if fantrax_id != '':
                 idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['fantrax_id'] == fantrax_id]
                 if len(idx) == 1:
@@ -222,7 +231,7 @@ def load_nhl_team_abbr_and_id_dict() -> Dict:
 
 def load_player_name_and_id_dict() -> Dict:
 
-    sql = 'SELECT full_name, id, fantrax_id, current_team_abbr as team_abbr, primary_position as pos FROM Player where id > 0'
+    sql = 'SELECT full_name, id, fantrax_id, current_team_abbr as team_abbr, primary_position as pos, active, roster_status FROM Player where id > 0'
     with get_db_connection() as connection:
         cursor = connection.cursor()
         cursor.execute(sql)
@@ -232,7 +241,7 @@ def load_player_name_and_id_dict() -> Dict:
             name = unidecode(row['full_name']).lower()
             if name not in player_id_dict:
                 player_id_dict[name] = []
-            player_id_dict[name].append({'id': row['id'], 'fantrax_id': row['fantrax_id'], 'team_abbr': row['team_abbr'], 'pos': row['Pos']})
+            player_id_dict[name].append({'id': row['id'], 'fantrax_id': row['fantrax_id'], 'team_abbr': row['team_abbr'], 'pos': row['Pos'], 'active_status': row['active'], 'roster_status': row['roster_status']})
 
     sql = 'select pan.nhl_name, pan.alt_names, p.id, p.fantrax_id from PlayerAlternateNames pan join Player p on p.full_name=pan.nhl_name'
     with get_db_connection() as connection:
@@ -246,7 +255,7 @@ def load_player_name_and_id_dict() -> Dict:
         for name in alt_names:
             # player_id_dict[name.strip()] = row['id']
             name = name = unidecode(name.strip()).lower()
-            if nhl_name != name and name not in player_id_dict:
+            if nhl_name != name and name not in player_id_dict and nhl_name in player_id_dict :
                 player_id_dict[name] = []
                 for dict_name in player_id_dict[nhl_name]:
                     player_id_dict[name].append({'id': dict_name['id'], 'fantrax_id': row['fantrax_id'], 'team_abbr': dict_name['team_abbr'], 'pos': dict_name['pos']})

@@ -61,24 +61,23 @@ def main():
             logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
-        # line line & pp unit projections
-        # only for regular season
+        # line & pp unit projections
         for season in seasons:
+
+           # only for regular season
             if season.type == 'R':
-                # logger.info('Calling hp.update_player_lines().')
-                # # today = date.strftime(date.today(), '%Y-%m-%d')
-                # # yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
-                # # for game_date in (yesterday, today):
-                # #     try:
-                # #         hp.update_player_lines(season=season, batch=True, game_date=game_date)
-                # #     except Exception as e:
-                # #         logger.info('Exception in call to hp.update_player_lines() returned.')
-                # try:
-                #     hp.update_player_lines(season=season, batch=True)
-                # except Exception as e:
-                #     logger.info('Exception in call to hp.update_player_lines() returned.')
-                # logger.info('Call to hp.update_player_lines() returned.')
-                # # break
+
+                # update season constants
+                season.set_season_constants()
+
+                if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
+                    logger.info('Calling hp.update_player_lines().')
+                    today = date.strftime(date.today(), '%Y-%m-%d')
+                    try:
+                        hp.update_player_lines(season=season, batch=True, game_date=today)
+                    except Exception as e:
+                        logger.info('Exception in call to hp.update_player_lines() returned.')
+                    logger.info('Call to hp.update_player_lines() returned.')
 
                 logger.info('Calling hp.updatePoolTeamRosters().')
                 try:

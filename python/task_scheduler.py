@@ -87,12 +87,10 @@ def main():
             logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
-        # line line & pp unit projections
-        # only for regular season
-        # Note: this is also scheduled in task_scheduler_2.py, which is set to run starting at 12 None
-        # This script is scheduled to run early in the morning, and (hopefully) shouldn't clash with
-        # the  task_scheduler_2.py scheduled task
+        # line & pp unit projections
         for season in seasons:
+
+            # only for regular season
             if season.type == 'R':
 
                 # update season constants
@@ -101,15 +99,11 @@ def main():
                 if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
                     logger.info('Calling hp.update_player_lines().')
                     today = date.strftime(date.today(), '%Y-%m-%d')
-                    # yesterday = date.strftime(date.today() - timedelta(days=1), '%Y-%m-%d')
-                    # for game_date in (yesterday, today):
-                        # hp.update_player_lines(season=season, batch=True, game_date=game_date)
                     try:
                         hp.update_player_lines(season=season, batch=True, game_date=today)
                     except Exception as e:
                         logger.info('Exception in call to hp.update_player_lines() returned.')
                     logger.info('Call to hp.update_player_lines() returned.')
-                    # break
 
                 logger.info('Calling hp.updatePoolTeams().')
                 try:

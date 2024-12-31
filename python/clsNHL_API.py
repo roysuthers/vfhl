@@ -66,6 +66,25 @@ options = j.Options(custom_functions=CustomFunctions())
 
 class NHL_API():
 
+    def fetch_data(self, url, params: dict={}):
+
+        if params:
+            response = requests.get(url, params)
+        else:
+            response = requests.get(url)
+        if response.status_code == 200:
+            # Process the player as usual
+            return response.json()
+        else:
+            # Handle different status codes
+            if response.status_code == 404:
+                print(f'URL "{url}" not found.')
+            elif response.status_code == 500:
+                print(f'Server error while processing URL "{url}".')
+            else:
+                print(f'Unexpected status code {response.status_code} for URL "{url}".')
+            return None
+
     def fill_missing_player_data(self, player_id: int) -> List:
 
         # The row's index is retrieved using row.name, which returns a list of (seasonID, player_id)
@@ -207,10 +226,13 @@ class NHL_API():
                             cursor.execute("SELECT * FROM PlayerAlternateNames WHERE nhl_name = ?", (nhl_name,))
                             result = cursor.fetchone()
                             if result:
-                                # Update existing record
-                                alt_names = result['alt_names'] + ', ' + name
-                                cursor.execute("UPDATE PlayerAlternateNames SET alt_names = ? WHERE nhl_name = ?", (alt_names, nhl_name))
-                                print(f'Updated PlayerAlternateNames table for "{nhl_name}". Set alt_names to "{alt_names}".')
+                                cursor.execute("SELECT * FROM PlayerAlternateNames WHERE nhl_name = ? AND alt_names NOT LIKE ?", (nhl_name, f"%{name}%"))
+                                result = cursor.fetchone()
+                                if result:
+                                    # Update existing record
+                                    alt_names = result['alt_names'] + ', ' + name
+                                    cursor.execute("UPDATE PlayerAlternateNames SET alt_names = ? WHERE nhl_name = ?", (alt_names, nhl_name))
+                                    print(f'Updated PlayerAlternateNames table for "{nhl_name}". Set alt_names to "{alt_names}".')
                             else:
                                 # Insert new record
                                 cursor.execute("INSERT INTO PlayerAlternateNames (nhl_name, alt_names) VALUES (?, ?)", (nhl_name, name))
@@ -295,82 +317,11 @@ class NHL_API():
 
         return None
 
-    def fetch_data(self, url, params: dict={}):
-
-        if params:
-            response = requests.get(url, params)
-        else:
-            response = requests.get(url)
-        if response.status_code == 200:
-            # Process the player as usual
-            return response.json()
-        else:
-            # Handle different status codes
-            if response.status_code == 404:
-                print(f'URL "{url}" not found.')
-            elif response.status_code == 500:
-                print(f'Server error while processing URL "{url}".')
-            else:
-                print(f'Unexpected status code {response.status_code} for URL "{url}".')
-            return None
-
-    def process_player(self, player):
-        if 'id' in player:
-            player_id = player.get('id')
-            first_name = j.search('firstName.default', player)
-            last_name = j.search('lastName.default', player)
-        else:
-            player_id = int(player.get('playerId'))
-        landing = self.fetch_data(f'{NHL_API_URL}/player/{player_id}/landing')
-        if landing is None:
-            first_name = ''
-            last_name = ''
-            position = ''
-            birth_date = ''
-            height = ''
-            weight = ''
-            active_status = ''
-            roster_status = ''
-            current_team_id = ''
-            current_team_abbr = ''
-            games = ''
-        else:
-            first_name = j.search('firstName.default', landing)
-            last_name = j.search('lastName.default', landing)
-            position = landing.get('position')
-            primary_position = 'LW' if position == 'L' else 'RW' if position == 'R' else position
-            birth_date = landing.get('birthDate')
-            height = inches_to_feet(landing.get('heightInInches')) if 'heightInInches' in landing else ''
-            weight = landing.get('weightInPounds') if 'weightInPounds' in landing else ''
-            active_status = landing.get('isActive')
-            roster_status = 'Y' if player_id in [p['playerId'] for p in j.search('currentTeamRoster', landing)] else 'N'
-            current_team_id = landing.get('currentTeamId')
-            current_team_abbr = landing.get('currentTeamAbbrev')
-            games = j.search('careerTotals.regularSeason.gamesPlayed', landing)
-        return {
-            'id': player_id,
-            'fantrax_id': '',
-            'first_name': first_name,
-            'last_name': last_name,
-            'full_name': first_name + ' ' + last_name,
-            'birth_date': birth_date,
-            'height': height,
-            'weight': weight,
-            'active': active_status,
-            'roster_status': roster_status,
-            'current_team_id': current_team_id,
-            'current_team_abbr': current_team_abbr,
-            'primary_position': primary_position,
-            'games': games,
-        }
-
     def get_players(self, season: Season, batch: bool=False):
 
         request_error = False
 
         try:
-
-            seasonID: int = season.id
 
             if batch:
                 logger = logging.getLogger(__name__)
@@ -378,21 +329,32 @@ class NHL_API():
                 # layout the progress dialog
                 layout = [
                     [
-                        sg.Text(f'Update Players...', size=(100, 3), key='-PROG-')
+                        sg.Text(f'Get Players...', size=(100, 3), key='-PROG-')
                     ],
                     [
                         sg.Cancel()
                     ],
                 ]
                 # create the dialog
-                dialog = sg.Window(f'Update Players', layout, modal=True, finalize=True)
+                dialog = sg.Window(f'Get Players', layout, modal=True, finalize=True)
 
             params = NHL_API_SEARCH_SUGGESTIONS_PARAMS.copy()
             params['limit'] = 99999
             del params['active']
-            all_ever_players = self.fetch_data(NHL_API_SEARCH_SUGGESTIONS_URL, params)
-            if all_ever_players == 404:
-                error_msg = all_ever_players['text']
+            # all_ever_players = self.fetch_data(NHL_API_SEARCH_SUGGESTIONS_URL, params)
+            # if all_ever_players == 404:
+            #     error_msg = all_ever_players['text']
+            #     msg = f'API request failed: Error message "{error_msg}"...'
+            #     if batch:
+            #         logger.debug(msg)
+            #     else:
+            #         dialog['-PROG-'].update(msg)
+            #         event, values = dialog.read(timeout=10)
+            #     request_error = True
+            #     return
+            response = self.fetch_data(NHL_API_SEARCH_SUGGESTIONS_URL, params)
+            if response == 404:
+                error_msg = response['text']
                 msg = f'API request failed: Error message "{error_msg}"...'
                 if batch:
                     logger.debug(msg)
@@ -401,6 +363,8 @@ class NHL_API():
                     event, values = dialog.read(timeout=10)
                 request_error = True
                 return
+
+            all_active_players = [p for p in response if p['teamAbbrev'] != '']
 
             with ThreadPoolExecutor() as executor:
                 # https://records.nhl.com/site/api/franchise?cayenneExp=teams.active=%22Y%22&include=teamAbbrev
@@ -434,7 +398,7 @@ class NHL_API():
 
                 players = []
                 for team_abbr in teams:
-                    roster = self.fetch_data(f'{NHL_API_URL}/roster/{team_abbr}/{seasonID}')
+                    roster = self.fetch_data(f'{NHL_API_URL}/roster/{team_abbr}/{season.id}')
                     if roster == 404:
                         roster_seasonID = season.getPreviousSeasonID()
                         roster = self.fetch_data(f'{NHL_API_URL}/roster/{team_abbr}/{roster_seasonID}')
@@ -461,22 +425,42 @@ class NHL_API():
                         request_error = True
                         return
 
+                    draft_picks = self.fetch_data(f'https://records.nhl.com/site/api/draft?cayenneExp=draftYear={str(season.id)[:4]} and triCode="{team_abbr}"')
+                    if draft_picks == 404:
+                        error_msg = draft_picks['text']
+                        msg = f'API request failed: Error message "{error_msg}"...'
+                        if batch:
+                            logger.debug(msg)
+                        else:
+                            dialog['-PROG-'].update(msg)
+                            event, values = dialog.read(timeout=10)
+                        request_error = True
+                        return
+
                     # roster_players = [x for x in [item for sublist in j.search('*', roster) for item in sublist]]
                     # prospect_players = [x for x in [item for sublist in j.search('*', prospects) for item in sublist]]
                     # all_players = roster_players + prospect_players
 
                     roster_players = [x for x in [item for sublist in j.search('*', roster) for item in sublist]]
                     prospect_players = [x for x in [item for sublist in j.search('*', prospects) for item in sublist]]
+                    drafted_players = [x for x in j.search('data', draft_picks)]
 
                     # Add all roster_players to all_players_dict
                     all_players_dict = {player['id']: player for player in roster_players}
 
-                    # Only add prospect_players that are not in roster_players
+                    # Only add prospect_players that are not in all_players_dict
                     all_players_dict.update({player['id']: player for player in prospect_players if player['id'] not in all_players_dict})
 
+                    # Only add drafted_players that are not in all_players_dict
+                    all_players_dict.update({player['id']: player for player in drafted_players if player['playerId'] not in all_players_dict})
+
+                    # # Only add prospect_players that are not in roster_players
+                    # all_players_on_team = [p for p in all_ever_players if p['teamAbbrev'] == team_abbr]
+                    # all_players_dict.update({int(player['playerId']): player for player in all_players_on_team if int(player['playerId']) not in all_players_dict})
+
                     # Only add prospect_players that are not in roster_players
-                    all_players_on_team = [p for p in all_ever_players if p['teamAbbrev'] == team_abbr]
-                    all_players_dict.update({int(player['playerId']): player for player in all_players_on_team if int(player['playerId']) not in all_players_dict})
+                    all_active_players_on_team = [p for p in all_active_players if p['teamAbbrev'] == team_abbr]
+                    all_players_dict.update({int(player['playerId']): player for player in all_active_players_on_team if int(player['playerId']) not in all_players_dict})
 
                     # Convert the dictionary back to a list
                     all_players = list(all_players_dict.values())
@@ -565,6 +549,10 @@ class NHL_API():
                 sql = "update Player set active = 0, roster_status = 'N', current_team_id = 0, current_team_abbr=''"
                 connection.execute(sql)
 
+                # Delete Team Rosters
+                sql = f"delete from TeamRosters WHERE seasonID = {season.id}"
+                connection.execute(sql)
+
                 # Iterate over players
                 c = connection.cursor()
                 for idx, row in df_players.iterrows():
@@ -585,15 +573,23 @@ class NHL_API():
                     params = (row['height'], row['weight'], row['active'], row['current_team_id'], row['current_team_abbr'], row['primary_position'], row['roster_status'], int(row['games']), player_id)
                     c.execute(sql, params)
 
-                    sql = dedent(f"""\
-                        UPDATE TeamRosters
-                        SET seasonID={season.id}, player_id={player_id}, team_abbr="{row['current_team_abbr']}", name="{row['first_name']} {row['last_name']}", pos="{row['primary_position']}"
-                        WHERE seasonID = {season.id} AND player_id = {player_id}
-                    """)
-                    c.execute(sql)
-                    # If no row was updated, insert a new one
-                    c.execute("SELECT changes()")
-                    if c.fetchone()[0] == 0:
+                    if row['roster_status'] == 'Y':
+
+                        # sql = dedent(f"""\
+                        #     UPDATE TeamRosters
+                        #     SET seasonID={season.id}, player_id={player_id}, team_abbr="{row['current_team_abbr']}", name="{row['first_name']} {row['last_name']}", pos="{row['primary_position']}"
+                        #     WHERE seasonID = {season.id} AND player_id = {player_id}
+                        # """)
+                        # c.execute(sql)
+                        # # If no row was updated, insert a new one
+                        # c.execute("SELECT changes()")
+                        # if c.fetchone()[0] == 0:
+                        #     sql = dedent(f"""\
+                        #         INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
+                        #         VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
+                        #     """)
+                        #     c.execute(sql)
+
                         sql = dedent(f"""\
                             INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
                             VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
@@ -663,76 +659,72 @@ class NHL_API():
             #     if batch:
             #         logger.warning(f'ConnectionError: Max retries exceeded for url host: "{NHL_API_URL}" Switching to "api.nhle.com"')
 
-            if (switch_to_api_nhle_com):
-                # url_base = 'https://api.nhle.com/stats/rest/en/team/summary'
-                url_base = 'https://api.nhle.com/stats/rest/en/game'
+            # url_base = 'https://api.nhle.com/stats/rest/en/team/summary'
+            url_base = 'https://api.nhle.com/stats/rest/en/game'
 
-                game_type_id = '3' if season.type == 'P' else '2'
+            game_type_id = '3' if season.type == 'P' else '2'
 
-                # set request parameters
-                # params = {
-                #     "isAggregate": 'false',
-                #     "isGame": 'true',
-                #     "sort": '[{"property" : "gameDate", "direction": "ASC"}, {"property" : "teamId", "direction": "ASC"}]',
-                #     "start": 0,
-                #     # Setting limit = 0 returns all games for game date
-                #     "limit": 0,
-                #     "factCayenneExp": 'gamesPlayed>=1',
-                #     "cayenneExp": f'seasonId={season.id} and gameTypeId={game_type_id}'
-                # }
-                params = {
-                    "cayenneExp": f'season={season.id} and gameType={game_type_id}'
-                }
+            # set request parameters
+            # params = {
+            #     "isAggregate": 'false',
+            #     "isGame": 'true',
+            #     "sort": '[{"property" : "gameDate", "direction": "ASC"}, {"property" : "teamId", "direction": "ASC"}]',
+            #     "start": 0,
+            #     # Setting limit = 0 returns all games for game date
+            #     "limit": 0,
+            #     "factCayenneExp": 'gamesPlayed>=1',
+            #     "cayenneExp": f'seasonId={season.id} and gameTypeId={game_type_id}'
+            # }
+            params = {
+                "cayenneExp": f'season={season.id} and gameType={game_type_id}'
+            }
 
-                # Send a GET request to the API endpoint with the parameters
-                response = requests.get(url=f'{url_base}', params=params)
+            # Send a GET request to the API endpoint with the parameters
+            response = requests.get(url=f'{url_base}', params=params)
 
-                # Check if the request was successful (HTTP status code 200)
-                if response.status_code == 200:
-                    # Extract the data from the JSON response
-                    data = response.json()['data']
-                    # data contains rows with the following data structure
-                    # {
-                    #     "id": 2024020001,
-                    #     "easternStartTime": "2024-10-04T13:00:00",
-                    #     "gameDate": "2024-10-04",
-                    #     "gameNumber": 1,
-                    #     "gameScheduleStateId": 1,
-                    #     "gameStateId": 7,
-                    #     "gameType": 2,
-                    #     "homeScore": 1,
-                    #     "homeTeamId": 7,
-                    #     "period": 3,
-                    #     "season": 20242025,
-                    #     "visitingScore": 4,
-                    #     "visitingTeamId": 1
-                    # },
+            # Check if the request was successful (HTTP status code 200)
+            if response.status_code == 200:
+                # Extract the data from the JSON response
+                data = response.json()['data']
+                # data contains rows with the following data structure
+                # {
+                #     "id": 2024020001,
+                #     "easternStartTime": "2024-10-04T13:00:00",
+                #     "gameDate": "2024-10-04",
+                #     "gameNumber": 1,
+                #     "gameScheduleStateId": 1,
+                #     "gameStateId": 7,
+                #     "gameType": 2,
+                #     "homeScore": 1,
+                #     "homeTeamId": 7,
+                #     "period": 3,
+                #     "season": 20242025,
+                #     "visitingScore": 4,
+                #     "visitingTeamId": 1
+                # },
 
-                    # gameStateId is 7 for completed games, and 1 for games yet to be played
+                # gameStateId is 7 for completed games, and 1 for games yet to be played
 
-                    season.start_date = [d['gameDate'] for d in data if 'gameDate' in d][0]
-                    season.end_date = [d['gameDate'] for d in data if 'gameDate' in d][-1]
+                # season.start_date = [d['gameDate'] for d in data if 'gameDate' in d][0]
+                # season.end_date = [d['gameDate'] for d in data if 'gameDate' in d][-1]
 
-                    # season.count_of_total_game_dates = 183 # hardcoding for now, 'til I figure out how to get this when statsapi.web.nhl.com is not available
-                    season.count_of_total_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+                # # season.count_of_total_game_dates = 183 # hardcoding for now, 'til I figure out how to get this when statsapi.web.nhl.com is not available
+                # season.count_of_total_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
 
-                    # season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
-                    season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d and d['gameStateId']==7))
-                else:
-                    # Handle any errors
-                    msg = f'Error: {response.status_code}'
-                    if batch:
-                        logger.debug(msg)
-                    else:
-                        dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
-                        return
+                # season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+                season.count_of_completed_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d and d['gameStateId']==7))
+
+                season.persist()
 
             else:
-                season.count_of_total_game_dates = len(season_game_dates['dates'])
-                season.count_of_completed_game_dates = len(game_dates['dates'])
-
-            season.persist()
+                # Handle any errors
+                msg = f'Error: {response.status_code}'
+                if batch:
+                    logger.debug(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=10)
+                    return
 
             season_start_date: date = datetime.strptime(season.start_date, '%Y-%m-%d').date()
             season_end_date: date = datetime.strptime(season.end_date, '%Y-%m-%d').date()
@@ -2062,7 +2054,8 @@ class NHL_API():
         global logos
 
         if team_id not in logos:
-            logos[team_id] = f'../../python/input/nhl-images/logos/{team_id}.png'
+            # logos[team_id] = f'../../python/input/nhl-images/logos/{team_id}.png'
+            logos[team_id] = f'{DATA_INPUT_FOLDER}/nhl-images/logos/{team_id}.png'
 
         return logos[team_id]
 
@@ -2071,13 +2064,15 @@ class NHL_API():
         # game_type one of 'R' = Regular season, 'P' = Playoffs, 'PR' = Pre-season
 
         try:
-            # https://statsapi.web.nhl.com/api/v1/teams?season=20212022
-            teams = [{'id': d['id'], 'name': d['fullName'], 'abbr': d['triCode']} for d in j.search('data', requests.get(f'{NHL_STATS_API_URL}/team').json())]
-        except TypeError:
-            # season information not yet set up in NHL API
             df = pd.DataFrame()
 
-        df = pd.DataFrame(teams)
+            response = self.fetch_data('https://api.nhle.com/stats/rest/en/team')
+            if response is not None:
+                teams = [x for x in j.search('data[*]', response)]
+                df = pd.DataFrame(teams)
+
+        except TypeError:
+            ...
 
         return df
 
@@ -2171,12 +2166,173 @@ class NHL_API():
 
         return df
 
-    # def get_season(self, season: str):
+    def get_season(self, season: Season):
 
-    #     # https://statsapi.web.nhl.com/api/v1/seasons/?season=20212022
-    #     season_info = [{'startDate': d['regularSeasonStartDate'], 'endDate': d['regularSeasonEndDate'], 'numberOfGames': d['numberOfGames']} for d in j.search('seasons', requests.get(f'{NHL_API_URL}/seasons/?season={season}').json())]
+        url_base = 'https://api.nhle.com/stats/rest/en/season'
+        params = {
+            "cayenneExp": f'id={season.id}'
+        }
 
-    #     return season_info
+        season_info = {}
+
+       # Send a GET request to the API endpoint with the parameters
+        response = requests.get(url=f'{url_base}', params=params)
+
+        # Check if the request was successful (HTTP status code 200)
+        if response.status_code == 200:
+
+            # Extract the data from the JSON response
+            data = response.json()['data'][0]
+            # data contains rows with the following data structure
+            # {
+            #     "id": 20242025,
+            #     "allStarGameInUse": 0,
+            #     "conferencesInUse": 1,
+            #     "divisionsInUse": 1,
+            #     "endDate": "2025-06-24T00:00:00",
+            #     "entryDraftInUse": 1,
+            #     "formattedSeasonId": "2024-25",
+            #     "minimumPlayoffMinutesForGoalieStatsLeaders": 30,
+            #     "minimumRegularGamesForGoalieStatsLeaders": 7,
+            #     "nhlStanleyCupOwner": 1,
+            #     "numberOfGames": 82,
+            #     "olympicsParticipation": 0,
+            #     "pointForOTLossInUse": 1,
+            #     "preseasonStartdate": "2024-09-21T19:00:00",
+            #     "regularSeasonEndDate": "2025-04-17T19:00:00",
+            #     "rowInUse": 1,
+            #     "seasonOrdinal": 107,
+            #     "startDate": "2024-10-04T13:00:00",
+            #     "supplementalDraftInUse": 0,
+            #     "tiesInUse": 0,
+            #     "totalPlayoffGames": 0,
+            #     "totalRegularSeasonGames": 1312,
+            #     "wildcardInUse": 1
+            # }
+
+            season_info = {
+                    'preseasonStartDate': data['preseasonStartdate'],
+                    'regularSeasonStartDate': data['startDate'],
+                    'regularSeasonEndDate': data['regularSeasonEndDate'],
+                    'playoffsEndDate': data['endDate'],
+                    'numberOfGames': data['numberOfGames'],
+            }
+
+            url_base = 'https://api.nhle.com/stats/rest/en/game'
+            game_type_id = '3' if season.type == 'P' else '2'
+            params = {
+                "cayenneExp": f'season={season.id} and gameType={game_type_id}'
+            }
+
+            # Send a GET request to the API endpoint with the parameters
+            response = requests.get(url=f'{url_base}', params=params)
+
+            # Check if the request was successful (HTTP status code 200)
+            if response.status_code == 200:
+                # Extract the data from the JSON response
+                data = response.json()['data']
+                count_of_total_game_dates = len(set(d['gameDate'] for d in data if 'gameDate' in d))
+                season_info['totalGameDates'] = count_of_total_game_dates
+
+        return season_info
+
+    def process_player(self, player):
+        if 'playerId' in player:
+            player_id = int(player.get('playerId'))
+        else:
+            player_id = player.get('id')
+        landing = self.fetch_data(f'{NHL_API_URL}/player/{player_id}/landing')
+        if landing is None:
+            first_name = ''
+            last_name = ''
+            primary_position = ''
+            birth_date = ''
+            height = ''
+            weight = ''
+            active_status = ''
+            roster_status = ''
+            current_team_id = ''
+            current_team_abbr = ''
+            games = ''
+        else:
+            first_name = j.search('firstName.default', landing)
+            last_name = j.search('lastName.default', landing)
+            position = landing.get('position')
+            primary_position = 'LW' if position == 'L' else 'RW' if position == 'R' else position
+            birth_date = landing.get('birthDate')
+            height = inches_to_feet(landing.get('heightInInches')) if 'heightInInches' in landing else ''
+            weight = landing.get('weightInPounds') if 'weightInPounds' in landing else ''
+            # should be true that all are active
+            # active_status = landing.get('isActive')
+            active_status = True
+            roster_status = 'Y' if 'currentTeamRoster' in landing and player_id in [p['playerId'] for p in j.search('currentTeamRoster', landing)] else 'N'
+            current_team_id = landing.get('currentTeamId')
+            current_team_abbr = landing.get('currentTeamAbbrev')
+            games = j.search('careerTotals.regularSeason.gamesPlayed', landing)
+        return {
+            'id': player_id,
+            'fantrax_id': '',
+            'first_name': first_name,
+            'last_name': last_name,
+            'full_name': first_name + ' ' + last_name,
+            'birth_date': birth_date,
+            'height': height,
+            'weight': weight,
+            'active': active_status,
+            'roster_status': roster_status,
+            'current_team_id': current_team_id,
+            'current_team_abbr': current_team_abbr,
+            'primary_position': primary_position,
+            'games': games,
+        }
+
+    def process_roster_player(self, player):
+        player_id = player.get('id')
+        first_name = j.search('firstName.default', player)
+        last_name = j.search('lastName.default', player)
+        player_id = int(player.get('playerId'))
+        landing = self.fetch_data(f'{NHL_API_URL}/player/{player_id}/landing')
+        if landing is None:
+            first_name = ''
+            last_name = ''
+            position = ''
+            birth_date = ''
+            height = ''
+            weight = ''
+            active_status = ''
+            roster_status = ''
+            current_team_id = ''
+            current_team_abbr = ''
+            games = ''
+        else:
+            first_name = j.search('firstName.default', landing)
+            last_name = j.search('lastName.default', landing)
+            position = landing.get('position')
+            primary_position = 'LW' if position == 'L' else 'RW' if position == 'R' else position
+            birth_date = landing.get('birthDate')
+            height = inches_to_feet(landing.get('heightInInches')) if 'heightInInches' in landing else ''
+            weight = landing.get('weightInPounds') if 'weightInPounds' in landing else ''
+            active_status = landing.get('isActive')
+            roster_status = 'Y' if player_id in [p['playerId'] for p in j.search('currentTeamRoster', landing)] else 'N'
+            current_team_id = landing.get('currentTeamId')
+            current_team_abbr = landing.get('currentTeamAbbrev')
+            games = j.search('careerTotals.regularSeason.gamesPlayed', landing)
+        return {
+            'id': player_id,
+            'fantrax_id': '',
+            'first_name': first_name,
+            'last_name': last_name,
+            'full_name': first_name + ' ' + last_name,
+            'birth_date': birth_date,
+            'height': height,
+            'weight': weight,
+            'active': active_status,
+            'roster_status': roster_status,
+            'current_team_id': current_team_id,
+            'current_team_abbr': current_team_abbr,
+            'primary_position': primary_position,
+            'games': games,
+        }
 
     def save_stats_snapshot(self, season: Season, week_number: int, batch: bool=False):
 
@@ -2217,21 +2373,24 @@ class NHL_API():
             to_zone = tz.tzlocal()
 
             # Get player stats as of week
-            file_path = f'./python/input/nhl-data/{seasonID}/PlayerSeasonStats.json'
+            # file_path = f'./python/input/nhl-data/{seasonID}/PlayerSeasonStats.json'
+            file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/PlayerSeasonStats.json'
             if path.isfile(file_path):
                 if batch:
                     logger.debug(f'Retrieving "{file_path}"')
                 with open(file_path, 'r') as from_json:
                     player_stats_as_of_week = json.load(from_json)
 
-                file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerStats.json'
+                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerStats.json'
+                file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerStats.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
                 with open(file_path, 'w') as to_json:
                     json.dump(player_stats_as_of_week, to_json)
 
             # Get game feeds for week
-            file_path = f'./python/input/nhl-data/{seasonID}/GameFeeds.json'
+            # file_path = f'./python/input/nhl-data/{seasonID}/GameFeeds.json'
+            file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/GameFeeds.json'
             if path.isfile(file_path):
                 if batch:
                     logger.debug(f'Retrieving "{file_path}"')
@@ -2252,14 +2411,16 @@ class NHL_API():
                     new_game_feeds.append(game_feeds[idx])
                 game_feeds_for_week = new_game_feeds
 
-                file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}GameFeeds.json'
+                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}GameFeeds.json'
+                file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}GameFeeds.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
                 with open(file_path, 'w') as to_json:
                     json.dump(game_feeds_for_week, to_json)
 
             # Get player game logs for week
-            file_path = f'./python/input/nhl-data/{seasonID}/PlayerGameLogs.json'
+            # file_path = f'./python/input/nhl-data/{seasonID}/PlayerGameLogs.json'
+            file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/PlayerGameLogs.json'
             if path.isfile(file_path):
                 if batch:
                     logger.debug(f'Retrieving "{file_path}"')
@@ -2279,14 +2440,16 @@ class NHL_API():
                             new_stats.append(stats[idx])
                         player_game_logs_for_week['teams'][t_idx]['roster']['roster'][r_idx]['person']['stats'][0]['splits'] = new_stats
 
-                file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerGameLogs.json'
+                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerGameLogs.json'
+                file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerGameLogs.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
                 with open(file_path, 'w') as to_json:
                     json.dump(player_game_logs_for_week, to_json)
 
             # Get scoring plays for week
-            file_path = f'./python/input/nhl-data/{seasonID}/ScoringPlays.json'
+            # file_path = f'./python/input/nhl-data/{seasonID}/ScoringPlays.json'
+            file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/ScoringPlays.json'
             if path.isfile(file_path):
                 if batch:
                     logger.debug(f'Retrieving "{file_path}"')
@@ -2307,7 +2470,8 @@ class NHL_API():
                 scoring_plays_for_week['totalItems'] = total_items
                 scoring_plays_for_week['totalGames'] = total_items
 
-                file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}ScoringPlays.json'
+                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}ScoringPlays.json'
+                file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}ScoringPlays.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
                 with open(file_path, 'w') as to_json:

@@ -43,7 +43,7 @@ from clsPoolTeam import PoolTeam
 from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
-from constants import DATABASE
+from constants import DATABASE, DATA_INPUT_FOLDER
 from utils import assign_player_ids, get_db_connection, get_db_cursor, get_player_id, load_nhl_team_abbr_and_id_dict, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict, split_seasonID_into_component_years
 
 FONT = 'Consolas 12'
@@ -129,48 +129,46 @@ class HockeyPool:
 
         return
 
-    # def apiGetSeason(self):
+    def apiGetSeason(self, season: Season):
 
-    #     try:
+        try:
 
-    #         with get_db_connection() as connection:
+            with get_db_connection() as connection:
 
-    #             ####################################################
-    #             # TOTO: Target season should use season.id, not name
-    #             ####################################################
-    #             target_season = f'{season.name[0:4]}{season.name[5:9]}'
-    #             season_info = NHL_API().get_season(season=target_season)
-    #             if len(season_info) != 1:
-    #                 sg.Popup('Failed to return season information.', title='Error')
-    #                 return
-    #             row = season_info[0]
-    #             season.start_date = row['startDate']
-    #             season.end_date = row['endDate']
-    #             season.number_of_games = row['numberOfGames']
+                # target_season = f'{season.name[0:4]}{season.name[5:9]}'
+                season_info = NHL_API().get_season(season=season)
+                if len(season_info) == 0:
+                    sg.Popup('Failed to return season information.', title='Error')
+                    return
 
-    #             # Calculated weeks in season
-    #             start_date = datetime.strptime(season.start_date, '%Y-%m-%d')
-    #             end_date = datetime.strptime(season.end_date, '%Y-%m-%d')
-    #             start_week = Week.withdate(start_date)
-    #             end_week = Week.withdate(end_date)
-    #             if start_date.year < end_date.year:
-    #                 last_week_of_start_year = Week.last_week_of_year(int(season.start_date[0:4]))
-    #                 season.weeks = last_week_of_start_year.week - start_week.week + end_week.week + 1
-    #             else: # in same year, such as 20202021 Covid-19 schedule
-    #                 season.weeks = end_week.week  - start_week.week+ 1
+                season.start_date = re.search(r'\d{4}-\d{2}-\d{2}',season_info['regularSeasonStartDate']).group()
+                season.end_date = re.search(r'\d{4}-\d{2}-\d{2}',season_info['regularSeasonEndDate']).group()
+                season.number_of_games = season_info['numberOfGames']
+                season.count_of_total_game_dates = season_info['totalGameDates']
 
-    #             ret = season.persist(connection)
-    #             if ret == False:
-    #                 sg.Popup('Failed to persist NHL season information.', title='Error')
-    #                 return
+                # Calculated weeks in season
+                start_date = datetime.strptime(season.start_date, '%Y-%m-%d')
+                end_date = datetime.strptime(season.end_date, '%Y-%m-%d')
+                start_week = Week.withdate(start_date)
+                end_week = Week.withdate(end_date)
+                if start_date.year < end_date.year:
+                    last_week_of_start_year = Week.last_week_of_year(int(season.start_date[0:4]))
+                    season.weeks = last_week_of_start_year.week - start_week.week + end_week.week + 1
+                else: # in same year, such as 20202021 Covid-19 schedule
+                    season.weeks = end_week.week  - start_week.week+ 1
 
-    #     except Exception as e:
-    #         msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
-    #         sg.popup_error(msg)
+                ret = season.persist(connection)
+                if ret == False:
+                    sg.Popup('Failed to persist NHL season information.', title='Error')
+                    return
 
-    #     connection.close()
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            sg.popup_error(msg)
 
-    #     return
+        connection.close()
+
+        return
 
     def apiGetTeams(self):
 
@@ -183,8 +181,8 @@ class HockeyPool:
                 for row in nhl_teams.itertuples():
                     team = Team()
                     team.id = row.id
-                    team.name = row.name
-                    team.abbr = row.abbr
+                    team.name = row.fullName
+                    team.abbr = row.triCode
                     ret = team.persist(season.id, connection)
                     if ret == False:
                         sg.Popup('Failed to persist NHL team in target season.', title='Error')
@@ -1236,6 +1234,12 @@ class HockeyPool:
 
         return
 
+    def getPlayers(self):
+
+        NHL_API().get_players(season=season)
+
+        return
+
     def getPlayerStats(self):
 
         global df_player_stats
@@ -1254,7 +1258,9 @@ class HockeyPool:
             df_player_stats = pd.read_sql(sql=sql, con=get_db_connection())
             # Drop the duplicate columns from the resulting DataFrame
             df_player_stats = df_player_stats.loc[:, ~df_player_stats.columns.duplicated(keep='first')]
-            df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            # df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            df_player_stats = get_player_data.merge_with_current_players_info(season_id=str(season.id), pool_id=str(self.id), df_stats=df_player_stats)
+            # df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
         else: # season.SEASON_HAS_STARTED is True
             df_player_stats = ps.get_player_stats(season=season, pool=self)
             # if season.SEASON_HAS_STARTED is True and season.type == 'P':
@@ -1263,7 +1269,8 @@ class HockeyPool:
             #     df_player_stats = ps.merge_with_current_players_info(season=season, pool=next_season_pool, df_stats=df_player_stats)
             # else:
             #     df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
-            df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            # df_player_stats = ps.merge_with_current_players_info(season=season, pool=self, df_stats=df_player_stats)
+            df_player_stats = get_player_data.merge_with_current_players_info(season_id=str(season.id), pool_id=str(self.id), df_stats=df_player_stats)
 
         return
 
@@ -1271,7 +1278,8 @@ class HockeyPool:
 
         season_id = str(season.id)
 
-        excel_path = f'./python/input/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
+        # excel_path = f'./python/input/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
+        excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
 
         excel_columns = ('NAME', 'POS', 'TEAM', 'ADP', 'GP', 'TOI', 'G', 'A', 'SOG','PPP', 'BLK', 'HIT', 'PIM', 'GP.1', 'W', 'SV', 'SV%', 'GAA')
 
@@ -1358,7 +1366,8 @@ class HockeyPool:
 
         season_id = str(season.id)
 
-        excel_path = f'./python/input/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
+        # excel_path = f'./python/input/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
+        excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
 
         ##############################################################################
         # Skaters
@@ -1443,7 +1452,8 @@ class HockeyPool:
 
     def import_draft_picks(self, season: Season):
 
-        dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
+        # dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
+        dfDraftResults = pd.read_csv(f'{DATA_INPUT_FOLDER}/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
 
         # drop rows with no player name
         dfDraftResults = dfDraftResults.dropna(subset=['Player'])
@@ -1524,7 +1534,8 @@ class HockeyPool:
         # Skaters
         ##############################################################################
 
-        excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
+        # excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
+        excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
 
         excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
 
@@ -1549,7 +1560,8 @@ class HockeyPool:
         # Goalies
         ##############################################################################
 
-        excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
+        # excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
+        excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
 
         excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
 
@@ -1595,6 +1607,7 @@ class HockeyPool:
     def archive_keeper_lists(self, season: Season, pool: 'clsHockeyPool'):
 
         # dfKeeperLists = pd.read_excel(f'./python/input/excel/{season.id}/VFHL Team Keepers prior to Draft.xlsx', header=0)
+        # dfKeeperLists = pd.read_excel(f'{DATA_INPUT_FOLDER}/excel/{season.id}/VFHL Team Keepers prior to Draft.xlsx', header=0)
         columns = [
             f'{pool.id} as pool_id',
             'pt.name as pool_team',
@@ -1723,11 +1736,12 @@ class HockeyPool:
                     [
                         'NHL API...',
                             [
-                            'Update Players',
-                            'Get Player Stats',
-                            '-',
-                            # 'Get Season Info',
+                            'Get Season Info',
                             'Get Teams',
+                            '-',
+                            'Get Players',
+                            '-',
+                            'Get Player Stats',
                             ],
                         '-',
                         'Get MoneyPuck Data',
@@ -2062,12 +2076,6 @@ class HockeyPool:
             mclb.Widget.column(cid, anchor=anchor)
         # Redraw table
         mclb.Widget.pack(side='left', fill='both', expand=True)
-
-        return
-
-    def updatePlayers(self):
-
-        NHL_API().get_players(season=season)
 
         return
 
@@ -3022,12 +3030,12 @@ class HockeyPool:
                         window['Save_Hockey_Pool_Button'].update(visible=False)
                         window['Cancel_Hockey_Pool_Button'].update(visible=False)
 
-                    # elif event == 'Get Season Info':
-                    #     self.apiGetSeason()
+                    elif event == 'Get Season Info':
+                        self.apiGetSeason(season=season)
                     elif event == 'Get Teams':
                         self.apiGetTeams()
-                    elif event == 'Update Players':
-                        self.updatePlayers()
+                    elif event == 'Get Players':
+                        self.getPlayers()
                     elif event == 'Get Player Stats':
                         self.apiGetPlayerSeasonStats()
                         # get stats for all players

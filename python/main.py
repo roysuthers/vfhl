@@ -10,6 +10,7 @@ from flask_cors import CORS
 from io import StringIO
 from pathlib import Path
 
+from constants import JSON_FOLDER
 from get_player_data import aggregate_draft_simulations, rank_players, calc_z_scores, min_cat, max_cat, mean_cat
 from fantrax import scrape_draft_picks
 from utils import assign_player_ids, get_db_connection, process_dict
@@ -17,7 +18,8 @@ from utils import assign_player_ids, get_db_connection, process_dict
 
 def create_app():
     # app = Flask(__name__)
-    app = Flask(__name__, static_folder='./json')
+    # app = Flask(__name__, static_folder='./json')
+    app = Flask(__name__, static_folder=JSON_FOLDER)
     CORS(app)
 
     @app.route('/player-data')
@@ -82,9 +84,9 @@ def create_app():
 
         ###################################################################
         # Create the absolute path to the parent directory
-        parent_dir = os.getcwd()
-        json_folder = os.path.join(parent_dir, 'json')
-        file_path = os.path.join(json_folder, 'draft_picks.json')
+        # parent_dir = os.getcwd()
+        # json_folder = os.path.join(parent_dir, 'json')
+        file_path = os.path.join(JSON_FOLDER, 'draft_picks.json')
 
         # Check if draft_picks.json file exists
         try:

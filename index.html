@@ -208,7 +208,97 @@
                 margin-left: 20px;
             }
 
-        </style>
+            thead {
+                position: relative; /* Ensure the header positioning is set */
+                z-index: 1; /* Keep it lower than your tooltip */
+            }
+
+            .tooltip {
+                position: relative;
+                display: inline-block;
+            }
+
+            .tooltip .tooltip-text {
+                visibility: hidden;
+                width: auto; /* Let the width be determined by content */
+                background-color: #555;
+                color: #fff;
+                text-align: left;
+                padding: 5px;
+                border-radius: 6px;
+                position: absolute;
+                z-index: 10;
+                bottom: 125%;
+                left: 50%;
+                margin-left: -60px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                white-space: nowrap; /* Prevents text wrapping by default */
+                overflow: visible; /* Shows overflow */
+                text-overflow: clip; /* No ellipsis needed, just show full text */
+            }
+
+            .tooltip .tooltip-text-injury {
+                min-width: 300px; /* minimum width for wrapping tooltips */
+                max-width: 300px; /* maximum width for wrapping tooltips */
+                white-space: normal; /* Allows text to wrap */
+            }
+
+            .tooltip .tooltip-text-minors-elig {
+                min-width: 300px; /* minimum width for wrapping tooltips */
+                max-width: 300px; /* maximum width for wrapping tooltips */
+                white-space: normal; /* Allows text to wrap */
+            }
+
+            .tooltip .tooltip-text::after {
+                content: "";
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                margin-left: -5px;
+                border-width: 5px;
+                border-style: solid;
+                border-color: #555 transparent transparent transparent;
+            }
+
+            .tooltip:hover .tooltip-text {
+                visibility: visible;
+                opacity: 1;
+            }
+
+            .icon_MINORS_ELIGIBLE {
+                background-color: #10b27c; /* Green background */
+                border-radius: .4rem; /* Rounded corners */
+                color: white; /* Text color */
+                font-weight: 700; /* Font weight */
+                height: 1.1rem; /* Height of the circle */
+                justify-content: center; /* Center items horizontally */
+                margin-bottom: auto; /* Center the element if needed */
+                margin-left: .2rem;
+                margin-top: auto; /* Center the element if needed */
+                text-align: center; /* Center text */
+                width: 1.1rem; /* Width of the circle */
+            }
+
+            /* Ensure other elements are consistent */
+            span {
+                display: inline-flex; /* Keep span elements inline */
+                vertical-align: middle;
+            }
+
+            img {
+                height: 1rem; /* Height of the image */
+                margin-bottom: auto; /* Center the element if needed */
+                margin-left: 0.2rem; /* Space between the image and text */
+                margin-top: auto; /* Center the element if needed */
+                width: 1rem; /* Width of the image */
+            }
+
+            span img {
+                vertical-align: middle;
+            }
+
+</style>
 
         <div class="stat_gen_args">
             <div class="form-group">

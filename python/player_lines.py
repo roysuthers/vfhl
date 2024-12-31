@@ -266,53 +266,99 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                         # Respectful scraping: sleep to avoid hitting the server with too many requests
                         time.sleep(10)
 
-                section = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="line_combos"]')))
-
-                lines = section.text.splitlines()
-
-                sections = ['Forwards', 'Defensive Pairings', '1st Powerplay Unit', '2nd Powerplay Unit']
-                player_data = {}
-                for section in sections:
-                    start_index = lines.index(section)
-                    if section == 'Forwards':
-                        pos = 'F'
-                        start_index += 4  # Skip the positions
-                        end_index = lines.index('Defensive Pairings')
-                        names = [lines[i:i+3] for i in range(start_index, end_index, 3)]
-                        for i, line in enumerate(names):
-                            for player in line:
-                                # for when a forward line isn't a full complement
-                                if player == 'Defensive Pairings':
-                                    break
-                                if player not in player_data:
-                                    player_data[player] = {'Line': f'{i+1}'}
-                    elif section == 'Defensive Pairings':
-                        pos = 'D'
-                        end_index = lines.index('1st Powerplay Unit')
-                        names = [lines[i:i+2] for i in range(start_index+1, end_index, 2)]
-                        for i, pair in enumerate(names):
-                            for player in pair:
-                                # for when a defensive pair isn't a full complement
-                                if player == '1st Powerplay Unit':
-                                    break
-                                if player not in player_data:
-                                    player_data[player] = {'Line': f'{i+1}'}
-                    elif section == '1st Powerplay Unit':
-                        end_index = lines.index('2nd Powerplay Unit')
-                        names = lines[start_index+1:end_index]
-                        for player in names:
-                            if player in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
-                                player_data[player]['PP Unit'] = '1'
-                    elif section == '2nd Powerplay Unit':
-                        end_index = lines.index('1st Penalty Kill Unit')
-                        names = lines[start_index+1:end_index]
-                        for player in names:
-                            if player in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
-                                player_data[player]['PP Unit'] = '2'
-
                 # 'https://www.dailyfaceoff.com/teams/anaheim-ducks/line-combinations'
                 team_name = url.split('/')[-2]
                 team_abbr = team_abbrs[team_name]
+
+                # section = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="line_combos"]')))
+
+                # lines = section.text.splitlines()
+
+                # sections = ['Forwards', 'Defensive Pairings', '1st Powerplay Unit', '2nd Powerplay Unit']
+
+                sections = {
+                    "Forwards": '//*[@id="line_combos"]/div[1]/div',
+                    "Defensive Pairings": '//*[@id="line_combos"]/div[3]',
+                    "1st Powerplay Unit": '//*[@id="line_combos"]/div[4]',
+                    "2nd Powerplay Unit": '//*[@id="line_combos"]/div[5]',
+                }
+
+                # Extract player names for each section
+                player_data = {}
+                try:
+                    # for section in sections:
+                    #     start_index = lines.index(section)
+                    #     if section == 'Forwards':
+                    #         pos = 'F'
+                    #         start_index += 4  # Skip the positions
+                    #         end_index = lines.index('Defensive Pairings')
+                    #         names = [lines[i:i+3] for i in range(start_index, end_index, 3)]
+                    #         for i, line in enumerate(names):
+                    #             for player in line:
+                    #                 # for when a forward line isn't a full complement
+                    #                 if player == 'Defensive Pairings':
+                    #                     break
+                    #                 if player not in player_data:
+                    #                     player_data[player] = {'Line': f'{i+1}'}
+                    #     elif section == 'Defensive Pairings':
+                    #         pos = 'D'
+                    #         end_index = lines.index('1st Powerplay Unit')
+                    #         names = [lines[i:i+2] for i in range(start_index+1, end_index, 2)]
+                    #         for i, pair in enumerate(names):
+                    #             for player in pair:
+                    #                 # for when a defensive pair isn't a full complement
+                    #                 if player == '1st Powerplay Unit':
+                    #                     break
+                    #                 if player not in player_data:
+                    #                     player_data[player] = {'Line': f'{i+1}'}
+                    #     elif section == '1st Powerplay Unit':
+                    #         end_index = lines.index('2nd Powerplay Unit')
+                    #         names = lines[start_index+1:end_index]
+                    #         for player in names:
+                    #             if player in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
+                    #                 player_data[player]['PP Unit'] = '1'
+                    #     elif section == '2nd Powerplay Unit':
+                    #         end_index = lines.index('1st Penalty Kill Unit')
+                    #         names = lines[start_index+1:end_index]
+                    #         for player in names:
+                    #             if player in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
+                    #                 player_data[player]['PP Unit'] = '2'
+
+                    for section, xpath in sections.items():
+                        section_element = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+                        section_elements = section_element.find_elements(By.XPATH, './div')
+                        line = 0
+                        pos = ''
+                        if section == 'Forwards':
+                            pos = 'F'
+                        elif section == 'Defensive Pairings':
+                            pos = 'D'
+                        for section_element in section_elements:
+                            if section_element.text == section or section_element.text == 'LW\nC\nRW':
+                                continue
+                            line += 1
+                            player_elements = section_element.find_elements(By.TAG_NAME, 'a')
+                            for player_element in player_elements:
+                                player_name = player_element.get_attribute('text')
+                                if player_name == '':
+                                    continue
+                                if section in ('Forwards', 'Defensive Pairings'):
+                                    if player_name not in player_data:
+                                        player_data[player_name] = {'pos': pos, 'line': line}
+                                elif section == '1st Powerplay Unit':
+                                    if player_name in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
+                                        player_data[player_name]['pp unit'] = '1'
+                                elif section == '2nd Powerplay Unit':
+                                    if player_name in player_data:  # Only add if player is in 'Forwards' or 'Defensive Pairings'
+                                        player_data[player_name]['pp unit'] = '2'
+
+                except Exception as e:
+                    msg = f'Scraping "{daily_faceoff_com}" failed for "{team_name}". Reason: {repr(e)}...'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=10)
+                    else:
+                        logger.error(msg)
 
                 for player_name, data in player_data.items():
                     players.append(
@@ -320,11 +366,11 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                             'name': player_name,
                             # 'first_name': '',
                             # 'last_name': '',
-                            'pos': pos,
+                            'pos': data['pos'],
                             # 'rest': np.nan,
                             'team': team_abbr,
-                            'line': data['Line'],
-                            'pp_line': data['PP Unit'] if 'PP Unit' in data else '',
+                            'line': data['line'],
+                            'pp_line': data['pp unit'] if 'pp unit' in data else '',
                         }
                     )
 

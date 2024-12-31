@@ -183,6 +183,8 @@ var controls_getRawData = document.querySelectorAll('.trigger_getRawData');
 var controls_aggregateData = document.querySelectorAll('.trigger_aggregateData');
 var controls_calculateScores = document.querySelectorAll('.trigger_calculateScores');
 
+var mappedIndex = -1; // Declare a variable to store mappedIndex
+
 window.onload = function() {
     // Set the data-default-index attribute to the index of the initially selected option
     controls_getRawData.forEach(function(control) {
@@ -696,10 +698,10 @@ document.getElementById('applyButton').addEventListener('click', () => {
                     pagingType: 'full_numbers',
 
                     lengthMenu: [
-                        [20, 50, 100, 250, 500, -1],
-                        ['20 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
+                        [25, 50, 100, 250, 500, -1],
+                        ['25 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
                     ],
-                    pageLength: 20,
+                    pageLength: 25,
                     // use 'api' selection style; was using 'multi+shift'
                     select: 'api',
                     buttons: [
@@ -711,7 +713,42 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         {
                             extend: 'excelHtml5',
                             text: 'Export to Excel',
-                            exportOptions: {columns: ':visible'}
+                            exportOptions: {
+                                columns: ':visible', // Export visible columns
+                                // custom export function
+                                format: {
+                                    body: function (data, row, column, node) {
+                                        // Reuse precomputed mappedIndex
+                                        if (column === mappedIndex) {
+                                            // Extract name from HTML in 'data'
+                                            let tempDiv = document.createElement("div");
+                                            tempDiv.innerHTML = data; // Set the HTML content
+
+                                            // Find the anchor and return its text
+                                            let anchor = tempDiv.querySelector("a");
+                                            return anchor ? anchor.textContent : ""; // Anchor text or empty string
+                                        }
+
+                                        // Return the original data for other columns
+                                        return data;
+                                    }
+                                }
+                            },
+                            action: function (e, dt, button, config) {
+                                // Precompute `mappedIndex`
+                                let api = dt; // Get the DataTable instance
+                                let visibleColumns = api.columns(':visible').indexes();
+
+                                for (let i = 0; i < visibleColumns.length; i++) {
+                                    if (visibleColumns[i] === name_idx) {
+                                        mappedIndex = i;
+                                        break;
+                                    }
+                                }
+
+                                // Call the default action (export)
+                                $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
+                            }
                         },
                         {
                             extend: 'collection',
@@ -876,7 +913,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
                             }
                         },
                         {
-                            text: 'Toggle Name Colors',
+                            text: 'Toggle Name Colours',
                             action: function (e, dt, node, config) {
                                 dt.rows().every(function() {
                                     var rowData = this.data();
@@ -1055,6 +1092,10 @@ document.getElementById('applyButton').addEventListener('click', () => {
                             }
                             nameToIndex[name].push(index);
                         });
+
+                        // Cache the visibleColumns and mappedIndex
+                        visibleColumns = playerStatsDataTable.columns(':visible').indexes();
+                        mappedIndex = visibleColumns.indexOf(name_idx); // Map the actual name index to the visible index
 
                         playerStatsTableIsInitialized = true;
 
@@ -1374,14 +1415,14 @@ document.getElementById('applyButton').addEventListener('click', () => {
                             if (manually_unhidden_columns.includes(column_name) === true) {
                                 manually_unhidden_columns.pop(column_name);
                             }
-                            if (manually_hidden_columns.includes(column_name) === false) {
+                            if (!initially_hidden_column_names.includes(column_name) && !manually_hidden_columns.includes(column_name)) {
                                 manually_hidden_columns.push(column_name);
                             }
                         } else { // visible
                             if (manually_hidden_columns.includes(column_name) === true) {
                                 manually_hidden_columns.pop(column_name);
                             }
-                            if (manually_unhidden_columns.includes(column_name) === false) {
+                            if (initially_hidden_column_names.includes(column_name) && !manually_unhidden_columns.includes(column_name)) {
                                 manually_unhidden_columns.push(column_name);
                             }
                         }
@@ -3922,10 +3963,10 @@ function openDataTablesInNewTab(draftSimulationsAgg, draftSimulationsAggColumns,
                         columns: ${JSON.stringify(draftSimulationsAggTableColumns)},
                         order: [[4, "asc"]],
                         lengthMenu: [
-                            [20, 50, 100, 250, 500, -1],
-                            ['20 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
+                            [25, 50, 100, 250, 500, -1],
+                            ['25 per page', '50 per page', '100 per page', '250 per page', '500 per page', 'All']
                         ],
-                        pageLength: 20,
+                        pageLength: 25,
                     });
                 });
             </script>
@@ -4308,6 +4349,7 @@ function updateColumnIndexes(columns) {
     // toi_sec_idx = columns.findIndex(column => column.title === 'toi (sec)');
     toi_sh_pg_trend_idx = columns.findIndex(column => column.title === 'toi sh pg (trend)');
     upside_idx = columns.findIndex(column => column.title === 'upside');
+    weight_idx = columns.findIndex(column => column.title === 'weight');
     wins_scoreidx = columns.findIndex(column => column.title === 'w score');
     watch_idx = columns.findIndex(column => column.title === 'watch');
     wins_idx = columns.findIndex(column => column.title === 'w');
