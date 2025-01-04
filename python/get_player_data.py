@@ -788,14 +788,14 @@ def calc_scoring_category_maximums(df: pd.DataFrame, game_type: str='R'):
         forwards_mask = df_copy.eval(forwards_filter)
         defense_mask = df_copy.eval(defense_filter)
         goalie_mask = df_copy.eval(goalie_filter)
-        # minimum_one_game_mask = df_copy.eval(minimum_one_game_filter)
-        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
-        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
+        minimum_one_game_mask = df_copy.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df_copy.loc[skaters_mask & minimum_skater_games_mask]
-        df_f = df_copy.loc[forwards_mask & minimum_skater_games_mask]
-        df_d = df_copy.loc[defense_mask & minimum_skater_games_mask]
-        df_g = df_copy.loc[goalie_mask & minimum_goalie_starts_mask]
+        df_sktr = df_copy.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df_copy.loc[forwards_mask & minimum_one_game_mask]
+        df_d = df_copy.loc[defense_mask & minimum_one_game_mask]
+        df_g = df_copy.loc[goalie_mask & minimum_one_game_mask]
 
         columns = list(df_copy.columns)
         all_categories = sktr_categories + sktr_z_categories + sktr_score_categories
@@ -899,14 +899,14 @@ def calc_scoring_category_minimums(df: pd.DataFrame):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
-        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
-        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
+        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
-        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
-        df_d = df.loc[defense_mask & minimum_skater_games_mask]
-        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
+        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df.loc[forwards_mask & minimum_one_game_mask]
+        df_d = df.loc[defense_mask & minimum_one_game_mask]
+        df_g = df.loc[goalie_mask & minimum_one_game_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
@@ -999,14 +999,14 @@ def calc_scoring_category_means(df: pd.DataFrame, game_type: str='R'):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
-        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
-        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
+        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
-        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
-        df_d = df.loc[defense_mask & minimum_skater_games_mask]
-        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
+        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df.loc[forwards_mask & minimum_one_game_mask]
+        df_d = df.loc[defense_mask & minimum_one_game_mask]
+        df_g = df.loc[goalie_mask & minimum_one_game_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
@@ -1246,14 +1246,14 @@ def calc_scoring_category_std_deviations(df: pd.DataFrame):
         forwards_mask = df.eval(forwards_filter)
         defense_mask = df.eval(defense_filter)
         goalie_mask = df.eval(goalie_filter)
-        # minimum_one_game_mask = df.eval(minimum_one_game_filter)
-        minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
-        minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
+        minimum_one_game_mask = df.eval(minimum_one_game_filter)
+        # minimum_skater_games_mask = df.eval(minimum_skater_games_filter)
+        # minimum_goalie_starts_mask = df.eval(minimum_goalie_starts_filter)
 
-        df_sktr = df.loc[skaters_mask & minimum_skater_games_mask]
-        df_f = df.loc[forwards_mask & minimum_skater_games_mask]
-        df_d = df.loc[defense_mask & minimum_skater_games_mask]
-        df_g = df.loc[goalie_mask & minimum_goalie_starts_mask]
+        df_sktr = df.loc[skaters_mask & minimum_one_game_mask]
+        df_f = df.loc[forwards_mask & minimum_one_game_mask]
+        df_d = df.loc[defense_mask & minimum_one_game_mask]
+        df_g = df.loc[goalie_mask & minimum_one_game_mask]
 
         # get list of dataframe columns
         columns = list(df.columns)
