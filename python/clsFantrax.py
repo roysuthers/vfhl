@@ -889,7 +889,7 @@ class Fantrax:
                 dialog['-PROG-'].update(msg)
                 event, values = dialog.read(timeout=10)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
-                    return
+                    return dfPoolTeams
             else:
                 logger.debug(msg)
 
@@ -910,7 +910,7 @@ class Fantrax:
                     dialog['-PROG-'].update(msg)
                     event, values = dialog.read(timeout=10)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
-                        return
+                        return dfPoolTeams
                 else:
                     logger.debug(msg)
 
@@ -934,7 +934,7 @@ class Fantrax:
                         sg.popup_error(msg)
                     else:
                         logger.error(msg)
-                    return
+                    return dfPoolTeams
 
                 # iterate through pool teams & get games played by position
                 for team in teams:
@@ -943,7 +943,23 @@ class Fantrax:
                     if not dialog:
                             logger.debug(f'Getting games played by position for {team["name"]}')
 
-                    browser.get(url)
+                    for attempt in range(3):
+                        try:
+                            browser.get(url)
+                            break
+                        except TimeoutException as e:
+                            if attempt == 2:
+                                msg = f'Unable to get games played by position "{url}" url after 3 attempts.'
+                                if dialog:
+                                    dialog['-PROG-'].update(msg)
+                                    event, values = dialog.read(timeout=10)
+                                else:
+                                    logger.debug(msg)
+                                return dfPoolTeams
+
+                            # Respectful scraping: sleep to avoid hitting the server with too many requests
+                            time.sleep(10)
+                            continue
 
                     table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[2]/div[2]')))
 
@@ -952,7 +968,7 @@ class Fantrax:
                         dialog['-PROG-'].update(msg)
                         event, values = dialog.read(timeout=10)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
-                            return
+                            return dfPoolTeams
                     else:
                         logger.debug(msg)
 
@@ -980,7 +996,7 @@ class Fantrax:
                             sg.popup_error(msg)
                         else:
                             logger.error(msg)
-                        return
+                        return dfPoolTeams
 
             # save to dataframe & return
             dfPoolTeams = pd.DataFrame.from_dict(data=teams)
