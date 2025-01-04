@@ -333,11 +333,14 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                             pos = 'F'
                         elif section == 'Defensive Pairings':
                             pos = 'D'
-                        for section_element in section_elements:
-                            if section_element.text == section or section_element.text == 'LW\nC\nRW':
+                        for element in section_elements:
+                            # for some reason, element.get_attribute('text') and element.text don't retrive the text, though I know it's
+                            # there when I debug. Getting the innerText works!
+                            element_text = element.get_attribute('innerText')
+                            if element_text in (section, 'LW\nC\nRW'):
                                 continue
                             line += 1
-                            player_elements = section_element.find_elements(By.TAG_NAME, 'a')
+                            player_elements = element.find_elements(By.TAG_NAME, 'a')
                             for player_element in player_elements:
                                 player_name = player_element.get_attribute('text')
                                 if player_name == '':

@@ -2276,6 +2276,7 @@ class HockeyPool:
                 # if name == 'Tim Stuetzle':
                 #     name = 'Tim Stutzle'
                 team = dfPlayerLines['team'][idx]
+                pos = dfPlayerLines['pos'][idx]
                 line = dfPlayerLines['line'][idx]
                 pp_line = dfPlayerLines['pp_line'][idx]
 
@@ -2299,8 +2300,10 @@ class HockeyPool:
                 # #     nhlPlayer = nhlPlayers[0]
 
                 # update team roster player
-                # sql = f'update TeamRosters set line="{line}", pp_line="{pp_line}" where seasonID={season.id} and player_id={nhlPlayer.id}'
-                sql = f'update TeamRosters set line="{line}", pp_line="{pp_line}" where seasonID={season.id} and player_id={player_id}'
+                sql = f'''
+                    INSERT OR REPLACE INTO TeamRosters (seasonID, player_id, team_abbr, name, pos, line, pp_line)
+                    VALUES ({season.id}, {player_id}, "{team}", "{name}", "{pos}", "{line}", "{pp_line}");
+                '''
                 with get_db_connection() as connection:
                     try:
                         connection.execute(sql)
