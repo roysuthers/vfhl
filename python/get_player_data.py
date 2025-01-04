@@ -3157,7 +3157,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
         'columns': [
             {'title': 'team gp', 'table column': 'team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True},
             {'title': 'gp', 'table column': 'games', 'format': eval(f_0_decimals), 'data_group': 'general', 'search_builder': True},
-            {'title': '% of team gp', 'table column': 'percent_of_team_games', 'format': eval(f_0_decimals), 'data_group': 'general', 'hide': True, 'search_builder': True},
+            {'title': 'games %', 'table column': 'percent_of_team_games', 'format': eval(f_0_decimals), 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'pts', 'table column': 'points', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'g', 'table column': 'goals', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
             {'title': 'a', 'table column': 'assists', 'format': eval(f_0_decimals) if statType=='Cumulative' else eval(f_1_decimal), 'default order': 'desc', 'data_group': 'skater_scoring_category', 'search_builder': True},
@@ -3213,8 +3213,8 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
     goalie_columns = {
         'columns': [
             {'title': 'tier', 'runtime column': 'tier', 'data_group': 'goalie', 'hide': False if game_type=='Prj' else True, 'search_builder': True, 'search_builder': True if game_type=='Prj' else False},
-            {'title': 'goalie starts', 'table column': 'games_started', 'format': eval(f_0_decimals), 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
-            {'title': '% of team games started', 'table column': 'starts_as_percent', 'format': eval(f_0_decimals), 'hide': True, 'data_group': 'goalie'},
+            {'title': 'starts', 'table column': 'games_started', 'format': eval(f_0_decimals), 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
+            {'title': 'starts %', 'table column': 'starts_as_percent', 'format': eval(f_0_decimals), 'hide': True, 'data_group': 'goalie'},
             {'title': 'qs', 'table column': 'quality_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
             {'title': 'qs %', 'table column': 'quality_starts_as_percent', 'format': eval(f_1_decimal), 'default order': 'desc', 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
             {'title': 'rbs', 'table column': 'really_bad_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
