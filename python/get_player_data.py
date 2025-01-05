@@ -2917,7 +2917,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
                                         <span class="tooltip-text tooltip-text-minors-elig">
                                             {minors_eligible_msg}
                                             Career games: {career_games}<br>
-                                            Games to reach {minors_eligible_cutoff} cut-off: {games_to_reach_cutoff}<br>
+                                            Games to reach {minors_eligible_cutoff} cut-off: {int(games_to_reach_cutoff)}<br>
                                             Team games remaining: {team_games_remaining}
                                         </span>
                                     </span>
