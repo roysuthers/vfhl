@@ -2526,7 +2526,7 @@ class HockeyPool:
                 fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
                 dfPoolTeams = fantrax.scrapePoolTeams(dialog=dialog)
                 del fantrax
-                dfPoolTeams.to_sql('dfPoolTeams', con=get_db_connection(), index=False, if_exists='replace')
+                # dfPoolTeams.to_sql('dfPoolTeams', con=get_db_connection(), index=False, if_exists='replace')
             elif response == 2:
                 msg = 'Getting pool teams data from database...'
                 if batch:
@@ -2544,6 +2544,9 @@ class HockeyPool:
                 if batch:
                     logger.debug('No pool teams found. Returning...')
                 return
+
+            if response == 1:
+                dfPoolTeams.to_sql('dfPoolTeams', con=get_db_connection(), index=False, if_exists='replace')
 
             msg = f'Rosters collected for {len(dfPoolTeams.index)} pool teams. Writing to database...'
             if batch:

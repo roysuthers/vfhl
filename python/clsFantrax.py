@@ -949,7 +949,7 @@ class Fantrax:
                             break
                         except TimeoutException as e:
                             if attempt == 2:
-                                msg = f'Unable to get games played by position "{url}" url after 3 attempts.'
+                                msg = f'Unable to get team "{team["name"]}" games played by position "{url}" url after 3 attempts.'
                                 if dialog:
                                     dialog['-PROG-'].update(msg)
                                     event, values = dialog.read(timeout=10)
