@@ -2856,7 +2856,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
         link += ' style="color: ' + color + '; white-space: nowrap; margin-bottom: 10px;">' + row['name'] + '</a>'
 
-        age = row['age']
+        age = int(row['age'])
         manager = '' if row['manager'] == '' else f"<br>Manager: {row['manager']}"
         breakout_threshold = '' if np.isnan(row['bt']) else f"<br>Breakout: {int(row['bt'])}"
         height = f"<br>Height: {row['height']}"
