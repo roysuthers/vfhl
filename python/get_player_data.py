@@ -2264,7 +2264,46 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
         {where_clause}
     ''')
 
-    params = (pool_id,)
+    columns = ' '.join(textwrap.dedent(f'''\
+        ps.seasonID,
+        ps.player_id,
+        p.full_name as name,
+        p.primary_position as pos,
+        '(N/A)' as team_abbr,
+        '' as line,
+        '' as pp_line,
+        p.birth_date,
+        p.height,
+        p.weight,
+        p.active,
+        p.roster_status as nhl_roster_status,
+        p.games as career_games,
+        p.injury_status,
+        p.injury_note,
+        null as poolteam_id,
+        '' as pool_team,
+        '' as status,
+        '' as keeper
+    ''').splitlines())
+
+    select_sql = f'select {columns}'
+
+    from_tables = textwrap.dedent('''\
+        from PlayerStats ps
+        left outer join Player p on p.id=ps.player_id
+    ''')
+
+    where_clause = f'where ps.seasonID=? and ps.season_type="R" and (p.active!=1 or p.roster_status="N")'
+
+    sql = textwrap.dedent(f'''\
+        {sql}
+        union
+        {select_sql}
+        {from_tables}
+        {where_clause}
+    ''')
+
+    params = (pool_id, season_id,)
 
     df_inactive = pd.read_sql(sql, params=params, con=get_db_connection())
 
@@ -2856,7 +2895,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
 
         link += ' style="color: ' + color + '; white-space: nowrap; margin-bottom: 10px;">' + row['name'] + '</a>'
 
-        age = int(row['age'])
+        age = 0 if pd.isna(row['age']) else int(row['age'])
         manager = '' if row['manager'] == '' else f"<br>Manager: {row['manager']}"
         breakout_threshold = '' if np.isnan(row['bt']) else f"<br>Breakout: {int(row['bt'])}"
         height = f"<br>Height: {row['height']}"
