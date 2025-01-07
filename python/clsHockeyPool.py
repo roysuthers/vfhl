@@ -2461,7 +2461,7 @@ class HockeyPool:
             else:
                 return
 
-            if len(dfPoolTeamRoster.index) == 0:
+            if dfPoolTeamRoster is None or len(dfPoolTeamRoster.index) == 0:
                 if batch:
                     logger.debug('No pool team rosters found. Returning...')
                 return
