@@ -60,6 +60,7 @@ class Browser:
                 options.set_preference("browser.download.manager.showWhenStarting", False)
                 options.set_preference("browser.download.dir", self.browser_download_dir)
                 options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream")
+                options.set_preference("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0")
 
             driver_path = os.getcwd()
             if driver_path.endswith('\python') is True:
