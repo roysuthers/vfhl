@@ -51,14 +51,14 @@ def main():
         try:
             hp.email_nhl_team_transactions(batch=True)
         except Exception as e:
-            logger.info('Exception in call to hp.email_nhl_team_transactions() returned.')
+            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
         logger.info('Call to hp.email_nhl_team_transactions() returned.')
 
         logger.info('Calling hp.updatePlayerInjuries().')
         try:
             hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
         except Exception as e:
-            logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
+            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
         # line & pp unit projections
@@ -76,28 +76,28 @@ def main():
                     try:
                         hp.update_player_lines(season=season, batch=True, game_date=today)
                     except Exception as e:
-                        logger.info('Exception in call to hp.update_player_lines() returned.')
+                        logger.error(f'Exception in call to hp.update_player_lines() returned. \nException: {repr(e)}')
                     logger.info('Call to hp.update_player_lines() returned.')
 
                 logger.info('Calling hp.updatePoolTeamRosters().')
                 try:
                     hp.updatePoolTeamRosters(suppress_prompt=True, batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updatePoolTeamRosters() returned.')
+                    logger.error(f'Exception in call to hp.updatePoolTeamRosters() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for minors_available_players, minors_taken_players, active_available_players, all_taken_players')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
+                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
+                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
         logger.info('"Task scheduler 2" completed')

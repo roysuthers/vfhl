@@ -63,7 +63,7 @@ def main():
                 try:
                     nhl_api.get_player_stats(season=season, batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to nhl_api.get_player_stats().')
+                    logger.error(f'Exception in call to nhl_api.get_player_stats(). \nException: {repr(e)}')
                 logger.info('Call to nhl_api.get_player_stats() returned.')
             elif season.SEASON_HAS_STARTED is False:
                 logger.info(f'nhl_api.get_player_stats() not executed because "{season.id}{season.type}" has not started.')
@@ -77,14 +77,14 @@ def main():
         try:
             nhl_api.get_players(season=seasons[0], batch=True)
         except Exception as e:
-            logger.info('Exception in call to nhl_api.get_players() returned.')
+            logger.error(f'Exception in call to nhl_api.get_players() returned. \nException: {repr(e)}')
         logger.info('Call to nhl_api.get_players() returned.')
 
         logger.info('Calling hp.updatePlayerInjuries().')
         try:
             hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
         except Exception as e:
-            logger.info('Exception in call to hp.updatePlayerInjuries() returned.')
+            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
         logger.info('Call to hp.updatePlayerInjuries() returned.')
 
         # line & pp unit projections
@@ -102,35 +102,35 @@ def main():
                     try:
                         hp.update_player_lines(season=season, batch=True, game_date=today)
                     except Exception as e:
-                        logger.info('Exception in call to hp.update_player_lines() returned.')
+                        logger.error(f'Exception in call to hp.update_player_lines() returned. \nException: {repr(e)}')
                     logger.info('Call to hp.update_player_lines() returned.')
 
                 logger.info('Calling hp.updatePoolTeams().')
                 try:
                     hp.updatePoolTeams(suppress_prompt=True, batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updatePoolTeams() returned.')
+                    logger.error(f'Exception in call to hp.updatePoolTeams() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updatePoolTeams() returned.')
 
                 logger.info('Calling hp.updatePoolTeamRosters().')
                 try:
                     hp.updatePoolTeamRosters(suppress_prompt=True, batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updatePoolTeamRosters() returned.')
+                    logger.error(f'Exception in call to hp.updatePoolTeamRosters() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for active_available_players, minors_available_players, active_taken_players, minors_taken_players')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
+                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
                 logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
                 try:
                     hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
                 except Exception as e:
-                    logger.info('Exception in call to hp.updateFantraxPlayerInfo() returned.')
+                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
                 if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
@@ -138,7 +138,7 @@ def main():
                     try:
                         hp.getMoneyPuckData(season=season, batch=True)
                     except Exception as e:
-                        logger.info('Exception in call to hp.getMoneyPuckData() returned.')
+                        logger.error(f'Exception in call to hp.getMoneyPuckData() returned. \nException: {repr(e)}')
                     logger.info('Call to hp.getMoneyPuckData() returned.')
 
         logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
