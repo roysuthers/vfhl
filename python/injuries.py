@@ -36,7 +36,7 @@ def from_sports_reference(dialog: sg.Window=None) -> pd.DataFrame:
         msg = f'Opening "{hockey_reference_com}"...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return
         else:
@@ -55,7 +55,7 @@ def from_sports_reference(dialog: sg.Window=None) -> pd.DataFrame:
         msg = f'Scraping "{hockey_reference_com}"...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return
         else:
@@ -81,7 +81,7 @@ def from_sports_reference(dialog: sg.Window=None) -> pd.DataFrame:
         msg = f'Found "{name}" in injury list...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return
         else:
@@ -119,7 +119,7 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         msg = f'Opening "{url}"...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return
         else:
@@ -144,7 +144,7 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
             msg = f'Scraping "{url}"...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -206,7 +206,7 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
                 # msg = f'Found "{name}" in injury list...'
                 # if dialog:
                 #     dialog['-PROG-'].update(msg)
-                #     event, values = dialog.read(timeout=10)
+                #     event, values = dialog.read(timeout=2)
                 #     if event == 'Cancel' or event == sg.WIN_CLOSED:
                 #         return
                 # else:

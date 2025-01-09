@@ -137,7 +137,7 @@ class Fantrax:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -159,7 +159,7 @@ class Fantrax:
                 msg = 'Scraping NHL team transactions...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 else:
@@ -198,7 +198,7 @@ class Fantrax:
             msg = 'Scraping NHL team transactions completed...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -238,7 +238,7 @@ class Fantrax:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -278,7 +278,7 @@ class Fantrax:
                     msg = f'Getting "{list_type}" players'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
                             return
                     else:
@@ -297,7 +297,7 @@ class Fantrax:
                         msg = f'TimeoutException getting "{list_type}" web page.'
                         if dialog:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                             if event == 'Cancel' or event == sg.WIN_CLOSED:
                                 return
                         else:
@@ -308,7 +308,7 @@ class Fantrax:
                         msg = f'AttributeError:{3} getting "{list_type}" web page.'
                         if dialog:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                             if event == 'Cancel' or event == sg.WIN_CLOSED:
                                 return
                         else:
@@ -322,7 +322,7 @@ class Fantrax:
                         msg = f'TimeoutException getting "{list_type}" player table.'
                         if dialog:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                             if event == 'Cancel' or event == sg.WIN_CLOSED:
                                 return
                         else:
@@ -335,7 +335,7 @@ class Fantrax:
                     msg = 'Scraping player names, teams, and positions...'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
                             return
                     else:
@@ -531,7 +531,7 @@ class Fantrax:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -588,7 +588,7 @@ class Fantrax:
                                         msg = f'Unable to get period "{period_number}" url after 3 attempts.'
                                         if dialog:
                                             dialog['-PROG-'].update(msg)
-                                            event, values = dialog.read(timeout=10)
+                                            event, values = dialog.read(timeout=2)
                                         else:
                                             logger.debug(msg)
                                         return dfPoolTeamPeriodRoster
@@ -621,7 +621,7 @@ class Fantrax:
                             msg = f'Getting period {period_number} {position} roster for "{team.name}"'
                             if dialog:
                                 dialog['-PROG-'].update(msg)
-                                event, values = dialog.read(timeout=10)
+                                event, values = dialog.read(timeout=2)
                                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                                     return dfPoolTeamPeriodRoster
                             else:
@@ -641,7 +641,7 @@ class Fantrax:
                                         msg = f'Unable to delete "{file_path}" after 3 attempts. Terminating'
                                         if dialog:
                                             dialog['-PROG-'].update(msg)
-                                            event, values = dialog.read(timeout=10)
+                                            event, values = dialog.read(timeout=2)
                                         else:
                                             logger.debug(msg)
                                         return dfPoolTeamPeriodRoster
@@ -659,7 +659,7 @@ class Fantrax:
                                 msg = f'Problem reading {position} csv fle for "{team.name}" in period {period_number}.'
                                 if dialog:
                                     dialog['-PROG-'].update(msg)
-                                    event, values = dialog.read(timeout=10)
+                                    event, values = dialog.read(timeout=2)
                                 else:
                                     logger.debug(msg)
                                 return dfPoolTeamPeriodRoster
@@ -741,7 +741,7 @@ class Fantrax:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -780,7 +780,7 @@ class Fantrax:
                     msg = f'Getting "{team.name}" page "{url}"'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
                             return
                     else:
@@ -800,7 +800,7 @@ class Fantrax:
                             msg = f'Unable to get url "{url}" on 3 attempts.'
                             if dialog:
                                 dialog['-PROG-'].update(msg)
-                                event, values = dialog.read(timeout=10)
+                                event, values = dialog.read(timeout=2)
                                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                                     return
                             else:
@@ -811,7 +811,7 @@ class Fantrax:
                     msg = f'Getting skaters & goalies tables for "{team.name}"'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
                             return
                     else:
@@ -827,7 +827,7 @@ class Fantrax:
                         msg = f'Getting {position} for "{team.name}"'
                         if dialog:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                             if event == 'Cancel' or event == sg.WIN_CLOSED:
                                 return
                         else:
@@ -887,7 +887,7 @@ class Fantrax:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return dfPoolTeams
             else:
@@ -908,7 +908,7 @@ class Fantrax:
                 msg = 'Scraping pool team names...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return dfPoolTeams
                 else:
@@ -952,7 +952,7 @@ class Fantrax:
                                 msg = f'Unable to get team "{team["name"]}" games played by position "{url}" url after 3 attempts.'
                                 if dialog:
                                     dialog['-PROG-'].update(msg)
-                                    event, values = dialog.read(timeout=10)
+                                    event, values = dialog.read(timeout=2)
                                 else:
                                     logger.debug(msg)
                                 return dfPoolTeams
@@ -966,7 +966,7 @@ class Fantrax:
                     msg = 'Scraping pool team games played per position...'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                         if event == 'Cancel' or event == sg.WIN_CLOSED:
                             return dfPoolTeams
                     else:

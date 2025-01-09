@@ -42,7 +42,7 @@ class MoneyPuck:
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -56,7 +56,7 @@ class MoneyPuck:
                 msg = f'Getting {self.dataPage}...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 else:
@@ -75,7 +75,7 @@ class MoneyPuck:
                             msg = f"Timeout occurred for {self.dataPage} on the 3rd attempt. Returning without getting MoneyPuck data."
                             if dialog:
                                 dialog['-PROG-'].update(msg)
-                                event, values = dialog.read(timeout=10)
+                                event, values = dialog.read(timeout=2)
                                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                                     return
                             else:
@@ -91,7 +91,7 @@ class MoneyPuck:
                 msg = 'Getting data links...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 else:
@@ -107,7 +107,7 @@ class MoneyPuck:
                 msg = 'Downloading data...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 else:
@@ -172,7 +172,7 @@ class MoneyPuck:
             msg = 'Data download completed...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -186,7 +186,7 @@ class MoneyPuck:
             msg = 'Updating shots data...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -259,7 +259,7 @@ class MoneyPuck:
             msg = 'Writing data to database...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -345,7 +345,7 @@ class MoneyPuck:
             msg = 'Getting shot data...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:
@@ -362,7 +362,7 @@ class MoneyPuck:
                 msg = 'A shots*.csv file was not found...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 else:
@@ -376,7 +376,7 @@ class MoneyPuck:
             msg = 'Shots data loaded into dataframe...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
             else:

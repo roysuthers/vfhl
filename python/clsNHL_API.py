@@ -151,7 +151,7 @@ class NHL_API():
                     logger.debug(msg)
                 # else:
                 #     dialog['-PROG-'].update(msg)
-                #     event, values = dialog.read(timeout=10)
+                #     event, values = dialog.read(timeout=2)
                 return msg
 
         return rows
@@ -349,7 +349,7 @@ class NHL_API():
             #         logger.debug(msg)
             #     else:
             #         dialog['-PROG-'].update(msg)
-            #         event, values = dialog.read(timeout=10)
+            #         event, values = dialog.read(timeout=2)
             #     request_error = True
             #     return
             response = self.fetch_data(NHL_API_SEARCH_SUGGESTIONS_URL, params)
@@ -360,7 +360,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                 request_error = True
                 return
 
@@ -378,7 +378,7 @@ class NHL_API():
                         logger.debug(msg)
                     else:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                     request_error = True
                     return
 
@@ -392,7 +392,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
@@ -409,7 +409,7 @@ class NHL_API():
                             logger.debug(msg)
                         else:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                         request_error = True
                         return
 
@@ -421,7 +421,7 @@ class NHL_API():
                             logger.debug(msg)
                         else:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                         request_error = True
                         return
 
@@ -433,7 +433,7 @@ class NHL_API():
                             logger.debug(msg)
                         else:
                             dialog['-PROG-'].update(msg)
-                            event, values = dialog.read(timeout=10)
+                            event, values = dialog.read(timeout=2)
                         request_error = True
                         return
 
@@ -472,7 +472,7 @@ class NHL_API():
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -484,7 +484,7 @@ class NHL_API():
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -506,7 +506,7 @@ class NHL_API():
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -527,7 +527,7 @@ class NHL_API():
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -539,7 +539,7 @@ class NHL_API():
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -723,7 +723,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     return
 
             season_start_date: date = datetime.strptime(season.start_date, '%Y-%m-%d').date()
@@ -785,7 +785,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     return
 
             # {
@@ -917,7 +917,7 @@ class NHL_API():
                 if not batch:
                     # `rows` is a message string
                     dialog['-PROG-'].update(rows)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
             else:
@@ -1411,7 +1411,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
@@ -1427,7 +1427,7 @@ class NHL_API():
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 

@@ -60,7 +60,6 @@ class Browser:
                 options.set_preference("browser.download.manager.showWhenStarting", False)
                 options.set_preference("browser.download.dir", self.browser_download_dir)
                 options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream")
-                options.set_preference("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0")
 
             driver_path = os.getcwd()
             if driver_path.endswith('\python') is True:
@@ -70,7 +69,7 @@ class Browser:
 
             self.browser = Firefox(executable_path=str(driver_path) , options=options)
 
-            self.browser.set_page_load_timeout(30)  # Set timeout to 10 seconds
+            self.browser.set_page_load_timeout(10)  # Set timeout to 10 seconds
 
             # Track the PIDs of the Firefox processes
             for proc in psutil.process_iter(['pid', 'name']):

@@ -443,7 +443,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -472,7 +472,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -493,7 +493,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -514,7 +514,7 @@ class HockeyPool:
                 dialog = None
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -526,7 +526,7 @@ class HockeyPool:
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
@@ -750,7 +750,7 @@ class HockeyPool:
                 dialog = None
             else:
                 dialog['-PROG-'].update(message)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return email_sent
 
@@ -830,7 +830,7 @@ class HockeyPool:
                     logger.debug(message)
                 else:
                     dialog['-PROG-'].update(message)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return email_sent
 
@@ -934,7 +934,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -1200,7 +1200,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -2109,7 +2109,7 @@ class HockeyPool:
                 dfPlayerInjuries = injuries.main(dialog=dialog)
                 if not batch:
                     dialog['-PROG-'].update(f'Injuries collected for {len(dfPlayerInjuries.index)} players. Writing to database...')
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
@@ -2118,7 +2118,7 @@ class HockeyPool:
                 # print('Getting player injuries from database')
                 if not batch:
                     dialog['-PROG-'].update('Getting player injuries from database...')
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 dfPlayerInjuries = pd.read_sql('select * from dfPlayerInjuries', sqlite3.connect(DATABASE))
@@ -2239,7 +2239,7 @@ class HockeyPool:
                     logger.error(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                 return
             else:
                 msg = f'Player lines collected for {len(dfPlayerLines.index)} players. Writing to database...'
@@ -2247,7 +2247,7 @@ class HockeyPool:
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
 
@@ -2369,7 +2369,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -2454,7 +2454,7 @@ class HockeyPool:
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 dfPoolTeamRoster = pd.read_sql('select * from dfPoolTeamPlayers',con=get_db_connection())
@@ -2471,7 +2471,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
@@ -2533,7 +2533,7 @@ class HockeyPool:
                     logger.debug(msg)
                 else:
                     dialog['-PROG-'].update(msg)
-                    event, values = dialog.read(timeout=10)
+                    event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
                         return
                 dfPoolTeams = pd.read_sql('select * from dfPoolTeams',con=get_db_connection())
@@ -2553,7 +2553,7 @@ class HockeyPool:
                 logger.debug(msg)
             else:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 

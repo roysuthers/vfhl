@@ -2079,7 +2079,7 @@ def get_nhl_dot_com_report_data(from_season_id: str='', to_season_id: str='', fr
         # Handle any errors
         # msg = f'Error: {response.status_code}'
         # dialog['-PROG-'].update(msg)
-        # event, values = dialog.read(timeout=10)
+        # event, values = dialog.read(timeout=2)
         return None
 
 def get_z_score_category_columns(config: Dict, position: str='skater') -> List[str]:
