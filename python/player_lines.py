@@ -34,7 +34,7 @@ def from_daily_fantasy_fuel(dialog: sg.Window=None, game_date: str=date.strftime
         msg = f'Opening "{daily_fantasy_fuel_com}"...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return pd.DataFrame.from_dict([])
         else:
@@ -83,7 +83,7 @@ def from_daily_fantasy_fuel(dialog: sg.Window=None, game_date: str=date.strftime
             msg = f'Scraping "{daily_fantasy_fuel_com}"...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return pd.DataFrame.from_dict([])
             else:
@@ -136,7 +136,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
         msg = f'Opening "{daily_faceoff_com}"...'
         if dialog:
             dialog['-PROG-'].update(msg)
-            event, values = dialog.read(timeout=10)
+            event, values = dialog.read(timeout=2)
             if event == 'Cancel' or event == sg.WIN_CLOSED:
                 return pd.DataFrame.from_dict([])
         else:
@@ -151,7 +151,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                 logger.debug(f'Browser = {browser}')
 
             # Set default wait time
-            wait = WebDriverWait(browser, 60)
+            wait = WebDriverWait(browser, 2)
 
             if batch is True:
                 logger.debug(f'Getting "{daily_faceoff_com}"')
@@ -184,7 +184,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
             msg = f'Scraping "{daily_faceoff_com}"...'
             if dialog:
                 dialog['-PROG-'].update(msg)
-                event, values = dialog.read(timeout=10)
+                event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return pd.DataFrame.from_dict([])
             else:
@@ -240,35 +240,47 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
             players = []
             for url in team_urls:
 
-                attempts = 0
-                while attempts < 3:
-                    try:
-                        browser.get(url)
-                        # If the page loads successfully, the loop will break
-                        break
-                    # except TimeoMaxRetryErrorutException:
-                    #     logger.error(f'No connection could be made to "{url}" because the target machine actively refused it. Returning without getting player lines.')
-                    #     return pd.DataFrame.from_dict([])
-                    except TimeoutException:
-                        attempts += 1
-                        if attempts >= 3:
-                            msg = f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines."
-                            if dialog:
-                                dialog['-PROG-'].update(msg)
-                                event, values = dialog.read()
-                            else:
-                                logger.error(msg)
-                            return pd.DataFrame.from_dict([])
-                        else:
-                            if batch is True:
-                                logger.debug(f"Timeout occurred for {url}. Retrying...")
+                # attempts = 0
+                # while attempts < 3:
+                #     try:
+                #         browser.get(url)
+                #         # If the page loads successfully, the loop will break
+                #         break
+                #     # except TimeoMaxRetryErrorutException:
+                #     #     logger.error(f'No connection could be made to "{url}" because the target machine actively refused it. Returning without getting player lines.')
+                #     #     return pd.DataFrame.from_dict([])
+                #     except TimeoutException:
+                        # attempts += 1
+                        # if attempts >= 3:
+                        #     msg = f"Timeout occurred for {url} on the 3rd attempt. Returning without getting player lines."
+                        #     if dialog:
+                        #         dialog['-PROG-'].update(msg)
+                        #         event, values = dialog.read()
+                        #     else:
+                        #         logger.error(msg)
+                        #     return pd.DataFrame.from_dict([])
+                        # else:
+                        #     if batch is True:
+                        #         logger.debug(f"Timeout occurred for {url}. Retrying...")
 
-                        # Respectful scraping: sleep to avoid hitting the server with too many requests
-                        time.sleep(10)
+                        # # Respectful scraping: sleep to avoid hitting the server with too many requests
+                        # time.sleep(10)
 
                 # 'https://www.dailyfaceoff.com/teams/anaheim-ducks/line-combinations'
                 team_name = url.split('/')[-2]
                 team_abbr = team_abbrs[team_name]
+
+                msg = f"Getting page for {team_abbr}: {url}"
+                if dialog:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=1)
+                else:
+                    logger.info(msg)
+
+                try:
+                    browser.get(url)
+                except TimeoutException as e:
+                    pass # seems that the web page is actually persent, but waiting on something else
 
                 # section = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="line_combos"]')))
 
@@ -359,9 +371,10 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                     msg = f'Scraping "{daily_faceoff_com}" failed for "{team_name}". Reason: {repr(e)}...'
                     if dialog:
                         dialog['-PROG-'].update(msg)
-                        event, values = dialog.read(timeout=10)
+                        event, values = dialog.read(timeout=2)
                     else:
                         logger.error(msg)
+                    return pd.DataFrame.from_dict([])
 
                 for player_name, data in player_data.items():
                     players.append(
