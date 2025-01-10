@@ -275,7 +275,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                     dialog['-PROG-'].update(msg)
                     event, values = dialog.read(timeout=1)
                 else:
-                    logger.info(msg)
+                    logger.debug(msg)
 
                 try:
                     browser.get(url)
