@@ -262,7 +262,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
     });
 
     generationType = 'calculateScores';
-    if (hasChanged_controls_getRawData || document.querySelector('#gameType').value === 'Projected Season') {
+    if (hasChanged_controls_getRawData || document.querySelector('#gameType').value === 'Projected Season' || document.querySelector('#fullGenerationCheckbox').checked) {
         generationType = 'full';
     } else if (hasChanged_controls_aggregateData) {
         generationType = 'aggregateData';

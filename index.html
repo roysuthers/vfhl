@@ -372,7 +372,7 @@
             <div class="form-group ewma" style="display: none;">
                 <label for="ewmaSpan">EWMA Span</label>
                 <div class="single-element-container">
-                    <input type="number" id="ewmaSpan" value="5" min="1"  max="20" class="trigger_aggregateData">
+                    <input type="number" id="ewmaSpan" value="10" min="1"  max="82" class="trigger_aggregateData">
                 </div>
             </div>
             <div class="form-group">
@@ -382,8 +382,8 @@
                 </div>
             </div>
             <div class="form-group" id="calcZScoresContainer">
-                <label for="positionalScoringCheckbox">SCORES COMPOSITION</label>
-                <div class="multi-checkbox-container">
+                <label for="scoresCompositionCheckboxes">SCORES COMPOSITION</label>
+                <div id="scoresCompositionCheckboxes" class="multi-checkbox-container">
                     <div>
                         <label for="points">D-PTS:</label>
                         <input type="checkbox" id="points" name="points" checked class="trigger_calculateScores">
@@ -438,6 +438,12 @@
                         <input type="checkbox" id="savePercent" name="savePercent" class="trigger_calculateScores" checked style="display: none">
                     </div>
                     <!-- -->
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="fullGenerationCheckbox">FORCE FULL GENERATION</label>
+                <div class="single-element-container">
+                    <input type="checkbox" id="fullGenerationCheckbox">
                 </div>
             </div>
             <div class="form-group">
