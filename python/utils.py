@@ -106,8 +106,15 @@ def get_player_id(team_ids: Dict, player_ids: Dict, nhl_api: 'NHL_API', name: st
                 potential_players = [player for player in player_ids[key_name] if player['active_status'] == 1 and player['roster_status'] == 'Y']
                 if len(potential_players) == 1:
                     player_id = potential_players[0]['id']
-                else:
-                    ...
+                else: # multiple players on same team with same name (e.g., Elias Pettersson)
+                    if pos == 'F':
+                        idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and player_ids[key_name][i]['pos'] in ('C', 'LW', 'RW')]
+                    else:
+                        idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and pos in player_ids[key_name][i]['pos']]
+                    if len(idx) == 1:
+                        player_id = player_ids[key_name][idx[0]]['id']
+                    else:
+                        ...
         if player_id == 0: # first check fantrax_id if passed in
             if fantrax_id != '':
                 idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['fantrax_id'] == fantrax_id]
@@ -125,6 +132,8 @@ def get_player_id(team_ids: Dict, player_ids: Dict, nhl_api: 'NHL_API', name: st
                         idx = [i for i, x in enumerate(player_ids[key_name]) if player_ids[key_name][i]['team_abbr'] == team_abbr and pos in player_ids[key_name][i]['pos']]
                     if len(idx) == 1:
                         player_id = player_ids[key_name][idx[0]]['id']
+                    else:
+                        ...
 
     if player_id == 0 and fantrax_id != '': # check fantrax_id if passed in
         # ("ryan o'reilly", {'id': 8475158, 'fantrax_id': '01f6d', 'team_abbr': 'NSH', 'pos': 'C'})
@@ -258,7 +267,7 @@ def load_player_name_and_id_dict() -> Dict:
             if nhl_name != name and name not in player_id_dict and nhl_name in player_id_dict :
                 player_id_dict[name] = []
                 for dict_name in player_id_dict[nhl_name]:
-                    player_id_dict[name].append({'id': dict_name['id'], 'fantrax_id': row['fantrax_id'], 'team_abbr': dict_name['team_abbr'], 'pos': dict_name['pos']})
+                    player_id_dict[name].append({'id': dict_name['id'], 'fantrax_id': row['fantrax_id'], 'team_abbr': dict_name['team_abbr'], 'pos': dict_name['pos'], 'active_status': dict_name['active_status'], 'roster_status': dict_name['roster_status']})
 
     return player_id_dict
 
