@@ -575,26 +575,20 @@ class NHL_API():
 
                     if row['roster_status'] == 'Y':
 
-                        # sql = dedent(f"""\
-                        #     UPDATE TeamRosters
-                        #     SET seasonID={season.id}, player_id={player_id}, team_abbr="{row['current_team_abbr']}", name="{row['first_name']} {row['last_name']}", pos="{row['primary_position']}"
-                        #     WHERE seasonID = {season.id} AND player_id = {player_id}
-                        # """)
-                        # c.execute(sql)
-                        # # If no row was updated, insert a new one
-                        # c.execute("SELECT changes()")
-                        # if c.fetchone()[0] == 0:
-                        #     sql = dedent(f"""\
-                        #         INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
-                        #         VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
-                        #     """)
-                        #     c.execute(sql)
-
                         sql = dedent(f"""\
-                            INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
-                            VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
+                            UPDATE TeamRosters
+                            SET seasonID={season.id}, player_id={player_id}, team_abbr="{row['current_team_abbr']}", name="{row['first_name']} {row['last_name']}", pos="{row['primary_position']}"
+                            WHERE seasonID = {season.id} AND player_id = {player_id}
                         """)
                         c.execute(sql)
+                        # If no row was updated, insert a new one
+                        c.execute("SELECT changes()")
+                        if c.fetchone()[0] == 0:
+                            sql = dedent(f"""\
+                                INSERT INTO TeamRosters (seasonID, player_id, team_abbr, name, pos)
+                                VALUES ({season.id}, {player_id}, "{row['current_team_abbr']}", "{row['first_name']} {row['last_name']}", "{row['primary_position']}")
+                            """)
+                            c.execute(sql)
 
                 connection.commit()
 
