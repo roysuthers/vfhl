@@ -263,8 +263,8 @@ def aggregate_game_stats(df: pd.DataFrame, stat_type: str='Cumulative', ewma_spa
         minor_penalties = ('minor_penalties', stat_type_agg_method),
         misconduct_penalties = ('misconduct_penalties', stat_type_agg_method),
         missed_shots = ('missed_shots', stat_type_agg_method),
-        missed_shots_crossbar = ('minor_penalties', 'sum'),
-        missed_shots_goalpost = ('minor_penalties', 'sum'),
+        missed_shots_crossbar = ('missed_shots_crossbar', 'sum'),
+        missed_shots_goalpost = ('missed_shots_goalpost', 'sum'),
         name = ('name', 'last'),
         penalties = ('penalties', stat_type_agg_method),
         pim = ('pim', stat_type_agg_method),
@@ -570,6 +570,7 @@ def calculate_ewm_args(ewma_span, max_games_sktr, max_games_g):
     # ewm_span_g = max(1, ewm_span_g_max, int(max_games_g // (100 / ewm_span_g_percent_of_games)))
     # ewm_span_sktr = max(1, min(ewm_span_sktr_max, max_games_sktr))
     # ewm_span_g = max(1, min(ewm_span_g_max, max_games_g))
+
     ewm_span_sktr = max(1, min(ewma_span, max_games_sktr))
     ewm_span_g = max(1, min(ewma_span, max_games_g))
 
@@ -888,6 +889,7 @@ def calc_scoring_category_maximums(df: pd.DataFrame, game_type: str='R'):
     except Exception as e:
         msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
         sg.popup_error(msg)
+        raise
 
     return
 
@@ -2138,6 +2140,7 @@ def insert_fantrax_columns(df: pd.DataFrame, season_id: Season, game_type: str='
     except Exception as e:
         msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
         sg.popup_error(msg)
+        raise
 
     return df
 
@@ -2526,7 +2529,8 @@ def rankings_to_html(df: pd.DataFrame, config: Dict) -> dict:
         # format columns before writing to json
         col_formats = get_config_column_formats(config=config)
         cols_to_format = list(set(df.columns) & set(col_formats.keys()))
-        df[cols_to_format] = df[cols_to_format].apply(lambda x: x.map(col_formats[x.name]))
+        for col in cols_to_format:
+            df[col] = df[col].map(col_formats[col])
 
         # get stat type column titles
         column_titles = get_config_columns(config=config)
@@ -3035,7 +3039,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
             {'title': 'z-ratio rank', 'runtime column': 'z_ratio_rank', 'data_group': 'goalie_z_score_sum', 'format': eval(f_0_decimals), 'search_builder': True, 'hide': True},
             {'title': 'score rank', 'runtime column': 'score_rank', 'data_group': 'general', 'format': eval(f_0_decimals), 'search_builder': True, 'hide': True},
             {'title': 'sort rank', 'runtime column': 'sort_rank', 'data_group': 'general', 'format': eval(f_0_decimals), 'hide': True},
-            {'title': 'id', 'table column': 'player_id', 'data_group': 'general', 'hide': True, 'search_builder': True, 'hide': True},
+            {'title': 'id', 'table column': 'player_id', 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'fantrax id', 'table column': 'fantrax_id', 'data_group': 'general', 'hide': True},
             {'title': 'name', 'table column': 'name', 'justify': 'left', 'search_builder': True},
             {'title': 'team id', 'table column': 'team_id', 'data_group': 'general', 'hide': True},
@@ -3253,7 +3257,7 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
 
     goalie_columns = {
         'columns': [
-            {'title': 'tier', 'runtime column': 'tier', 'data_group': 'goalie', 'hide': False if game_type=='Prj' else True, 'search_builder': True, 'search_builder': True if game_type=='Prj' else False},
+            {'title': 'tier', 'runtime column': 'tier', 'data_group': 'goalie', 'hide': False if game_type=='Prj' else True, 'search_builder': True if game_type=='Prj' else False},
             {'title': 'starts', 'table column': 'games_started', 'format': eval(f_0_decimals), 'data_group': 'goalie', 'search_builder': True, 'hide': True if game_type=='Prj' else False},
             {'title': 'starts %', 'table column': 'starts_as_percent', 'format': eval(f_0_decimals), 'hide': True, 'data_group': 'goalie'},
             {'title': 'qs', 'table column': 'quality_starts', 'format': eval(f_0_decimals), 'default order': 'desc', 'data_group': 'goalie', 'hide': True if game_type=='Prj' else False},
