@@ -233,6 +233,14 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                 'utah-hockey-club': 'UTA'
             }
 
+            # They keep changing the layout, so should this break, it's likely the XPATH is wrong
+            sections = {
+                "Forwards": '//*[@id="line_combos"]/div[1]/div',
+                "Defensive Pairings": '//*[@id="line_combos"]/div[4]',
+                "1st Powerplay Unit": '//*[@id="line_combos"]/div[6]',
+                "2nd Powerplay Unit": '//*[@id="line_combos"]/div[8]',
+            }
+
         # with Browser() as browser:
 
         #     wait = WebDriverWait(browser, 60)
@@ -268,7 +276,10 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
 
                 # 'https://www.dailyfaceoff.com/teams/anaheim-ducks/line-combinations'
                 team_name = url.split('/')[-2]
-                team_abbr = team_abbrs[team_name]
+                try:
+                    team_abbr = team_abbrs[team_name]
+                except Exception as e:
+                    continue
 
                 msg = f"Getting page for {team_abbr}: {url}"
                 if dialog:
@@ -287,13 +298,6 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                 # lines = section.text.splitlines()
 
                 # sections = ['Forwards', 'Defensive Pairings', '1st Powerplay Unit', '2nd Powerplay Unit']
-
-                sections = {
-                    "Forwards": '//*[@id="line_combos"]/div[1]/div',
-                    "Defensive Pairings": '//*[@id="line_combos"]/div[3]',
-                    "1st Powerplay Unit": '//*[@id="line_combos"]/div[4]',
-                    "2nd Powerplay Unit": '//*[@id="line_combos"]/div[5]',
-                }
 
                 # Extract player names for each section
                 player_data = {}
