@@ -15,7 +15,6 @@ class Browser:
     def __init__(self, browser_download_dir=''):
 
         self.browser_download_dir = browser_download_dir
-        # self.browser = self.setBrowserOptions()
         self.browser = None
         self.firefox_pids = []
 
@@ -26,7 +25,7 @@ class Browser:
         # Create a separate thread to initialize the browser
         thread = threading.Thread(target=self.init_browser)
         thread.start()
-        thread.join(timeout=60)  # Set timeout
+        thread.join(timeout=60)
 
         if thread.is_alive():
             self.terminate_orphaned_processes()
@@ -53,6 +52,8 @@ class Browser:
         try:
             options = Options()
             options.headless = True
+            # Use 'eager' to speed up page load times by not waiting for all resources to be loaded
+            options.page_load_strategy = 'eager'
             options.profile = str(PROFILE_PATH)
 
             if self.browser_download_dir != '':
@@ -62,14 +63,14 @@ class Browser:
                 options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream")
 
             driver_path = os.getcwd()
-            if driver_path.endswith('\python') is True:
-                driver_path  = Path(os.getcwd()) / DRIVER_NAME
+            if driver_path.endswith('\python'):
+                driver_path  = Path(driver_path) / DRIVER_NAME
             else:
-                driver_path  = Path(os.getcwd() + '\\python') / DRIVER_NAME
+                driver_path  = Path(driver_path) / 'python' / DRIVER_NAME
 
             self.browser = Firefox(executable_path=str(driver_path) , options=options)
 
-            self.browser.set_page_load_timeout(10)  # Set timeout to 10 seconds
+            self.browser.set_page_load_timeout(60)
 
             # Track the PIDs of the Firefox processes
             for proc in psutil.process_iter(['pid', 'name']):
@@ -78,7 +79,7 @@ class Browser:
 
         except FileNotFoundError:
             raise Exception(f"Driver not found: {driver_path}")
-            return None
+            # return None
 
         except Exception as e:
             sg.popup_error(f'Error in {sys._getframe().f_code.co_name}: {e}')
