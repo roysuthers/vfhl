@@ -2362,7 +2362,8 @@ class HockeyPool:
             if len(dfFantraxPlayerInfo.index) == 0:
                 if batch:
                     logger.debug('No player info found. Returning...')
-                return
+                if watchlist is False:
+                    return
 
             msg = f'Fantrax player info collected for {len(dfFantraxPlayerInfo.index)} players. Writing to database...'
             if batch:
