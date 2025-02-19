@@ -152,10 +152,6 @@ class Fantrax:
 
                 browser.get(self.nhl_team_transactions)
 
-                # for now, only wnat the first table, for the most recent date
-                # I may want to change this, if it seems I'm missing some days
-                table = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'sport-transactions-table')))[0]
-
                 msg = 'Scraping NHL team transactions...'
                 if dialog:
                     dialog['-PROG-'].update(msg)
@@ -166,11 +162,37 @@ class Fantrax:
                     logger.debug(msg)
 
                 try:
+
+                    # for now, only wnat the first table, for the most recent date
+                    # I may want to change this, if it seems I'm missing some days
+                    table = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'sport-transactions-table')))[0]
+
                     # skip first row that is for the table column headings
                     rows = table.find_elements(By.CLASS_NAME, 'supertable__row')
+                    num_rows = len(rows)
+
+                    while True:
+                        # Scroll the table element into view
+                        browser.execute_script("arguments[0].scrollIntoView(true);", table)
+
+                        # Wait for new rows to load
+                        time.sleep(2)
+
+                        # Get the new rows
+                        new_rows = table.find_elements(By.CLASS_NAME, 'supertable__row')
+
+                        # Check if the number of rows is still increasing
+                        if len(new_rows) > num_rows:
+                            num_rows = len(new_rows)
+                            rows = new_rows
+                        else:
+                            break
+
                     transactions = []
                     # Define a regex pattern to match the date in the comment, and capture the text after it
                     pattern = r'(\b\w{3} \d{1,2}, \d{4}\b)(.*)'
+                    # Regular expression pattern to exclude comments
+                    exclude_pattern = re.compile(r'.*\b(?:in|win over the|loss to the|against)\b.*')
                     for row in rows:
                         data = row.text.splitlines()
                         player_name = data[0]
@@ -185,7 +207,13 @@ class Fantrax:
                         else:
                             comment = data[4]
 
+                        comment = comment.lstrip(', ')
+
+                        if exclude_pattern.search(comment):
+                            continue
+
                         transactions.append({'player_name': player_name, 'pos': pos, 'team_abbr': team_abbr, 'comment': comment})
+
                 except Exception as e:
                     msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
                     if dialog:
