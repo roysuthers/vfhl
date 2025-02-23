@@ -9,11 +9,16 @@ import PySimpleGUI as sg
 import ujson as json
 from bs4 import BeautifulSoup
 from openpyxl.utils.dataframe import dataframe_to_rows
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from unidecode import unidecode
 
 from clsBrowser import Browser
-from utils import get_db_connection
+from clsNHL_API import NHL_API
+from utils import get_db_connection, get_player_id, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict
 
 
 def main(dialog: sg.Window=None):
@@ -125,21 +130,16 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
         else:
             logger.debug(msg)
 
-        # # query the website and return the html to the variable 'page'
-        # # page = urlopen(url)
-        # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-        # response = requests.get(url, headers=headers)
-        # page = response.content
-
-        with Browser() as browser:
+        with Browser() as browser, Browser() as browser2:
 
             # Set default wait time
             wait = WebDriverWait(browser, 60)
 
             browser.get(url)
 
-            # parse the html using beautiful soup
-            soup = BeautifulSoup(browser.page_source, "html.parser")
+            # # Wait for the 'Team' tab to be clickable and then click it
+            # team_tab = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@data-tab='Team']")))
+            # team_tab.click()
 
             msg = f'Scraping "{url}"...'
             if dialog:
@@ -151,68 +151,74 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
                 logger.debug(msg)
 
             name = []
+            id = []
+            pos = []
             team = []
             date_of_injury = []
             injury_type = []
             injury_note = []
 
-            # subtract 2 for "Next" & "Last" links
-            pages_count = len(soup.find_all(name="li", attrs={"class": "pager__item"})) - 2
+            # Get team IDs, player names & id dictionary, and NHL_API
+            team_ids = load_nhl_team_abbr_and_id_dict()
+            player_ids = load_player_name_and_id_dict()
+            nhl_api = NHL_API()
 
-            # page numbers start at 0
-            for page_number in range(pages_count):
+            # Find all rows in the table
+            rows = browser.find_elements(By.XPATH, '//*[@id="salary-cap"]/div/div/div[1]/div[2]/div/div[2]/table/tbody/tr')
+            for row in rows:
 
-                if page_number >= 1:
-                    # # page = urlopen(f'{url}?page={page_number}')
-                    # response = requests.get(f'{url}?page={page_number}', headers=headers)
-                    # page = response.content
+                try:
+                    html_content = row.find_element(By.XPATH, ".//i[@class='fas fa-magnifying-glass-plus text-pp-copy_lt']").get_attribute('data-content')
+                except NoSuchElementException:
+                    continue
 
-                    browser.get(f'{url}?page={page_number}')
-                    soup = BeautifulSoup(browser.page_source, "html.parser")
+                soup = BeautifulSoup(html_content, "html.parser")
 
-                table = soup.find(name="div", attrs={"class": "pp_layout_main"})
+                # Extract player name and href
+                player_tag = soup.find('a', class_='pp_link')
+                player_name = player_tag.text.strip()
 
-                for row in table.findAll(name="div", attrs={"class": "border-b"}):
-                    elements = [item for item in row.text.splitlines() if item not in ('', ' ')]
-                    # for some reason, elements do not identify a player; i.e. "['OUT | Upper Body', 'Expected Return: Sep 15, 2024']"
-                    if len(elements) == 2:
-                        continue
-                    inj_type = elements[0].split(' | ', 1)
-                    player_name = elements[1]
-                    # for some reason, elements do not provide an injury description; i.e. "['DAY-TO-DAY | Upper Body', 'Spencer Stastney', 'Expected Return: Sep 15, 2024']"
-                    if len(elements) == 3:
-                        inj_desc = ''
-                        exp_return = elements[2].replace('Expected Return', 'Expected Return ')
-                    else:
-                        inj_desc = elements[2]
-                        exp_return = elements[3].replace('Expected Return', 'Expected Return ')
+                # get player team
+                player_team = row.find_element(By.XPATH, '//*[@id="salary-cap"]/div/div/div[1]/div[2]/div/div[2]/table/tbody/tr[1]/td/div/div/a').get_attribute('href').rsplit('/')[-1]
+                if player_team == 'utah-hc':
+                    nhl_team = 'UTA'
+                else:
+                    nhl_team = nhl_teams[player_team]
 
-                    name.append(player_name)
+                team_id = team_ids[nhl_team] if nhl_team != 'N/A' else 0
+                player_id = get_player_id(team_ids, player_ids, nhl_api, player_name, nhl_team)
+                if player_id == 0:
+                    player_href = player_tag.get('href')
+                    player_page = f'https://puckpedia.com{player_href}'
+                    browser2.get(player_page)
+                    soup2 = BeautifulSoup(browser2.page_source , "html.parser")
+                    player_pos = soup2.find('div', attrs={'class': 'statsrow gap-1 sm:gap-2.5 text-[12px] sm:text-[13px] mt-1.5'}).text.splitlines()[2].strip('pos')
+                    player_id = get_player_id(team_ids, player_ids, nhl_api, player_name, nhl_team, player_pos)
+                else:
+                    player_pos = player_ids[player_name.lower()][0]['pos']
 
-                    player_info = row.find(name=["a"]).get('href').rsplit('/')
-                    if player_info[1] == 'team':
-                        nhl_team = player_info[2]
-                        if nhl_team == 'utah-hc':
-                            team.append('UTA')
-                        else:
-                            team.append(nhl_teams[nhl_team])
-                    else:
-                        team.append('N/A')
+                # injury type
+                inj_type, inj_short_desc = soup.find('div', class_='uppercase tracking-widest text-sm').text.strip().split('|', 1)
 
-                    date_of_injury.append(exp_return)
-                    injury_type.append(inj_type[0])
-                    injury_note.append(inj_desc)
+                # injury description
+                inj_desc = soup.find('p', class_='mt-2 mb-2 min-w-[200px]').text.strip()
+                if inj_desc == '':
+                    inj_desc = inj_short_desc
 
-                # msg = f'Found "{name}" in injury list...'
-                # if dialog:
-                #     dialog['-PROG-'].update(msg)
-                #     event, values = dialog.read(timeout=2)
-                #     if event == 'Cancel' or event == sg.WIN_CLOSED:
-                #         return
-                # else:
-                #     logger.debug(msg)
+                # Extract estimated return date
+                exp_return = soup.find('div', class_='text-sm font-sans').text.strip()
+
+                name.append(player_name)
+                id.append(player_id)
+                pos.append(player_pos)
+                team.append(nhl_team)
+                date_of_injury.append(exp_return)
+                injury_type.append(inj_type)
+                injury_note.append(inj_desc)
 
             df = pd.DataFrame(name,columns=["name"])
+            df['id'] = id
+            df['pos'] = pos
             df['team'] = team
             df['date'] = date_of_injury
             df['status'] = injury_type

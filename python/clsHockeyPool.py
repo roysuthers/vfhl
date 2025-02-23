@@ -44,7 +44,7 @@ from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
 from constants import DATABASE, DATA_INPUT_FOLDER
-from utils import assign_player_ids, get_db_connection, get_db_cursor, get_player_id, load_nhl_team_abbr_and_id_dict, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict, split_seasonID_into_component_years
+from utils import assign_player_ids, get_db_connection, get_db_cursor, get_player_id, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict, split_seasonID_into_component_years
 
 FONT = 'Consolas 12'
 sg.SetOptions(
@@ -2132,16 +2132,18 @@ class HockeyPool:
                 cursor.execute(sql)
                 connection.commit()
 
-            # Get team IDs, player names & id dictionary, and NHL_API
-            team_ids = load_nhl_team_abbr_and_id_dict()
-            player_ids = load_player_name_and_id_dict()
-            nhl_api = NHL_API()
+            # # Get team IDs, player names & id dictionary, and NHL_API
+            # team_ids = load_nhl_team_abbr_and_id_dict()
+            # player_ids = load_player_name_and_id_dict()
+            # nhl_api = NHL_API()
 
             for idx in dfPlayerInjuries.index:
 
                 # Update Player
                 playerName = dfPlayerInjuries['name'][idx]
                 playerName = playerName.strip()
+                playerID = dfPlayerInjuries['id'][idx]
+                playerPos = dfPlayerInjuries['pos'][idx]
                 playerTeam = dfPlayerInjuries['team'][idx]
                 injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' - ', dfPlayerInjuries['date'][idx]])
                 injuryNote = dfPlayerInjuries['note'][idx]
@@ -2161,9 +2163,9 @@ class HockeyPool:
                 #             sg.popup_ok(msg)
                 #         continue
 
-                team_id = team_ids[playerTeam] if playerTeam != 'N/A' else 0
-                player_id = get_player_id(team_ids, player_ids, nhl_api, playerName, playerTeam)
-                if player_id == 0:
+                # team_id = team_ids[playerTeam] if playerTeam != 'N/A' else 0
+                # player_id = get_player_id(team_ids, player_ids, nhl_api, playerName, playerTeam, playerPos)
+                if playerID == 0:
                     msg = f'updatePlayerInjuries(): There are no NHL players with name "{playerName}".'
                     if batch:
                         logger.error(msg)
@@ -2171,7 +2173,7 @@ class HockeyPool:
                         sg.popup_ok(msg)
                     continue
 
-                kwargs = {'id': player_id}
+                kwargs = {'id': playerID}
                 nhlPlayer = Player().fetch(**kwargs)
 
                 nhlPlayer.injury_status = injuryStatus
