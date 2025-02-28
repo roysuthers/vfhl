@@ -133,6 +133,13 @@ def main():
                     logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
+                logger.info('Calling hp.updatePoolStandingsStats().')
+                try:
+                    hp.updatePoolStandingsStats(batch=True)
+                except Exception as e:
+                    logger.error(f'Exception in call to hp.updatePoolStandingsStats() returned. \nException: {repr(e)}')
+                logger.info('Call to hp.updatePoolStandingsStats() returned.')
+
                 if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
                     logger.info('Calling hp.getMoneyPuckData().')
                     try:
