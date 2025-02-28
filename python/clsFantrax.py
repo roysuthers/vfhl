@@ -70,7 +70,7 @@ class Fantrax:
 
         self.statsPage = f'https://www.fantrax.com/fantasy/league/{league_id}/players'
         self.poolTeamPlayersPage = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster'
-        self.poolStatsPage = f'https://www.fantrax.com/fantasy/league/{league_id}/standings'
+        self.poolStandingsStatsPage = f'https://www.fantrax.com/fantasy/league/{league_id}/standings'
 
         # self.playersPage = f'https://www.fantrax.com/fantasy/league/{league_id}/players;statusOrTeamFilter=ALL;maxResultsPerPage=1500'
 
@@ -1039,6 +1039,80 @@ class Fantrax:
 
         return dfPoolTeams
 
+    def scrapePoolStandingsStats(self, dialog: sg.Window=None) -> pd.DataFrame:
+
+        try:
+
+            dfStandingsStats = pd.DataFrame()
+            standings = []
+
+            logger = logging.getLogger(__name__)
+
+            msg = 'Waiting for web driver...'
+            if dialog:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return dfStandingsStats
+            else:
+                logger.debug(msg)
+
+            with Browser() as browser:
+
+                # Set default wait time
+                wait = WebDriverWait(browser, 60)
+
+                if not dialog:
+                    logger.debug(f'Getting "{self.poolStandingsStatsPage}"')
+
+                browser.get(self.poolStandingsStatsPage)
+
+                table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-standings/section/league-standings-tables/div/div[2]/ultimate-table')))
+
+                msg = 'Scraping pool standing stats'
+                if dialog:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=2)
+                    if event == 'Cancel' or event == sg.WIN_CLOSED:
+                        return dfStandingsStats
+                else:
+                    logger.debug(msg)
+
+                try:
+
+                    managers = table.find_elements(By.TAG_NAME, 'td')
+                    manager_stats = table.find_elements(By.TAG_NAME, 'tr')
+                    manager_and_stats = zip(managers, manager_stats)
+                    for idx, row in enumerate(manager_and_stats):
+                        if idx <= 1:
+                            continue
+                        manager, stats = row
+                        rank, manager = manager.text.splitlines()
+                        pts, plus_minus, ww, gp, pt_d, goals, assists, pim, sog, ppp, hits, blks, tk, w, gaa, sv, sv_pc = stats.text.split()
+
+                        standings.append({'rank': rank, 'manager': manager, 'pts': pts, 'pt_d': pt_d, 'goals': goals,  'assists': assists, 'pim': pim, 'sog': sog, 'ppp': ppp, 'hits': hits, 'blks': blks, 'tk': tk, 'w': w, 'gaa': gaa, 'sv': sv, 'sv_pc': sv_pc})
+
+                except Exception as e:
+                    msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)) + f'Error scraping pool team stats.'
+                    if dialog:
+                        dialog.close()
+                        sg.popup_error(msg)
+                    else:
+                        logger.error(msg)
+                    return
+
+            dfStandingsStats = pd.DataFrame.from_dict(data=standings)
+
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            if dialog:
+                dialog.close()
+                sg.popup_error(msg)
+            else:
+                logger.error(msg)
+
+        return dfStandingsStats
+
     def updatePoolTeamRosters(self, pool, df, pool_teams: List=[], batch: bool=False):
 
         if batch:
@@ -1242,6 +1316,7 @@ class Fantrax:
                 return
 
         return
+
 
 def get_skip_rows(file_path, position):
     skaters_start_line = goalies_start_line = None

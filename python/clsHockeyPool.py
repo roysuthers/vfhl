@@ -1757,6 +1757,8 @@ class HockeyPool:
                                 '-',
                                 'Update Fantrax Player Info',
                                 '-',
+                                'Update Pool Standings Stats',
+                                '-',
                                 'Import Watch List',
                                 '-',
                                 'Import Draft Picks',
@@ -2583,6 +2585,63 @@ class HockeyPool:
 
         return
 
+    def updatePoolStandingsStats(self, batch: bool=False):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text(f'Update Pool Standings Stats for "{self.web_host}"...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window(f'Update Pool Standings Stats from "{self.web_host}"', layout, finalize=True, modal=True)
+
+            fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
+            dfStandingsStats = fantrax.scrapePoolStandingsStats(dialog=dialog)
+            del fantrax
+
+            if len(dfStandingsStats.index) == 0:
+                if batch:
+                    logger.debug('No pool standings stats found. Returning...')
+                return
+
+            msg = f'Standings statistics collected. Writing to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            dfStandingsStats.to_sql('dfStandingsStats', con=get_db_connection(), index=False, if_exists='replace')
+
+        except Exception as e:
+            msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
+            if batch:
+                logger.error(msg)
+            else:
+                sg.popup_error(msg)
+
+        finally:
+            msg = 'Update of pool standings statistics completed...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
+
     def window(self):
 
         global season
@@ -3077,6 +3136,9 @@ class HockeyPool:
                         pool_teams_mclb_selected_row = 0
                         update_pool_teams_tab = True
                         refresh_pool_team_roster_config = True
+
+                    elif event == 'Update Pool Standings Stats':
+                        self.updatePoolStandingsStats()
 
                     elif event == 'Get Pool Team Rosters, by Period':
                         self.getPoolTeamRostersByPeriod()
