@@ -46,21 +46,6 @@ def main():
                     setattr(hp, key, row[key])
             cursor.close()
 
-        # send email for team transactions
-        logger.info('Calling hp.email_nhl_team_transactions().')
-        try:
-            hp.email_nhl_team_transactions(batch=True)
-        except Exception as e:
-            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
-        logger.info('Call to hp.email_nhl_team_transactions() returned.')
-
-        logger.info('Calling hp.updatePlayerInjuries().')
-        try:
-            hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
-        except Exception as e:
-            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
-        logger.info('Call to hp.updatePlayerInjuries() returned.')
-
         # line & pp unit projections
         for season in seasons:
 
@@ -86,19 +71,41 @@ def main():
                     logger.error(f'Exception in call to hp.updatePoolTeamRosters() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
-                logger.info('Calling hp.updateFantraxPlayerInfo() for minors_available_players, minors_taken_players, active_available_players, all_taken_players')
-                try:
-                    hp.updateFantraxPlayerInfo(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+                # logger.info('Calling hp.updatePoolTeamServiceTimes().')
+                # try:
+                #     hp.updatePoolTeamServiceTimes(batch=True)
+                # except Exception as e:
+                #     logger.error(f'Exception in call to hp.updatePoolTeamServiceTimes() returned. \nException: {repr(e)}')
+                # logger.info('Call to hp.updatePoolTeamServiceTimes() returned.')
 
-                logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
-                try:
-                    hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+        # send email for team transactions
+        logger.info('Calling hp.email_nhl_team_transactions().')
+        try:
+            hp.email_nhl_team_transactions(batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.email_nhl_team_transactions() returned.')
+
+        logger.info('Calling hp.updatePlayerInjuries().')
+        try:
+            hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updatePlayerInjuries() returned.')
+
+        logger.info('Calling hp.updateFantraxPlayerInfo() for minors_available_players, minors_taken_players, active_available_players, all_taken_players')
+        try:
+            hp.updateFantraxPlayerInfo(batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+
+        logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
+        try:
+            hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
 
         logger.info('"Task scheduler 2" completed')
 
