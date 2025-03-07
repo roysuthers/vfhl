@@ -358,7 +358,7 @@ def from_daily_faceoff(dialog: sg.Window=None, batch: bool=False) -> pd.DataFram
                             line += 1
                             player_elements = element.find_elements(By.TAG_NAME, 'a')
                             for player_element in player_elements:
-                                player_name = player_element.get_attribute('text')
+                                player_name = player_element.get_attribute('innerText')
                                 if player_name == '':
                                     continue
                                 if section in ('Forwards', 'Defensive Pairings'):
