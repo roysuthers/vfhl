@@ -80,16 +80,7 @@ def main():
             logger.error(f'Exception in call to nhl_api.get_players() returned. \nException: {repr(e)}')
         logger.info('Call to nhl_api.get_players() returned.')
 
-        logger.info('Calling hp.updatePlayerInjuries().')
-        try:
-            hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
-        except Exception as e:
-            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
-        logger.info('Call to hp.updatePlayerInjuries() returned.')
-
-        # line & pp unit projections
         for season in seasons:
-
             # only for regular season
             if season.type == 'R':
 
@@ -119,27 +110,6 @@ def main():
                     logger.error(f'Exception in call to hp.updatePoolTeamRosters() returned. \nException: {repr(e)}')
                 logger.info('Call to hp.updatePoolTeamRosters() returned.')
 
-                logger.info('Calling hp.updateFantraxPlayerInfo() for active_available_players, minors_available_players, active_taken_players, minors_taken_players')
-                try:
-                    hp.updateFantraxPlayerInfo(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
-
-                logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
-                try:
-                    hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
-
-                logger.info('Calling hp.updatePoolStandingsStats().')
-                try:
-                    hp.updatePoolStandingsStats(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updatePoolStandingsStats() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updatePoolStandingsStats() returned.')
-
                 if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
                     logger.info('Calling hp.getMoneyPuckData().')
                     try:
@@ -147,6 +117,60 @@ def main():
                     except Exception as e:
                         logger.error(f'Exception in call to hp.getMoneyPuckData() returned. \nException: {repr(e)}')
                     logger.info('Call to hp.getMoneyPuckData() returned.')
+
+        logger.info('Calling hp.updatePlayerInjuries().')
+        try:
+            hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updatePlayerInjuries() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updatePlayerInjuries() returned.')
+
+        logger.info('Calling hp.updateFantraxPlayerInfo() for active_available_players, minors_available_players, active_taken_players, minors_taken_players')
+        try:
+            hp.updateFantraxPlayerInfo(batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+
+        logger.info('Calling hp.updateFantraxPlayerInfo() for watch_list.')
+        try:
+            hp.updateFantraxPlayerInfo(batch=True, watchlist=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+
+        # send email for team transactions
+        logger.info('Calling hp.email_nhl_team_transactions().')
+        try:
+            hp.email_nhl_team_transactions(batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.email_nhl_team_transactions() returned.')
+
+        for season in seasons:
+            # only for regular season
+            if season.type == 'R':
+
+                logger.info('Calling hp.updatePoolStandingsGainLoss().')
+                try:
+                    hp.updatePoolStandingsGainLoss(batch=True)
+                except Exception as e:
+                    logger.error(f'Exception in call to hp.updatePoolStandingsGainLoss() returned. \nException: {repr(e)}')
+                logger.info('Call to hp.updatePoolStandingsGainLoss() returned.')
+
+                logger.info('Calling hp.updatePoolTeamServiceTimes().')
+                try:
+                    hp.updatePoolTeamServiceTimes(batch=True)
+                except Exception as e:
+                    logger.error(f'Exception in call to hp.updatePoolTeamServiceTimes() returned. \nException: {repr(e)}')
+                logger.info('Call to hp.updatePoolTeamServiceTimes() returned.')
+
+                logger.info('Calling hp.updateFullTeamPlayerScoring().')
+                try:
+                    hp.updateFullTeamPlayerScoring(batch=True)
+                except Exception as e:
+                    logger.error(f'Exception in call to hp.updateFullTeamPlayerScoring() returned. \nException: {repr(e)}')
+                logger.info('Call to hp.updateFullTeamPlayerScoring() returned.')
 
         logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
         caption = f'Task Scheduler: "Daily VFHL Scheduled Task" notification'
