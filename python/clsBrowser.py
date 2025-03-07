@@ -92,5 +92,5 @@ class Browser:
             try:
                 proc = psutil.Process(pid)
                 proc.terminate()
-            except psutil.NoSuchProcess:
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
