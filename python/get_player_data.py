@@ -2979,11 +2979,11 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
                                 ''')
 
         injury_flag = ''
-        if row['injury'].startswith('DAY-TO-DAY -'):
+        if row['injury'].startswith('DAY-TO-DAY'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red.png" alt="Day-To-Day Flag"/>'
-        elif row['injury'].startswith('IR -'):
+        elif row['injury'].startswith('IR'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red-plus.png" alt="IR Flag"/>'
-        elif row['injury'].startswith('OUT -'):
+        elif row['injury'].startswith('OUT'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red-cut.png" alt="Out Indefinitely Flag"/>'
 
         if injury_flag != '':
