@@ -27,6 +27,7 @@ import pandas as pd
 import PySimpleGUI as sg
 import ujson as json
 from isoweek import Week
+from openpyxl.utils.dataframe import dataframe_to_rows
 from pandas.io.formats.style import Styler
 from tabulate import tabulate
 
@@ -1757,7 +1758,11 @@ class HockeyPool:
                                 '-',
                                 'Update Fantrax Player Info',
                                 '-',
-                                'Update Pool Standings Stats',
+                                'Update Standings Gain/Loss',
+                                '-',
+                                'Update Pool Team Service Times',
+                                '-',
+                                'Update Full Team Player Scoring',
                                 '-',
                                 'Import Watch List',
                                 '-',
@@ -2424,6 +2429,133 @@ class HockeyPool:
 
         return
 
+    def updateFullTeamPlayerScoring(self, batch: bool=False):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text(f'Update Full Team Player Scoring for "{self.web_host}"...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window(f'Update Full Team Player Scoring from "{self.web_host}"', layout, finalize=True, modal=True)
+                logger = None
+
+            fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
+            dfFullTeamPlayerScoring = fantrax.scrapeFullTeamPlayerScoring(dialog=dialog)
+            del fantrax
+
+            if len(dfFullTeamPlayerScoring.index) == 0:
+                if batch:
+                    logger.debug('No team player scoring found. Returning...')
+                return
+
+            msg = f'Full Team Player Scoring collected. Updating dataframe...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # add player id column
+            dfFullTeamPlayerScoring['player_id'] = assign_player_ids(df=dfFullTeamPlayerScoring, player_name='player', nhl_team='team', pos_code='pos')
+
+            #########################################################################################################
+            # add pre-draft keeper columns
+            sql = f'select player_id, case when keeper = "m" then "MIN" else "Yes" end as pre_draft_keeper, pool_team as pre_draft_manager from KeeperListsArchive where pool_id={self.id}'
+            df_keeper_list = pd.read_sql(sql, con=get_db_connection())
+
+            # add pre-draft keeper columns to df
+            dfFullTeamPlayerScoring.set_index(['player_id'], inplace=True)
+            df_keeper_list.set_index(['player_id'], inplace=True)
+
+            dfFullTeamPlayerScoring['keeper'] = dfFullTeamPlayerScoring.apply(lambda row: 1 if row.name in df_keeper_list.index else 0, axis=1)
+
+            dfFullTeamPlayerScoring['orig_keeper'] = dfFullTeamPlayerScoring.apply(lambda row: 1 if row.name in df_keeper_list.index and row['manager'] == df_keeper_list.loc[row.name, 'pre_draft_manager'] else 0, axis=1)
+
+            dfFullTeamPlayerScoring['other_keeper'] = dfFullTeamPlayerScoring.apply(lambda row: 1 if row.name in df_keeper_list.index and row['manager'] != df_keeper_list.loc[row.name, 'pre_draft_manager'] else 0, axis=1)
+
+            dfFullTeamPlayerScoring.reset_index(inplace=True)
+            #########################################################################################################
+            # Convert 'g_minutes' to 'g_seconds'
+            dfFullTeamPlayerScoring['g_seconds'] = dfFullTeamPlayerScoring['g_minutes'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0)
+
+            # Reorder columns to position 'player_id' and 'current' after 'team'
+            cols = dfFullTeamPlayerScoring.columns.tolist()
+
+            player_id_index = cols.index('player_id')
+            cols.insert(player_id_index + 1, cols.pop(cols.index('player_id')))
+
+            status_index = cols.index('status')
+            # and in reverse order to insert 'original' as the first column
+            cols.insert(status_index + 1, cols.pop(cols.index('other_keeper')))
+            cols.insert(status_index + 1, cols.pop(cols.index('orig_keeper')))
+            cols.insert(status_index + 1, cols.pop(cols.index('keeper')))
+
+            g_minutes_index = cols.index('g_minutes')
+            cols.insert(g_minutes_index + 1, cols.pop(cols.index('g_seconds')))
+
+            # set new column sequence
+            dfFullTeamPlayerScoring = dfFullTeamPlayerScoring[cols]
+
+            # drop 'g_minutes' column
+            dfFullTeamPlayerScoring.drop(columns=['g_minutes'], inplace=True)
+
+            # sort by manager and player columns
+            dfFullTeamPlayerScoring.sort_values(by=['manager', 'player'], ascending=[True, True], inplace=True)
+
+            msg = f'Writing to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # write to database
+            dfFullTeamPlayerScoring.to_sql('dfFullTeamPlayerScoring', con=get_db_connection(), index=False, if_exists='replace')
+
+            msg = f'Writing dfFullTeamPlayerScoring to Excel...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # write to Excel
+            self.writeToExcel(df=dfFullTeamPlayerScoring, excelFile="Manager Player Service Times.xlsx", excelSheet='Full Roster Scoring', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+
+        except Exception as e:
+            msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
+            if batch:
+                logger.error(msg)
+            else:
+                sg.popup_error(msg)
+
+        finally:
+            msg = 'Update of Full Team Player Scoring completed...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
+
     def updatePoolTeamRosters(self, suppress_prompt: bool=False, batch: bool=False, pool_teams: List=[]):
 
         try:
@@ -2585,7 +2717,7 @@ class HockeyPool:
 
         return
 
-    def updatePoolStandingsStats(self, batch: bool=False):
+    def updatePoolStandingsGainLoss(self, batch: bool=False):
 
         try:
 
@@ -2596,14 +2728,15 @@ class HockeyPool:
                 # layout the progress dialog
                 layout = [
                     [
-                        sg.Text(f'Update Pool Standings Stats for "{self.web_host}"...', size=(60,2), key='-PROG-')
+                        sg.Text(f'Update Standings Gain/Loss for "{self.web_host}"...', size=(60,2), key='-PROG-')
                     ],
                     [
                         sg.Cancel()
                     ],
                 ]
                 # create the dialog
-                dialog = sg.Window(f'Update Pool Standings Stats from "{self.web_host}"', layout, finalize=True, modal=True)
+                dialog = sg.Window(f'Update Standings Gain/Loss from "{self.web_host}"', layout, finalize=True, modal=True)
+                logger = None
 
             fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
             dfStandingsStats = fantrax.scrapePoolStandingsStats(dialog=dialog)
@@ -2623,7 +2756,11 @@ class HockeyPool:
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
+            # write to database
             dfStandingsStats.to_sql('dfStandingsStats', con=get_db_connection(), index=False, if_exists='replace')
+
+            # write to Excel
+            self.writeToExcel(df=dfStandingsStats, excelFile='Category Standings Gain & Loss.xlsx', excelSheet='Stats', min_row=2, max_row=12, min_col=1, batch=batch, logger=logger, dialog=dialog)
 
         except Exception as e:
             msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
@@ -2634,6 +2771,240 @@ class HockeyPool:
 
         finally:
             msg = 'Update of pool standings statistics completed...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
+
+    def updatePoolTeamServiceTimes(self, batch: bool=False):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text(f'Update Pool Team Service Times for "{self.web_host}"...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window(f'Update Pool Team Service Times from "{self.web_host}"', layout, finalize=True, modal=True)
+                logger = None
+
+            fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
+            dfPlayerServiceTimes = fantrax.scrapePoolTeamsServiceTime(dialog=dialog)
+            del fantrax
+
+            if len(dfPlayerServiceTimes.index) == 0:
+                if batch:
+                    logger.debug('No pool team service times found. Returning...')
+                return
+
+            msg = f'Pool Team Service Times collected. Updating dataframe...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # add player id column
+            dfPlayerServiceTimes['player_id'] = assign_player_ids(df=dfPlayerServiceTimes, player_name='player', nhl_team='team', pos_code='pos')
+
+            #########################################################################################################
+            # add pre-draft keeper columns
+            sql = f'select player_id, case when keeper = "m" then "MIN" else "Yes" end as pre_draft_keeper, pool_team as pre_draft_manager from KeeperListsArchive where pool_id={self.id}'
+            df_keeper_list = pd.read_sql(sql, con=get_db_connection())
+
+            # add pre-draft keeper columns to df
+            dfPlayerServiceTimes.set_index(['player_id'], inplace=True)
+            df_keeper_list.set_index(['player_id'], inplace=True)
+
+            dfPlayerServiceTimes['keeper'] = dfPlayerServiceTimes.apply(lambda row: 1 if row.name in df_keeper_list.index else 0, axis=1)
+
+            dfPlayerServiceTimes['orig_keeper'] = dfPlayerServiceTimes.apply(lambda row: 1 if row.name in df_keeper_list.index and row['manager'] == df_keeper_list.loc[row.name, 'pre_draft_manager'] else 0, axis=1)
+
+            dfPlayerServiceTimes['other_keeper'] = dfPlayerServiceTimes.apply(lambda row: 1 if row.name in df_keeper_list.index and row['manager'] != df_keeper_list.loc[row.name, 'pre_draft_manager'] else 0, axis=1)
+
+            dfPlayerServiceTimes.reset_index(inplace=True)
+            #########################################################################################################
+
+            # list of period columns (i.e., 1, 2, 3, ...)
+            period_columns = [col for col in dfPlayerServiceTimes.columns if col.isdigit()]
+
+            # on-original-roster column
+            dfPlayerServiceTimes['original'] = dfPlayerServiceTimes[period_columns].iloc[:, 0].apply(lambda x: 1 if x != '--' else 0)
+
+            # on-current-roster column
+            dfPlayerServiceTimes['current'] = dfPlayerServiceTimes[period_columns].iloc[:, -1].apply(lambda x: 1 if x != '--' else 0)
+
+            # static column (players who were on the original roster and on the current roster)
+            dfPlayerServiceTimes['static'] = dfPlayerServiceTimes.apply(lambda row: 1 if row[period_columns[0]] != '--' and row[period_columns[-1]] != '--' else 0, axis=1)
+
+            # added column (players who were not on the original roster but now on the current roster)
+            dfPlayerServiceTimes['added'] = dfPlayerServiceTimes.apply(lambda row: 1 if row[period_columns[0]] == '--' and row[period_columns[-1]] != '--' else 0, axis=1)
+
+            # moved column (players who were on the original roster but not on the current roster)
+            dfPlayerServiceTimes['moved'] = dfPlayerServiceTimes.apply(lambda row: 1 if row[period_columns[0]] != '--' and row[period_columns[-1]] == '--' else 0, axis=1)
+
+            # on-fill-in-roster column
+            dfPlayerServiceTimes['fill_in'] = dfPlayerServiceTimes.apply(lambda row: 1 if row[period_columns[0]] == '--' and row[period_columns[-1]] == '--' else 0, axis=1)
+
+            # player as Skt column
+            dfPlayerServiceTimes['as_skt'] = dfPlayerServiceTimes.apply(lambda row: 1 if any(row[col] == 'Skt' for col in period_columns) else 0, axis=1)
+
+            # player as 'Min' column
+            dfPlayerServiceTimes['as_min'] = dfPlayerServiceTimes.apply(lambda row: 1 if any(row[col] == 'Min' for col in period_columns) else 0, axis=1)
+
+            # player always 'Min' column
+            dfPlayerServiceTimes['always_min'] = dfPlayerServiceTimes.apply(lambda row: 1 if any(row[col] == 'Min' for col in period_columns) and all(row[col] in ['Min', '--'] for col in period_columns) else 0, axis=1)
+
+            # player as 'Min' now column
+            dfPlayerServiceTimes['min_now'] = dfPlayerServiceTimes.apply(lambda row: 1 if row[period_columns[-1]] == 'Min' else 0, axis=1)
+
+            # Reorder columns to position 'player_id' and 'current' after 'team'
+            cols = dfPlayerServiceTimes.columns.tolist()
+            player_id_index = cols.index('player_id')
+            cols.insert(player_id_index + 1, cols.pop(cols.index('player_id')))
+            team_abbr_index = cols.index('team')
+            # and in reverse order to insert 'original' as the first column
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('min_now')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('always_min')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('as_min')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('as_skt')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('fill_in')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('added')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('moved')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('static')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('original')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('current')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('other_keeper')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('orig_keeper')))
+            cols.insert(team_abbr_index + 1, cols.pop(cols.index('keeper')))
+            dfPlayerServiceTimes = dfPlayerServiceTimes[cols]
+
+            msg = f' Writing Pool Team Service Times to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # write to database
+            dfPlayerServiceTimes.to_sql('dfPlayerServiceTimes', con=get_db_connection(), index=False, if_exists='replace')
+
+            # write to Excel
+            self.writeToExcel(df=dfPlayerServiceTimes, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Details', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+
+            ########################################################################
+
+            msg = f'Creating Pool Team Service Times Summary dataframe...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # add column for full service time
+            dfPlayerServiceTimes['full'] = dfPlayerServiceTimes[period_columns].apply(lambda row: 1 if all(val != '--' for val in row) else 0, axis=1)
+
+            # Create a summary dataframe
+            dfPlayerServiceTimesSummary = dfPlayerServiceTimes.groupby('manager').agg(
+                all=('player_id', 'count'),
+                all_Fs=('pos', lambda x: (x == 'F').sum()),
+                all_Ds=('pos', lambda x: (x == 'D').sum()),
+                all_Gs=('pos', lambda x: (x == 'G').sum()),
+                current=('current', lambda x: (x == 1).sum()),
+                curr_Fs=('current', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                curr_Ds=('current', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                curr_Gs=('current', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                keeper=('keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (x == 1)).sum()),
+                keeper_Fs=('keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                keeper_Ds=('keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                keeper_Gs=('keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                # orig_keeper=('orig_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (x == 1)).sum()),
+                # orig_keeper_Fs=('orig_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                # orig_keeper_Ds=('orig_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                # orig_keeper_Gs=('orig_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                # other_keeper=('other_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (x == 1)).sum()),
+                # other_keeper_Fs=('other_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                # other_keeper_Ds=('other_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                # other_keeper_Gs=('other_keeper', lambda x: ((dfPlayerServiceTimes['current'] == 1) & (dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                original=('original', lambda x: (x == 1).sum()),
+                orig_Fs=('original', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                orig_Ds=('original', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                orig_Gs=('original', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                static=('static', lambda x: (x == 1).sum()),
+                static_Fs=('static', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                static_Ds=('static', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                static_Gs=('static', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                added=('added', lambda x: (x == 1).sum()),
+                added_Fs=('added', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                added_Ds=('added', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                added_Gs=('added', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                moved=('moved', lambda x: (x == 1).sum()),
+                moved_Fs=('moved', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                moved_Ds=('moved', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                moved_Gs=('moved', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                fill_in=('fill_in', lambda x: (x == 1).sum()),
+                fill_in_Fs=('fill_in', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                fill_in_Ds=('fill_in', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                fill_in_Gs=('fill_in', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                as_skt=('as_skt', lambda x: (x == 1).sum()),
+                f_as_skt=('as_skt', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                d_as_skt=('as_skt', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                as_min=('as_min', lambda x: (x == 1).sum()),
+                f_as_min=('as_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                d_as_min=('as_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                g_as_min=('as_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                always_min=('always_min', lambda x: (x == 1).sum()),
+                f_always_min=('always_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                d_always_min=('always_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                g_always_min=('always_min', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+                min_now=('min_now', lambda x: (x == 1).sum()),
+                f_min_now=('min_now', lambda x: ((dfPlayerServiceTimes['pos'] == 'F') & (x == 1)).sum()),
+                d_min_now=('min_now', lambda x: ((dfPlayerServiceTimes['pos'] == 'D') & (x == 1)).sum()),
+                g_min_now=('min_now', lambda x: ((dfPlayerServiceTimes['pos'] == 'G') & (x == 1)).sum()),
+           ).reset_index()
+
+            msg = f'Writing Pool Team Service Times Summary to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # Add the summary dataframe to the database
+            dfPlayerServiceTimesSummary.to_sql('dfPlayerServiceTimesSummary', con=get_db_connection(), index=False, if_exists='replace')
+
+            # write to Excel
+            self.writeToExcel(df=dfPlayerServiceTimesSummary, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Summary', min_row=3, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+
+        except Exception as e:
+            msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
+            if batch:
+                logger.error(msg)
+            else:
+                sg.popup_error(msg)
+
+        finally:
+            msg = 'Update of pool team service times completed...'
             if batch:
                 logger.debug(msg)
             else:
@@ -3137,8 +3508,14 @@ class HockeyPool:
                         update_pool_teams_tab = True
                         refresh_pool_team_roster_config = True
 
-                    elif event == 'Update Pool Standings Stats':
-                        self.updatePoolStandingsStats()
+                    elif event == 'Update Standings Gain/Loss':
+                        self.updatePoolStandingsGainLoss()
+
+                    elif event == 'Update Pool Team Service Times':
+                        self.updatePoolTeamServiceTimes()
+
+                    elif event == 'Update Full Team Player Scoring':
+                        self.updateFullTeamPlayerScoring()
 
                     elif event == 'Get Pool Team Rosters, by Period':
                         self.getPoolTeamRostersByPeriod()
@@ -3204,6 +3581,95 @@ class HockeyPool:
             except Exception as e:
                 sg.PopupScrolled(''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)), modal=True)
                 pass
+
+        return
+
+    def writeToExcel(self, df: pd.DataFrame=None, excelFile: str='', excelSheet: str='', min_row: int=2, max_row: int=None, min_col: int=1, batch: bool=False, logger: logging.Logger=None, dialog: sg.Window=None):
+
+        try:
+
+            msg = f'Writing to Excel...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # Write df to an existing Excel file in OneDrive
+            try:
+
+                # Path to the OneDrive file
+                one_drive_file = f"C:/Users/Roy/OneDrive/VFHL/{excelFile}"
+
+                # Load the existing workbook
+                workbook = openpyxl.load_workbook(one_drive_file)
+
+                try:
+
+                    # Select the target sheet
+                    sheet = workbook[excelSheet]
+
+                    max_df_col = len(df.columns)
+
+                    if max_row is None:
+                        max_row = sheet.max_row
+
+                    # Clear existing data in the target range
+                    for row in sheet.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_df_col):
+                        for cell in row:
+                            cell.value = None
+
+                    # Write the DataFrame to the sheet starting at row 2, column A
+                    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), min_row):
+                        for c_idx, value in enumerate(row[:max_df_col], min_row - 1):
+                            sheet.cell(row=r_idx, column=c_idx, value=value)
+
+                    # Save the workbook
+                    workbook.save(one_drive_file)
+
+                finally:
+                    # Ensure the workbook is closed
+                    workbook.close()
+
+            except Exception as e:
+                msg = f'Error writing to Excel file: {e}'
+                if batch:
+                    logger.error(msg)
+                else:
+                    sg.popup_error(msg)
+                raise
+
+            # Trigger OneDrive sync for the xlsx file
+            one_drive_file = one_drive_file.replace('/', '\\').replace("'", "''")
+            result = subprocess.run(
+                ["powershell", "-Command", f'Start-Sleep -Seconds 5; Start-Process -FilePath "C:\\Users\\Roy\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe" -ArgumentList "/sync {one_drive_file} /background"'],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode != 0:
+                error_msg = f"Error syncing OneDrive file: {result.stderr}"
+                if batch:
+                    logger.error(error_msg)
+                else:
+                    sg.popup_error(error_msg)
+
+        except Exception as e:
+            msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
+            if batch:
+                logger.error(msg)
+            else:
+                sg.popup_error(msg)
+
+        finally:
+            msg = 'Write to Excel completed...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
 
         return
 

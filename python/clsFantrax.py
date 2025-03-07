@@ -11,6 +11,7 @@ from typing import Dict, List
 
 import pandas as pd
 import PySimpleGUI as sg
+from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 # from selenium.webdriver import Firefox
 from selenium.webdriver.common.by import By
@@ -88,6 +89,10 @@ class Fantrax:
 
         self.manager_position_games_played = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={{team_id}};view=GAMES_PER_POS'
 
+        self.team_service_time = f'https://www.fantrax.com/newui/fantasy/teamServiceTime.go?leagueId={league_id}'
+
+        self.full_team_scoring = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;statsType=3'
+
         self.pool_id = pool_id
         self.user_name = 'Roy_Suthers'
         self.season = Season().getSeason(id=season_id)
@@ -127,6 +132,50 @@ class Fantrax:
     #             return False
 
         return True
+
+    def getCurrentPeriod(self):
+
+        xpath = '/html/body/app-root/section/app-league-team-roster/section/div[1]/filter-panel/div/div/div[4]/div[1]/mat-form-field/div[1]/div/div[2]'
+
+        # Get the current period
+        with Browser() as browser:
+
+            # Set default wait time
+            wait = WebDriverWait(browser, 60)
+
+            browser.get(self.poolTeamPlayersPage)
+
+            period_control = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+            if period_control:
+                period_text = period_control.get_attribute('innerText')
+                current_period = period_text.split()[0]
+                date_text = period_text.split('(')[1].replace(')', '')
+                # Determine the year based on the season start and end dates
+                start_date = datetime.strptime(self.season.start_date, '%Y-%m-%d')
+                end_date = datetime.strptime(self.season.end_date, '%Y-%m-%d')
+                parsed_date = datetime.strptime(date_text, '%a %b %d')
+
+                if start_date.month <= parsed_date.month <= end_date.month:
+                    if parsed_date.month == start_date.month and parsed_date.day < start_date.day:
+                        year = start_date.year + 1
+                    elif parsed_date.month == end_date.month and parsed_date.day > end_date.day:
+                        year = end_date.year - 1
+                    else:
+                        year = start_date.year if parsed_date.month >= start_date.month else end_date.year
+                else:
+                    year = start_date.year if parsed_date.month >= start_date.month else end_date.year
+
+                date_with_year = f'{date_text} {year}'
+                period_date = datetime.strptime(date_with_year, '%a %b %d %Y').date()
+            else:
+                raise ValueError("Could not find the period control element.")
+
+        if current_period is None or period_date is None:
+            raise ValueError("Could not determine the current period.")
+        else:
+            period = int(current_period)
+
+        return period, period_date
 
     def scrapeNHLTeamTransactions(self, dialog: sg.Window=None):
 
@@ -1088,9 +1137,26 @@ class Fantrax:
                             continue
                         manager, stats = row
                         rank, manager = manager.text.splitlines()
-                        pts, plus_minus, ww, gp, pt_d, goals, assists, pim, sog, ppp, hits, blks, tk, w, gaa, sv, sv_pc = stats.text.split()
+                        pts, plus_minus, ww, gp, pt_d, goals, assists, pim, sog, ppp, hits, blks, tk, w, gaa, sv, sv_pc = [stat.replace(',', '') for stat in stats.text.split()]
 
-                        standings.append({'rank': rank, 'manager': manager, 'pts': pts, 'pt_d': pt_d, 'goals': goals,  'assists': assists, 'pim': pim, 'sog': sog, 'ppp': ppp, 'hits': hits, 'blks': blks, 'tk': tk, 'w': w, 'gaa': gaa, 'sv': sv, 'sv_pc': sv_pc})
+                        standings.append({
+                            'rank': rank,
+                            'manager': manager,
+                            'pts': float(pts),
+                            'pt_d': int(pt_d),
+                            'goals': int(goals),
+                            'assists': int(assists),
+                            'pim': int(pim),
+                            'sog': int(sog),
+                            'ppp': int(ppp),
+                            'hits': int(hits),
+                            'blks': int(blks),
+                            'tk': int(tk),
+                            'w': int(w),
+                            'gaa': float(gaa),
+                            'sv': int(sv),
+                            'sv_pc': float(sv_pc)
+                        })
 
                 except Exception as e:
                     msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)) + f'Error scraping pool team stats.'
@@ -1264,6 +1330,385 @@ class Fantrax:
 
         return
 
+    def scrapePoolTeamsServiceTime(self, dialog: sg.Window=None) -> pd.DataFrame:
+
+        try:
+
+            dfPlayerServiceTimes = pd.DataFrame()
+            poolTeamServiceTimes = []
+
+            logger = logging.getLogger(__name__)
+
+            msg = 'Waiting for web driver...'
+            if dialog:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return dfPlayerServiceTimes
+            else:
+                logger.debug(msg)
+
+            current_period, period_date = self.getCurrentPeriod()
+
+            with Browser() as browser:
+
+                # Set default wait time
+                wait = WebDriverWait(browser, 60)
+
+                if not dialog:
+                    logger.debug(f'Getting "{self.team_service_time}"')
+
+                browser.get(self.team_service_time)
+
+                team_options = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ddTeamId"]'))).find_elements(By.TAG_NAME, 'option')
+
+                number_of_teams = len(team_options)
+
+                html_for_teams = []
+
+                for team_number in range(number_of_teams):
+
+                    team_name = team_options[team_number].get_attribute('innerText').replace( '*', '')
+
+                    msg = f'Getting service time html for "{team_name}"'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=2)
+                        if event == 'Cancel' or event == sg.WIN_CLOSED:
+                            return dfPlayerServiceTimes
+                    else:
+                        logger.debug(msg)
+
+                    team_options[team_number].click()
+
+                    table = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="dvTeamServiceTime"]/table/tbody')))
+
+                    html = table.get_attribute('innerHTML')
+
+                    html_for_teams.append({'manager': team_name, 'html': html})
+
+                    team_options = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ddTeamId"]'))).find_elements(By.TAG_NAME, 'option')
+
+                for managers in html_for_teams:
+
+                    manager = managers['manager'].rstrip('*').strip()
+                    html = managers['html']
+
+                    msg = f'Getting service time for "{manager}"'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=2)
+                        if event == 'Cancel' or event == sg.WIN_CLOSED:
+                            return dfPlayerServiceTimes
+                    else:
+                        logger.debug(msg)
+
+                    try:
+
+                        soup = BeautifulSoup(html, 'html.parser')
+
+                        players = soup.findAll('tr')
+                        for player in players:
+                            if player.getText().startswith('\nPlayer'):
+                                continue
+                            service_time = player.findAll('td')
+                            for idx, data in enumerate(service_time):
+                                if idx == 0:
+                                    player_name = data.find('a').getText()
+                                    player_data = data.findAll('span')
+                                    if player_data[0].getText() == '(R)':
+                                        pos = player_data[1].getText()
+                                        team = player_data[2].getText()
+                                    else:
+                                        pos = player_data[0].getText()
+                                        team = player_data[1].getText()
+                                    poolTeamServiceTimes.append({
+                                        'pool_id': self.pool_id,
+                                        'manager': manager,
+                                        'player': player_name,
+                                        'pos': pos,
+                                        'team': team,
+                                    })
+                                else:
+                                    title = data.attrs['title']
+                                    if period_date > datetime.now().date() or int(title) > current_period:
+                                        break
+                                    class_ = data.attrs['class'][0]
+                                    service = data.getText()
+                                    if class_ == 'INACTIVE':
+                                        service = '--'
+                                    elif class_ == 'MINORS':
+                                        service = 'Min'
+                                    elif class_ == 'RESERVE':
+                                        service = 'Res'
+                                    elif class_ == 'INJURED_RESERVE':
+                                        service = 'IR'
+                                    poolTeamServiceTimes[-1][title] = service
+
+                    except Exception as e:
+                        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)) + f'Error scraping pool team service times.'
+                        if dialog:
+                            dialog.close()
+                            sg.popup_error(msg)
+                        else:
+                            logger.error(msg)
+                        return dfPlayerServiceTimes
+
+            dfPlayerServiceTimes = pd.DataFrame.from_dict(data=poolTeamServiceTimes)
+
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            if dialog:
+                dialog.close()
+                sg.popup_error(msg)
+            else:
+                logger.error(msg)
+
+        return dfPlayerServiceTimes
+
+    def scrapeFullTeamPlayerScoring(self, dialog: sg.Window=None) -> pd.DataFrame:
+
+        try:
+
+            dfFullTeamPlayerScoring = pd.DataFrame()
+            fullTeamPlayerScoring = []
+
+            logger = logging.getLogger(__name__)
+
+            msg = 'Waiting for web driver...'
+            if dialog:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return dfFullTeamPlayerScoring
+            else:
+                logger.debug(msg)
+
+            sql = f'select name, fantrax_id from PoolTeam where pool_id={self.pool_id}'
+            with get_db_connection() as connection:
+                result = connection.execute(sql).fetchall()
+                pool_teams_dict = {row['name']: row['fantrax_id'] for row in result}
+
+            with Browser() as browser:
+
+                # Set default wait time
+                wait = WebDriverWait(browser, 60)
+
+                html_for_skaters = []
+                html_for_goalies = []
+
+                for team_name, team_id in pool_teams_dict.items():
+                    msg = f'Getting full team player scoring html for "{team_name}"'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=2)
+                        if event == 'Cancel' or event == sg.WIN_CLOSED:
+                            return dfFullTeamPlayerScoring
+                    else:
+                        logger.debug(msg)
+
+                    # scoringCategoryType=5 for Tracked scoring category
+                    browser.get(self.full_team_scoring + f';teamId={team_id};scoringCategoryType=5')
+                    skaters_table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[2]/ultimate-table/section')))
+                    skaters_html = skaters_table.get_attribute('innerHTML')
+                    html_for_skaters.append({'manager': team_name, 'html': skaters_html})
+
+                    # scoringCategoryType=1 for Standard scoring category
+                    browser.get(self.full_team_scoring + f';teamId={team_id};scoringCategoryType=1')
+                    goalies_table = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[3]/ultimate-table/section')))
+                    goalies_html = goalies_table.get_attribute('innerHTML')
+                    html_for_goalies.append({'manager': team_name, 'html': goalies_html})
+
+                # skaters
+                for element in html_for_skaters:
+
+                    manager, html = element.values()
+
+                    msg = f'Getting skater scoring for "{manager}"'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=2)
+                        if event == 'Cancel' or event == sg.WIN_CLOSED:
+                            return dfFullTeamPlayerScoring
+                    else:
+                        logger.debug(msg)
+
+                    try:
+
+                        soup = BeautifulSoup(html, 'html.parser')
+
+                        player_names = soup.findAll('td')
+                        player_data = soup.findAll('tr')
+                        for player, data in zip(player_names, player_data):
+                            if player.find('a') is None:
+                                continue
+                            status = player.getText().strip().split()[0]
+                            player_name = player.find('a').getText()
+                            player_data = player.findAll('span')
+                            pos = player_data[0].getText()
+                            if player_data[1].getText() == '(R)':
+                                team = player_data[2].getText().split()[-1].strip()
+                            else:
+                                team = player_data[1].getText().split()[-1].strip()
+
+                            player_data = data.findAll('span', attrs={'class': 'ng-star-inserted'})
+                            if len(player_data) == 12:
+                                pt_d = player_data[2].getText()
+                                gp = player_data[3].getText()
+                                goals = player_data[4].getText()
+                                assists = player_data[5].getText()
+                                pim = player_data[6].getText().replace(',', '')
+                                sog = player_data[7].getText().replace(',', '')
+                                ppp = player_data[8].getText()
+                                hits = player_data[9].getText().replace(',', '')
+                                blks = player_data[10].getText().replace(',', '')
+                                tk = player_data[11].getText()
+                            else: # len(player_data) == 11
+                                pt_d = player_data[1].getText()
+                                gp = player_data[2].getText()
+                                goals = player_data[3].getText()
+                                assists = player_data[4].getText()
+                                pim = player_data[5].getText().replace(',', '')
+                                sog = player_data[6].getText().replace(',', '')
+                                ppp = player_data[7].getText()
+                                hits = player_data[8].getText().replace(',', '')
+                                blks = player_data[9].getText().replace(',', '')
+                                tk = player_data[10].getText()
+
+                            fullTeamPlayerScoring.append({
+                                'pool_id': self.pool_id,
+                                'manager': manager,
+                                'player': player_name,
+                                'pos': pos,
+                                'team': team,
+                                'status': status,
+                                'gp': int(gp),
+                                'pt_d': int(pt_d),
+                                'goals': int(goals),
+                                'assists': int(assists),
+                                'pim': int(pim),
+                                'sog': int(sog),
+                                'ppp': int(ppp),
+                                'hits': int(hits),
+                                'blks': int(blks),
+                                'tk': int(tk),
+                                'g_minutes': '0:00',
+                                'wins': 0,
+                                'gaa': 0.0,
+                                'save_pc': 0.0,
+                                'goals_against': 0,
+                                'shots_against': 0,
+                                'saves': 0,
+                            })
+
+                    except Exception as e:
+                        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)) + f'Error scraping pool team service times.'
+                        if dialog:
+                            dialog.close()
+                            sg.popup_error(msg)
+                        else:
+                            logger.error(msg)
+                        return dfFullTeamPlayerScoring
+
+                # goalies
+                for element in html_for_goalies:
+
+                    manager, html = element.values()
+
+                    msg = f'Getting goalie scoring for "{manager}"'
+                    if dialog:
+                        dialog['-PROG-'].update(msg)
+                        event, values = dialog.read(timeout=2)
+                        if event == 'Cancel' or event == sg.WIN_CLOSED:
+                            return dfFullTeamPlayerScoring
+                    else:
+                        logger.debug(msg)
+
+                    try:
+
+                        soup = BeautifulSoup(html, 'html.parser')
+
+                        player_names = soup.findAll('td')
+                        player_data = soup.findAll('tr')
+                        for player, data in zip(player_names, player_data):
+                            if player.find('a') is None:
+                                continue
+                            status = player.getText().strip().split()[0]
+                            player_name = player.find('a').getText()
+                            player_data = player.findAll('span')
+                            pos = player_data[0].getText()
+                            if player_data[1].getText() == '(R)':
+                                team = player_data[2].getText().split()[-1].strip()
+                            else:
+                                team = player_data[1].getText().split()[-1].strip()
+
+                            player_data = data.findAll('span', attrs={'class': 'ng-star-inserted'})
+                            if len(player_data) == 13:
+                                gp = player_data[2].getText()
+                                minutes = player_data[3].getText()
+                                wins = player_data[4].getText()
+                                gaa = player_data[7].getText()
+                                save_pc = player_data[8].getText()
+                                goals_against = player_data[10].getText().replace(',', '')
+                                shots_against = player_data[11].getText().replace(',', '')
+                                saves = player_data[12].getText().replace(',', '')
+                            else: # len(player_data) == 12
+                                gp = player_data[1].getText()
+                                minutes = player_data[2].getText()
+                                wins = player_data[3].getText()
+                                gaa = player_data[6].getText()
+                                save_pc = player_data[7].getText()
+                                goals_against = player_data[9].getText().replace(',', '')
+                                shots_against = player_data[10].getText().replace(',', '')
+                                saves = player_data[11].getText().replace(',', '')
+
+                            fullTeamPlayerScoring.append({
+                                'pool_id': self.pool_id,
+                                'manager': manager,
+                                'player': player_name,
+                                'pos': pos,
+                                'team': team,
+                                'status': status,
+                                'gp': int(gp),
+                                'pt_d': 0,
+                                'goals': 0,
+                                'assists': 0,
+                                'pim': 0,
+                                'sog': 0,
+                                'ppp': 0,
+                                'hits': 0,
+                                'blks': 0,
+                                'tk': 0,
+                                'g_minutes': minutes,
+                                'wins': int(wins),
+                                'gaa': float(gaa),
+                                'save_pc': float(save_pc),
+                                'goals_against': int(goals_against),
+                                'shots_against': int(shots_against),
+                                'saves': int(saves),
+                            })
+
+                    except Exception as e:
+                        msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__)) + f'Error scraping pool team service times.'
+                        if dialog:
+                            dialog.close()
+                            sg.popup_error(msg)
+                        else:
+                            logger.error(msg)
+                        return dfFullTeamPlayerScoring
+
+            dfFullTeamPlayerScoring = pd.DataFrame.from_dict(data=fullTeamPlayerScoring)
+
+        except Exception as e:
+            msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+            if dialog:
+                dialog.close()
+                sg.popup_error(msg)
+            else:
+                logger.error(msg)
+
+        return dfFullTeamPlayerScoring
+
     def updatePoolTeams(self, pool, df, batch: bool=False):
 
         if batch:
@@ -1316,7 +1761,6 @@ class Fantrax:
                 return
 
         return
-
 
 def get_skip_rows(file_path, position):
     skaters_start_line = goalies_start_line = None
