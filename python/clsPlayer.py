@@ -183,8 +183,6 @@ class Player:
             team_logo = io.BytesIO()
             cairosvg.svg2png(url=url, write_to=team_logo, scale=0.035)
             team_logo = team_logo.getvalue()
-            # team_logo = Image.open(os.path.abspath(f'./python/input/nhl-images/logos/{team_id}.png'))
-            # team_logo = Image.open(os.path.abspath(f'{DATA_INPUT_FOLDER}/nhl-images/logos/{team_id}.png'))
 
         # primary_position = ''
         # if 'primaryPosition' in player:
