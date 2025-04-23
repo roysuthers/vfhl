@@ -11,6 +11,7 @@ from typing import Dict, List
 
 import pandas as pd
 import PySimpleGUI as sg
+import spacy
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 # from selenium.webdriver import Firefox
@@ -21,7 +22,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from unidecode import unidecode
 
 # Hockey Pool classes
-from constants import NHL_API_URL
+from constants import NHL_API_URL, DATA_INPUT_FOLDER
 from clsBrowser import Browser
 from clsNHL_API import NHL_API
 from clsPlayer import Player
@@ -97,7 +98,7 @@ class Fantrax:
         self.user_name = 'Roy_Suthers'
         self.season = Season().getSeason(id=season_id)
 
-        self.browser_download_dir = os.path.abspath(f'./python/input/fantrax/{season_id}')
+        self.browser_download_dir = os.path.abspath(f'{DATA_INPUT_FOLDER}/fantrax/{season_id}')
 
         return
 
@@ -183,16 +184,25 @@ class Fantrax:
 
             logger = logging.getLogger(__name__)
 
+            dfNHLTeamTransactions = pd.DataFrame(columns=['player_name', 'pos', 'team_abbr', 'comment'])
+            dfNHLExcludeTeamTrans = pd.DataFrame(columns=['verb', 'example'])
+
             msg = 'Waiting for web driver...'
             if dialog:
                 dialog['-PROG-'].update(msg)
                 event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
-                    return
+                    return dfNHLTeamTransactions, dfNHLExcludeTeamTrans
             else:
                 logger.debug(msg)
 
-            dfNHLTeamTransactions = pd.DataFrame()
+            # Connect to the database
+            with get_db_connection() as conn:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                # Fetch all the verbs & example comments from the dfNHLExcludeTeamTrans table
+                cursor.execute("SELECT verb FROM dfNHLExcludeTeamTrans")
+                exclude_verbs = {row[0] for row in cursor.fetchall()}  # Use a set for faster lookups
 
             with Browser() as browser:
 
@@ -206,7 +216,7 @@ class Fantrax:
                     dialog['-PROG-'].update(msg)
                     event, values = dialog.read(timeout=2)
                     if event == 'Cancel' or event == sg.WIN_CLOSED:
-                        return
+                        return dfNHLTeamTransactions, dfNHLExcludeTeamTrans
                 else:
                     logger.debug(msg)
 
@@ -238,30 +248,144 @@ class Fantrax:
                             break
 
                     transactions = []
-                    # Define a regex pattern to match the date in the comment, and capture the text after it
-                    pattern = r'(\b\w{3} \d{1,2}, \d{4}\b)(.*)'
-                    # Regular expression pattern to exclude comments
-                    exclude_pattern = re.compile(r'.*\b(?:in|win over the|loss to the|against)\b.*')
+                    exclude_transaction_verbs = []
+
+                    # Load SpaCy's English language model
+                    nlp = spacy.load("en_core_web_sm")
+
+                    def is_future_tense(sentence):
+                        doc = nlp(sentence)
+                        future_detected = False  # Flag to indicate future tense presence
+
+                        for token in doc:
+                            # Check for "will" (auxiliary modal for future tense)
+                            if token.text.lower() in ["will", "'ll"] and token.pos_ == "AUX":
+                                future_detected = True
+
+                            # Check for "going to", "traded to" or "called up" construction
+                            future_keywords = [
+                                "agreed",
+                                "called",
+                                "going",
+                                "participated",
+                                "placed",
+                                "remains",
+                                "returned",
+                                "slated",
+                                "traded",
+                            ]
+                            child_keywords = [
+                                "in",
+                                "on",
+                                "to",
+                                "up",
+                                "with",
+                            ]
+                            if future_detected is False and token.text.lower() in future_keywords and token.pos_ == "VERB":
+                                # Look for the word "to" or "up" as its child
+                                for child in token.children:
+                                    if child.text.lower() in child_keywords:
+                                        future_detected = True
+
+                            if future_detected is False and token.text.lower() in ["rejoined", ] and token.pos_ == "VERB":
+                                future_detected = True
+
+                            # Check for implied future phrases with participles (e.g., "is summoned")
+                            future_keywords = [
+                                "activated",
+                                "assigned",
+                                "available",
+                                "called",
+                                "demoted",
+                                "designated",
+                                "elevated",
+                                "expected",
+                                "loaned",
+                                "practicing",
+                                "promoted",
+                                "reassigned",
+                                "recalled",
+                                "returned",
+                                "set",
+                                "slated",
+                                "summoned",
+                                "waived",
+                            ]
+                            ancestor_keywords = [
+                                "are",
+                                "has been",
+                                "is",
+                                "was",
+                                "were",
+                                "will be",
+                            ]
+                            if future_detected is False and token.text.lower() in future_keywords and token.pos_ == "VERB":
+                                for ancestor in token.lefts:
+                                    if ancestor.text.lower() in ancestor_keywords:
+                                        future_detected = True
+
+                            future_keywords = [
+                                "announced",
+                                "assigned",
+                                "brought",
+                                "cleared",
+                                "kept",
+                                "left",
+                                "named",
+                                "practicing",
+                                "reached",
+                                "reassigned",
+                                "sent",
+                                "signed",
+                            ]
+                            if future_detected is False and token.text.lower() in future_keywords and token.pos_ == "VERB":
+                                for child in token.children:
+                                    if child.ent_type_ in ["DATE", "TIME", "EVENT"]:
+                                        future_detected = True
+
+                            if future_detected is True:
+                                verb = token.text.lower()
+                                break
+
+                        if future_detected is False:
+                            verb = ''
+                            for token in doc:
+                                # if verb is "picked" followed by "up, set verb to "picked up"
+                                if token.pos_ == "VERB":
+                                    if token.text.lower() in ["picked"]:
+                                        verb = "picked"
+                                        # Look for the word "up" as its child
+                                        for child in token.children:
+                                            if child.text.lower() in ["up"]:
+                                                verb = "picked up"
+                                                break
+                                        if verb == "picked up":
+                                            break
+                                    else:
+                                        verb = token.text.lower()
+                                        break
+
+                        return future_detected, verb
+
                     for row in rows:
                         data = row.text.splitlines()
                         player_name = data[0]
                         pos = data[1]
                         team_abbr = data[2].lstrip(' - ')
 
-                        # Use re.search to find the pattern in the text
-                        match = re.search(pattern, data[4])
-                        # Check if a match was found
-                        if match:
-                            comment = match.group(2).strip()  # This is the text after the date
+                        future_tense, verb = is_future_tense(data[4])
+
+                        if future_tense is True:
+                            transactions.append({'player_name': player_name, 'pos': pos, 'team_abbr': team_abbr, 'comment': data[4]})
                         else:
-                            comment = data[4]
-
-                        comment = comment.lstrip(', ')
-
-                        if exclude_pattern.search(comment):
-                            continue
-
-                        transactions.append({'player_name': player_name, 'pos': pos, 'team_abbr': team_abbr, 'comment': comment})
+                            if verb not in exclude_verbs:
+                                if verb not in [x['verb'] for x in exclude_transaction_verbs]:
+                                    msg = f"Exluded transaction: {data[4]}"
+                                    if dialog:
+                                        print(msg)
+                                    else:
+                                        logger.warn(msg)
+                                    exclude_transaction_verbs.append({'verb': verb, 'example': data[4]})
 
                 except Exception as e:
                     msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
@@ -270,18 +394,21 @@ class Fantrax:
                         sg.popup_error(msg)
                     else:
                         logger.error(msg)
-                    return
+                    return dfNHLTeamTransactions, dfNHLExcludeTeamTrans
 
             msg = 'Scraping NHL team transactions completed...'
             if dialog:
                 dialog['-PROG-'].update(msg)
                 event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
-                    return
+                    return dfNHLTeamTransactions, dfNHLExcludeTeamTrans
             else:
                 logger.debug(msg)
 
-            dfNHLTeamTransactions = pd.DataFrame.from_dict(data=transactions)
+            if len(transactions) > 0:
+                dfNHLTeamTransactions = pd.DataFrame.from_dict(data=transactions)
+            if len(exclude_transaction_verbs) > 0:
+                dfNHLExcludeTeamTrans = pd.DataFrame.from_dict(data=exclude_transaction_verbs)
 
         except Exception as e:
             msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
@@ -291,7 +418,7 @@ class Fantrax:
             else:
                 logger.error(msg)
 
-        return dfNHLTeamTransactions
+        return dfNHLTeamTransactions, dfNHLExcludeTeamTrans
 
     def scrapePlayerInfo(self, dialog: sg.Window=None, watchlist: bool=False):
 
@@ -832,8 +959,16 @@ class Fantrax:
                 # Get pool teams
                 kwargs = {'Criteria': [['pool_id', '==', self.pool_id]], 'Sort': [['name', 'asc']]}
                 teams = PoolTeam().fetch_many(**kwargs)
-                if pool_teams:
+                if len(pool_teams) == 1:
+                    pool_teams.append("Banshee")
                     teams = [team for team in teams if team.name in pool_teams]
+
+                # Need to process my team first. It seems to default to current period (today), while other teams show yesterday's roster
+                # Move the team with name 'Banshee' to the first position in the list
+                for i, team in enumerate(teams):
+                    if team.name == 'Banshee':
+                        teams.insert(0, teams.pop(i))
+                        break
 
                 # Iterate through pool teams to extract roster players
                 if not dialog:
@@ -846,13 +981,17 @@ class Fantrax:
                 nhl_team = []
                 pool_team = []
                 fantrax_id = []
+                period = ''
                 for team in teams:
 
                     if team.name.startswith('Open Team'):
                         continue
 
                     # The first pool team's roster will display (e.g. )
-                    url = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={team.fantrax_id}'
+                    if team.name == 'Banshee':
+                        url = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={team.fantrax_id}'
+                    else:
+                        url = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={team.fantrax_id};period={period}'
 
                     msg = f'Getting "{team.name}" page "{url}"'
                     if dialog:
@@ -893,6 +1032,10 @@ class Fantrax:
                             return
                     else:
                         logger.debug(msg)
+
+                    if team.name == 'Banshee':
+                        period_control = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[1]/filter-panel/div/div/div[4]/div[1]/mat-form-field/div[1]/div/div[2]')))
+                        period = period_control.text.split(' ')[0]
 
                     tables = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, '_ut__aside')))
 
@@ -1389,6 +1532,9 @@ class Fantrax:
 
                     team_options = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ddTeamId"]'))).find_elements(By.TAG_NAME, 'option')
 
+                # new summary columns
+                summary_columns = ["Act", "Res", "IR", "Min", "G", "D", "F", "Skt"]
+
                 for managers in html_for_teams:
 
                     manager = managers['manager'].rstrip('*').strip()
@@ -1429,6 +1575,13 @@ class Fantrax:
                                         'pos': pos,
                                         'team': team,
                                     })
+                                elif idx in range(1, 9):
+                                    # new columns: "Act", "Res", "IR", "Min", "G", "D", "F", "Skt"
+                                    title = summary_columns[idx - 1]
+                                    value = data.getText()
+                                    value = 0 if value == '' else int(value)
+                                    poolTeamServiceTimes[-1][title] = value
+                                    # continue
                                 else:
                                     title = data.attrs['title']
                                     if period_date > datetime.now().date() or int(title) > current_period:
