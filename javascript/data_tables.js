@@ -520,7 +520,7 @@ document.getElementById('applyButton').addEventListener('click', () => {
                         // default is center-align all colunns, header & body
                         {className: 'dt-center', targets: '_all'},
                         // left-align some colunns
-                        {className: 'dt-body-left', targets: [name_idx, injury_idx, injury_note_idx, manager_idx]},
+                        {className: 'dt-body-left', targets: [name_idx, injury_idx, injury_note_idx, manager_idx, predraft_manager_idx]},
 
                         // "position" search pane
                         {searchPanes: {
@@ -4308,6 +4308,7 @@ function updateColumnIndexes(columns) {
     ppp_idx = columns.findIndex(column => column.title === 'ppp');
     ppp_score_idx = columns.findIndex(column => column.title === 'ppp score');
     predraft_keeper_idx = columns.findIndex(column => column.title === 'pre-draft keeper');
+    predraft_manager_idx = columns.findIndex(column => column.title === 'pre-draft manager');
     prj_draft_round_idx = columns.findIndex(column => column.title === 'prj draft round');
     points_score_idx = columns.findIndex(column => column.title === 'pts score');
     qualtity_starts_idx = columns.findIndex(column => column.title === 'qs');
