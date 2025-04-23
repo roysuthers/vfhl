@@ -2048,7 +2048,6 @@ class NHL_API():
         global logos
 
         if team_id not in logos:
-            # logos[team_id] = f'../../python/input/nhl-images/logos/{team_id}.png'
             logos[team_id] = f'{DATA_INPUT_FOLDER}/nhl-images/logos/{team_id}.png'
 
         return logos[team_id]
@@ -2367,7 +2366,6 @@ class NHL_API():
             to_zone = tz.tzlocal()
 
             # Get player stats as of week
-            # file_path = f'./python/input/nhl-data/{seasonID}/PlayerSeasonStats.json'
             file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/PlayerSeasonStats.json'
             if path.isfile(file_path):
                 if batch:
@@ -2375,7 +2373,6 @@ class NHL_API():
                 with open(file_path, 'r') as from_json:
                     player_stats_as_of_week = json.load(from_json)
 
-                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerStats.json'
                 file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerStats.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
@@ -2383,7 +2380,6 @@ class NHL_API():
                     json.dump(player_stats_as_of_week, to_json)
 
             # Get game feeds for week
-            # file_path = f'./python/input/nhl-data/{seasonID}/GameFeeds.json'
             file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/GameFeeds.json'
             if path.isfile(file_path):
                 if batch:
@@ -2405,7 +2401,6 @@ class NHL_API():
                     new_game_feeds.append(game_feeds[idx])
                 game_feeds_for_week = new_game_feeds
 
-                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}GameFeeds.json'
                 file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}GameFeeds.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
@@ -2413,7 +2408,6 @@ class NHL_API():
                     json.dump(game_feeds_for_week, to_json)
 
             # Get player game logs for week
-            # file_path = f'./python/input/nhl-data/{seasonID}/PlayerGameLogs.json'
             file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/PlayerGameLogs.json'
             if path.isfile(file_path):
                 if batch:
@@ -2434,7 +2428,6 @@ class NHL_API():
                             new_stats.append(stats[idx])
                         player_game_logs_for_week['teams'][t_idx]['roster']['roster'][r_idx]['person']['stats'][0]['splits'] = new_stats
 
-                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerGameLogs.json'
                 file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}PlayerGameLogs.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
@@ -2442,7 +2435,6 @@ class NHL_API():
                     json.dump(player_game_logs_for_week, to_json)
 
             # Get scoring plays for week
-            # file_path = f'./python/input/nhl-data/{seasonID}/ScoringPlays.json'
             file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/ScoringPlays.json'
             if path.isfile(file_path):
                 if batch:
@@ -2464,7 +2456,6 @@ class NHL_API():
                 scoring_plays_for_week['totalItems'] = total_items
                 scoring_plays_for_week['totalGames'] = total_items
 
-                # file_path = f'./python/input/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}ScoringPlays.json'
                 file_path = f'{DATA_INPUT_FOLDER}/nhl-data/{seasonID}/Snapshots/Week{str(week_number).zfill(2)}ScoringPlays.json'
                 if batch:
                     logger.debug(f'Saving to "{file_path}"')
