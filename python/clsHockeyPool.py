@@ -3,6 +3,7 @@ import logging.config
 import os
 import random
 import re
+import requests
 import smtplib
 import sqlite3
 import ssl
@@ -11,7 +12,7 @@ import sys
 import textwrap
 import threading
 import traceback
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from inspect import currentframe, isfunction
@@ -44,7 +45,7 @@ from clsPoolTeam import PoolTeam
 from clsPoolTeamRoster import PoolTeamRoster
 from clsSeason import Season
 from clsTeam import Team
-from constants import DATABASE, DATA_INPUT_FOLDER
+from constants import DATABASE, DATA_INPUT_FOLDER, NHL_API_URL
 from utils import assign_player_ids, get_db_connection, get_db_cursor, get_player_id, load_nhl_team_abbr_and_id_dict, load_player_name_and_id_dict, split_seasonID_into_component_years
 
 FONT = 'Consolas 12'
@@ -82,6 +83,87 @@ zero_toi_to_empty = compile("lambda x:'' if x in ('00:00', None) else x", '<stri
 format_nan_to_empty = compile("lambda x: '' if pd.isna(x) else x", '<string>', 'eval')
 
 class HockeyPool:
+
+###################################################################################
+# New functions:
+#
+#   - find players traded in pre-season, and back to original manager
+        # SELECT
+        #     t1.Season,
+        #     t1.Player,
+        #     t1.[Trade #] AS Trade1,
+        #     t1.Period AS Period1,
+        #     t1.[From] AS From1,
+        #     t1.[To] AS To_1,
+        #     t2.[Trade #] AS Trade2,
+        #     t2.Period AS Period2,
+        #     t2.[From] AS From2,
+        #     t2.[To] AS To_2
+        # FROM dfHistoryTrades t1
+        # JOIN dfHistoryTrades t2
+        #     ON t1.Season = t2.Season
+        #     AND t1.Player = t2.Player
+        #     AND t1.[Trade #] < t2.[Trade #] -- Ensures no self-join
+        #     AND t1.[From] = t2.[To]         -- Matches From_1 with To_2
+        #     AND t1.[To] = t2.[From]         -- Matches To_1 with From_2
+        # WHERE t1.Player NOT LIKE "%Draft Pick%"
+        # ORDER BY t1.Season, t1.[Trade #], t1.Player;
+
+#   - generate historical average stats for each draft pick
+        # CREATE VIEW DraftedPlayerStats AS
+        # SELECT
+        #     dr.season_id,
+        #     dr.player_id,
+        #     dr.player,
+        #     dr.pos,
+        #     dr.[round],
+        #     dr.pick,
+        #     (
+        #         SELECT COUNT(*)
+        #         FROM dfDraftResults dr2
+        #         WHERE dr2.season_id = dr.season_id AND dr2.overall <= dr.overall
+        #     ) AS overall, -- Renumbering within each season_id
+        #     dr.pool_team AS PickedBy,
+        #     ps.games,
+        #     ps.points,
+        #     ps.goals,
+        #     ps.assists,
+        #     ps.points_pp AS ppp,
+        #     ps.shots AS sog,
+        #     ps.pim,
+        #     ps.hits,
+        #     ps.blocked AS blks,
+        #     ps.takeaways AS tk,
+        #     ps.games_started AS starts,
+        #     ps.wins,
+        #     ps.saves,
+        #     round(ps.gaa, 2) AS gaa,
+        #     round(ps.[save%], 3) AS [save%],
+        #     ps.goals_against AS ga,
+        #     ps.shots_against AS sa,
+        #     (CAST(SUBSTR(ps.toi, 1, INSTR(ps.toi, ':') - 1) AS INTEGER) * 60) +
+        #     CAST(SUBSTR(ps.toi, INSTR(ps.toi, ':') + 1) AS INTEGER) AS toi
+        # FROM dfDraftResults dr
+        # LEFT OUTER JOIN PlayerStats ps
+        #     ON ps.seasonID = dr.season_id AND ps.player_id = dr.player_id AND ps.season_type = "R";
+# use the following to get a list showing for each overall pick, the number of forwards, defensemen, and goalies
+        # SELECT
+        #     overall,
+        #     SUM(CASE WHEN pos = 'F' THEN 1 ELSE 0 END) AS Forwards,
+        #     SUM(CASE WHEN pos = 'D' THEN 1 ELSE 0 END) AS Defensemen,
+        #     SUM(CASE WHEN pos = 'G' THEN 1 ELSE 0 END) AS Goalies
+        # FROM DraftedPlayerStats
+        # WHERE overall <= 132
+        # GROUP BY overall
+        # ORDER BY overall;
+
+#
+#   - generate top players in each scoring category, per season, using projected stats
+#       - top 11 x 16 skaters
+#       - top 11 x 9 forwards
+#       - top 11 x 6 defense
+#       - top 11 x 2 goalies
+###################################################################################
 
     def __init__(self):
 
@@ -194,6 +276,50 @@ class HockeyPool:
             sg.popup_error(msg)
 
         connection.close()
+
+        return
+
+    def archive_keeper_lists(self, season: Season, pool: 'clsHockeyPool'):
+
+        columns = [
+            f'{pool.id} as pool_id',
+            'pt.name as pool_team',
+            'ptr.player_id',
+            'p.full_name as player_name',
+            't.abbr as team_abbr',
+            'p.primary_position as pos',
+            'ptr.keeper'
+        ]
+
+        select_sql = ', '.join([
+            ' '.join(['select', ', '.join(columns)]),
+        ])
+
+        # build table joins
+        from_tables = textwrap.dedent('''\
+            from PoolTeamRoster ptr
+            left outer join Player p on p.id=ptr.player_id
+            left outer join PoolTeam pt ON pt.id=ptr.poolteam_id
+            left outer join Team t on t.id=p.current_team_id
+        ''')
+
+        where_clause = f'where pt.pool_id={pool.id} and (ptr.keeper="y" or ptr.keeper="m")'
+
+        sql = textwrap.dedent(f'''\
+            {select_sql}
+            {from_tables}
+            {where_clause}
+        ''')
+
+        dfKeeperLists = pd.read_sql(sql, con=get_db_connection())
+
+        # sql = f'delete from KeeperListsArchive where season_id={season.id}'
+        sql = f'delete from KeeperListsArchive where pool_id={pool.id}'
+        with get_db_connection() as connection:
+            connection.execute(sql)
+            connection.commit()
+
+        dfKeeperLists.to_sql('KeeperListsArchive', con=get_db_connection(), index=False, if_exists='append')
 
         return
 
@@ -449,10 +575,10 @@ class HockeyPool:
                     return
 
             fantrax = Fantrax(pool_id=self.id, league_id=self.league_id, season_id=self.season_id)
-            dfNHLTeamTransactions = fantrax.scrapeNHLTeamTransactions(dialog=dialog)
+            dfNHLTeamTransactions, dfNHLExcludeTeamTrans = fantrax.scrapeNHLTeamTransactions(dialog=dialog)
             del fantrax
 
-            if len(dfNHLTeamTransactions.index) == 0:
+            if len(dfNHLTeamTransactions.index) == 0 and len(dfNHLExcludeTeamTrans.index) == 0:
                 msg = 'No NHL team transactions. Returning...'
                 if batch:
                     logger.debug(msg)
@@ -460,6 +586,11 @@ class HockeyPool:
                     sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
                 return
 
+            ####################################################################################################
+            # write dfNHLExcludeTeamTrans to database
+            dfNHLExcludeTeamTrans.to_sql('dfNHLExcludeTeamTrans', con=get_db_connection(), index=False, if_exists='append')
+
+            ####################################################################################################
             # Email transactions
             # bypass transactions that were already recorded
             dfCurrentTransactions = pd.read_sql('select * from dfNHLTeamTransactions', con=get_db_connection())
@@ -468,6 +599,7 @@ class HockeyPool:
             df_all = dfNHLTeamTransactions.merge(dfCurrentTransactions, on=['player_name', 'pos', 'team_abbr', 'comment'], how='left', indicator=True)
             data = df_all[df_all['_merge'] == 'left_only']
 
+            # write to database
             msg = f'{len(dfNHLTeamTransactions.index)} NHL Team transactions collected. Writing to database...'
             if batch:
                 logger.debug(msg)
@@ -476,6 +608,9 @@ class HockeyPool:
                 event, values = dialog.read(timeout=2)
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
+
+            # save lastest transactions to database
+            dfNHLTeamTransactions.to_sql('dfNHLTeamTransactions', con=get_db_connection(), index=False, if_exists='replace')
 
             if len(data.index) == 0:
                 msg = 'No new NHL team transactions. Returning...'
@@ -508,6 +643,7 @@ class HockeyPool:
             htmlTable = styler.hide(axis="index").to_html()
 
             recipients = ['rsuthers@cogeco.ca']
+            # recipients = ['rsuthers@cogeco.ca', 'jfjasonfowler@gmail.com']
 
             msg = 'Formatting & sending email...'
             if batch:
@@ -519,7 +655,7 @@ class HockeyPool:
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
-            email_sent = self.formatAndSendEmail(data_frames=[data], html_tables=[htmlTable], message='', recipients=recipients, subject=caption, show_sent_msg=False, batch=batch, dialog=dialog)
+            email_sent = self.formatAndSendEmail(html_tables=[htmlTable], message='', recipients=recipients, subject=caption, show_sent_msg=False, batch=batch, dialog=dialog)
 
             if email_sent is True:
                 msg = 'Email sent...'
@@ -537,9 +673,6 @@ class HockeyPool:
                 if batch:
                     logger.debug(msg)
 
-                # save lastest transactions to database
-                dfNHLTeamTransactions.to_sql('dfNHLTeamTransactions', con=get_db_connection(), index=False, if_exists='replace')
-
         except Exception as e:
             if batch:
                 logger.error(repr(e))
@@ -555,7 +688,263 @@ class HockeyPool:
                 dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
 
-        return email_sent
+        return
+
+    def email_starting_goalie_projections(self, pool_id: int, batch: bool=False):
+
+        try:
+
+            if batch:
+                logger = logging.getLogger(__name__)
+                dialog = None
+            else:
+                # layout the progress dialog
+                layout = [
+                    [
+                        sg.Text('Get Starting Goalie Projections...', size=(60,2), key='-PROG-')
+                    ],
+                    [
+                        sg.Cancel()
+                    ],
+                ]
+                # create the dialog
+                dialog = sg.Window('Starting Goalie Projections', layout, finalize=True, modal=True)
+
+            msg = 'Getting Starting Goalie Projections from 5v5Hockey.com...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            df5v5HockeyGoalieTool = player_lines._5v5_hockey_goalies(pool_id=pool_id, dialog=dialog, batch=batch)
+
+            if len(df5v5HockeyGoalieTool.index) == 0:
+                msg = 'No Starting Goalie Projections.' # used in `finally` block
+                return
+
+            dfCurrentProjections = pd.read_sql('select * from df5v5HockeyGoalieTool', con=get_db_connection())
+
+            # Create temporary dataframes for both df5v5HockeyGoalieTool & dfCurrentProjections
+            # that include only rows in which the 'Manager' column starts with 'Banshee' or 'FF', or is blank.
+            temp_df5v5HockeyGoalieTool = df5v5HockeyGoalieTool[df5v5HockeyGoalieTool['Manager'].str.startswith(('Banshee', 'FF')) | df5v5HockeyGoalieTool['Manager'].eq('')]
+            temp_dfCurrentProjections = dfCurrentProjections[dfCurrentProjections['Manager'].str.startswith(('Banshee', 'FF')) | dfCurrentProjections['Manager'].eq('')]
+
+            # Sort both dataframes by 'Goalie' and reset their indexes
+            temp_df5v5HockeyGoalieTool.sort_values(by='Goalie', inplace=True)
+            temp_df5v5HockeyGoalieTool.reset_index(drop=True, inplace=True)
+
+            temp_dfCurrentProjections.sort_values(by='Goalie', inplace=True)
+            temp_dfCurrentProjections.reset_index(drop=True, inplace=True)
+
+            # If the dataframes are identical, return
+            if temp_df5v5HockeyGoalieTool[['Goalie', 'Manager', 'Status']].equals(temp_dfCurrentProjections[['Goalie', 'Manager', 'Status']]):
+            # if df5v5HockeyGoalieTool[['Goalie', 'Status']].equals(dfCurrentProjections[['Goalie', 'Status']]):
+                msg = 'No new Starting Goalie Projections. Returning...'
+                if batch:
+                    logger.warn(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=2)
+                return
+
+            # Check if any rows in dfCurrentProjections have the same 'Score' that is not 0
+            duplicate_scores = temp_df5v5HockeyGoalieTool[temp_df5v5HockeyGoalieTool['Score'] != 0]['Score'].duplicated(keep=False)
+
+            if duplicate_scores.any():
+                duplicate_rows = temp_df5v5HockeyGoalieTool[duplicate_scores]
+                msg = f"Duplicate scores found:\n{duplicate_rows[['Goalie', 'Score']]}. Returning..."
+                if batch:
+                    logger.warn(msg)
+                else:
+                    sg.popup_notify(msg, title='Duplicate Scores Found')
+                return
+
+            ##############################################################################
+            # get todays games
+            dfTodaysGames = player_lines._5v5_todays_games(dialog=dialog, batch=batch)
+            if len(dfTodaysGames.index) == 0:
+                msg = 'No games collected for today. Returning...'
+                if dialog:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=2)
+                else:
+                    logger.warn(msg)
+                return
+
+            msg = f'{len(df5v5HockeyGoalieTool.index)} New NHL Starting Goalie Projections collected. Writing to database...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            # flag Team as true or false, when it is the Home Team
+            # df['Home Team'] = df['Team'].isin(dfTodaysGames['Home Team'])
+            df5v5HockeyGoalieTool['Team'] = df5v5HockeyGoalieTool['Team'].apply(lambda team: f"@{team}" if team in dfTodaysGames['Home Team'].values else team)
+            df5v5HockeyGoalieTool['Opponent'] = df5v5HockeyGoalieTool['Opponent'].apply(lambda team: f"@{team}" if team in dfTodaysGames['Home Team'].values else team)
+
+            # save lastest transactions to database
+            df5v5HockeyGoalieTool.to_sql('df5v5HockeyGoalieTool', con=get_db_connection(), index=False, if_exists='replace')
+
+            ##############################################################################
+            # reduce df5v5HockeyGoalieTool to games of interest to me and Jason
+
+            # Step 1: Create a boolean mask for rows where Manager is empty/missing
+            # or starts with "FF" or "Banshee". (Note: using na=False in str.startswith to handle NaN)
+            manager_mask = (
+                df5v5HockeyGoalieTool["Manager"].isna() |
+                (df5v5HockeyGoalieTool["Manager"] == "") |
+                df5v5HockeyGoalieTool["Manager"].str.startswith("FF", na=False) |
+                df5v5HockeyGoalieTool["Manager"].str.startswith("Banshee", na=False)
+            )
+
+            # Step 2: Get the unique team names from rows satisfying the manager condition.
+            teams_to_include = df5v5HockeyGoalieTool.loc[manager_mask, "Team"].unique()
+
+            # Step 3: Filter the entire dataframe to include rows where either 'Team' or 'Opponent' is in our list.
+            reduced_df = df5v5HockeyGoalieTool[
+                df5v5HockeyGoalieTool["Team"].isin(teams_to_include) |
+                df5v5HockeyGoalieTool["Opponent"].isin(teams_to_include)
+            ]
+
+            game_times = []
+            response = requests.get(f'{NHL_API_URL}/schedule/{datetime.now().strftime("%Y-%m-%d")}')
+            if response.status_code == 200:
+                games = response.json()['gameWeek'][0]['games']
+                game_times_utc = [{'homeTeam': game['homeTeam']['abbrev'], 'awayTeam': game['awayTeam']['abbrev'], 'startTimeUTC': game['startTimeUTC'], 'UTCOffset': game['easternUTCOffset']} for game in games]
+                for game in game_times_utc:
+                    homeTeam = game['homeTeam']
+                    awayTeam = game['awayTeam']
+                    startTimeUTC = game['startTimeUTC']
+                    UTCOffset = game['UTCOffset']
+                    # Parse the UTC time
+                    utc_time = datetime.strptime(startTimeUTC, '%Y-%m-%dT%H:%M:%SZ')
+                    # Calculate the offset as a timedelta
+                    hours_offset, minutes_offset = map(int, UTCOffset.split(':'))
+                    offset = timedelta(hours=hours_offset, minutes=minutes_offset)
+                    # Apply the offset to get local time
+                    local_time = utc_time + offset
+                    # Format the local time as 'h:mm AM/PM'
+                    formatted_time = local_time.strftime('%I:%M %p').lstrip('0')  # Remove leading zero from hour
+                    game_times.append({'Team': homeTeam, 'Start Time': formatted_time, 'DateTime': local_time})
+                    game_times.append({'Team': awayTeam, 'Start Time': formatted_time, 'DateTime': local_time})
+
+           # Add 'Start Time' to the reduced_df dataframe
+            def get_start_time(team_name):
+                # Strip '@' prefix if present
+                team_name = team_name.lstrip('@')
+                # Find the start time for the team
+                return next((item['DateTime'] for item in game_times if item['Team'] == team_name), None)
+
+            # Apply the function to the 'Team' column to create a new 'Start Time' column
+            reduced_df['DateTime'] = reduced_df['Team'].apply(get_start_time)
+
+            reduced_df.sort_values(by=['DateTime', 'Game'], inplace=True)
+
+            # Filter out rows where DateTime is less than the current time
+            current_time = datetime.now()
+            reduced_df = reduced_df[reduced_df['DateTime'] > current_time]
+
+            if len(reduced_df.index) == 0:
+                msg = 'No Starting Goalie Projections.' # used in `finally` block
+                return
+
+            reduced_df.drop(columns=['DateTime'], inplace=True)
+
+            reduced_df.reset_index(drop=True, inplace=True)
+
+            ##############################################################################
+            msg = 'Preparing email html...'
+            if batch:
+                logger.debug(msg)
+            else:
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+                if event == 'Cancel' or event == sg.WIN_CLOSED:
+                    return
+
+            recipients = ['rsuthers@cogeco.ca']
+            # recipients = ['rsuthers@cogeco.ca', 'jfjasonfowler@gmail.com']
+
+            subject = f'Starting Goalie Projections'
+
+            # Iterating through unique 'Game' values
+            unique_games = reduced_df['Game'].unique()  # Get unique 'Game' values
+
+            html_tables = []
+            new_column_order = ['Goalie', 'Team', 'Score', 'Rank', 'Manager', 'Status', 'Win%', 'xGA', 'xSA', 'xSV', 'xSV%', 'QS%', 'SV%', 'GAA']
+            columns_to_center = ['Team', 'Score', 'Rank', 'Manager', 'Status', 'Win%', 'xGA', 'xSA', 'xSV', 'xSV%', 'QS%', 'SV%', 'GAA']
+            for game in unique_games:
+
+                temp_df = reduced_df[reduced_df['Game'] == game]  # Filter the dataframe for each unique 'Game'
+
+                # Create the caption dynamically from the 'Team' column
+                unique_teams = temp_df['Team'].unique()
+
+                home_team = f"{unique_teams[1].replace('@', '')}" if unique_teams[1].startswith('@') else f"{unique_teams[0].replace('@', '')}"
+
+                start_time = next((item['Start Time'] for item in game_times if item['Team'] == home_team), None)
+
+                caption = f"{unique_teams[0]} @ {unique_teams[1].replace('@', '')}" if unique_teams[1].startswith('@') else f"{unique_teams[1]} @ {unique_teams[0].replace('@', '')}"
+                caption = f'{caption} ({start_time})'
+
+                # temp_df.drop(columns=['Game', 'Team', 'Opponent'], inplace=True)  # Drop the 'Game' column
+                temp_df.drop(columns=['Game', 'Opponent'], inplace=True)  # Drop the 'Game' column
+
+                temp_df = temp_df[new_column_order]
+
+                styler = Styler(temp_df)
+                styler = styler.set_caption(caption)
+                styler = styler.set_table_styles(self.setCSS_TableStyles())
+                styler = styler.set_table_attributes('style="border-collapse:collapse"')
+
+                # Apply centering to the columns
+                styler = styler.set_properties(**{'text-align': 'center'}, subset=columns_to_center)
+
+                htmlTable = styler.hide(axis="index").to_html()
+
+                html_tables.append(htmlTable)
+
+            email_sent = self.formatAndSendEmail(html_tables=html_tables, message='', recipients=recipients, subject=subject, show_sent_msg=False, batch=batch, dialog=dialog)
+
+            if email_sent is True:
+                msg = 'Email sent...'
+                if batch:
+                    logger.debug(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=2)
+                    if event == 'Cancel' or event == sg.WIN_CLOSED:
+                        return
+
+                sg.popup_notify('Email sent to:\n\t{0}'.expandtabs(4).format("\n\t".expandtabs(4).join(recipients)), title=sys._getframe().f_code.co_name)
+
+        except Exception as e:
+            if batch:
+                logger.error(repr(e))
+            else:
+                msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
+                dialog['-PROG-'].update(msg)
+                event, values = dialog.read(timeout=2)
+
+        finally:
+            if msg != 'No Starting Goalie Projections.':
+                msg = 'Email Starting Goalie Projections completed...'
+            if batch:
+                if msg == 'No Starting Goalie Projections.':
+                    logger.warn(msg)
+                else:
+                    logger.debug(msg)
+            else:
+                dialog.close()
+                sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
+
+        return
 
     def export_to_excel(self, mclb: sg.Table):
 
@@ -650,7 +1039,6 @@ class HockeyPool:
         return rows
 
     def formatAndSendEmail(self,
-            data_frames: List[pd.DataFrame],
             html_tables: List[str],
             recipients: List[str],
             subject: str,
@@ -676,9 +1064,6 @@ class HockeyPool:
         # Get email addresses for recipients
         to = []
         for email_address in recipients:
-            # 'Adam (asuthers@msn.com)'
-            # or
-            # asuthers@msn.com
             match = re.match(r'(?:.+ ){0,1}\({0,1}(.+@.+\.[^)]+)\){0,1}', email_address)
             if match:
                 email_address = match[1]
@@ -701,34 +1086,31 @@ class HockeyPool:
                                            .replace('<tbody>', '\n<tbody>')\
                                            .replace('<td ', '\n<td ')
 
-        if len(data_frames) == 0:
+        if len(html_tables) == 0:
             text = message
             html = f'{message}\n<br /><pre>{footer}</pre>'
 
-        elif len(data_frames) == 1:
-            table=tabulate(data_frames[0], headers=headers, tablefmt="grid", numalign="center", showindex=True)
+        elif len(html_tables) >= 1:  # Handles one or more tables dynamically
+            tables = []
+            for i, table_data in enumerate(html_tables):
+                table = tabulate(table_data, headers=headers, tablefmt="grid", numalign="center", showindex=True)
+                tables.append(table)
 
-            text = f"{message}\n{table}"
+            # Join all tables with two newlines in between
+            combined_tables = "\n\n".join(tables)
+            text = f"{message}\n{combined_tables}"
 
-            message = message.replace('\n', '<br />')
-
-            html = f'{message}\n{html_tables[0]}\n<br /><pre>{footer}</pre>'
-
-        else: # For now, only expecting two dataframes
-            table1=tabulate(data_frames[0], headers=headers, tablefmt="grid", numalign="center", showindex=True)
-            table2=tabulate(data_frames[1], headers=headers, tablefmt="grid", numalign="center", showindex=True)
-
-            text = f"{message}\n{table1}\n\n{table2}"
-
+            # Process message for HTML
             if message == '\n':
                 message = ''
             else:
                 message = message.replace('\n', '<br />')
 
-            html = f'{message}\n{html_tables[0]}\n{html_tables[1]}\n<br /><pre>{footer}</pre>'
+            # Prepare the HTML version
+            html_tables_str = "\n".join([str(table_data) for table_data in html_tables])
+            html = f'{message}\n{html_tables_str}\n<br /><pre>{footer}</pre>'
 
         msg = MIMEMultipart("alternative", None, [MIMEText(text), MIMEText(html,'html')])
-
 
         # msg = MIMEText(body)
         msg['Subject'] = subject
@@ -1279,7 +1661,6 @@ class HockeyPool:
 
         season_id = str(season.id)
 
-        # excel_path = f'./python/input/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
         excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Athletic/{season_id[:4]}-{season_id[-2:]}-Fantasy-Projections-Fantrax.xlsx'
 
         excel_columns = ('NAME', 'POS', 'TEAM', 'ADP', 'GP', 'TOI', 'G', 'A', 'SOG','PPP', 'BLK', 'HIT', 'PIM', 'GP.1', 'W', 'SV', 'SV%', 'GAA')
@@ -1367,7 +1748,6 @@ class HockeyPool:
 
         season_id = str(season.id)
 
-        # excel_path = f'./python/input/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
         excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Dobber/dobberhockeydraftlist{season_id[:4]}{season_id[-2:]}.xlsx'
 
         ##############################################################################
@@ -1453,7 +1833,6 @@ class HockeyPool:
 
     def import_draft_picks(self, season: Season):
 
-        # dfDraftResults = pd.read_csv(f'./python/input/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
         dfDraftResults = pd.read_csv(f'{DATA_INPUT_FOLDER}/fantrax/{season.id}/Fantrax-Draft-Results-Vikings Fantasy Hockey League.csv', header=0)
 
         # drop rows with no player name
@@ -1535,7 +1914,6 @@ class HockeyPool:
         # Skaters
         ##############################################################################
 
-        # excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
         excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Fantrax/Fantrax-Skaters.xls'
 
         excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'G', 'A', 'PIM', 'SOG', 'PPP', 'Hit', 'Blk', 'Tk')
@@ -1561,7 +1939,6 @@ class HockeyPool:
         # Goalies
         ##############################################################################
 
-        # excel_path = f'./python/input/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
         excel_path = f'{DATA_INPUT_FOLDER}/Projections/{season.id}/Fantrax/Fantrax-Goalies.xls'
 
         excel_columns = ('ID', 'Player', 'Team', 'Position', 'Score', 'ADP', 'GP', 'W', 'GAA', 'SV', 'SV%')
@@ -1605,49 +1982,139 @@ class HockeyPool:
 
         return
 
-    def archive_keeper_lists(self, season: Season, pool: 'clsHockeyPool'):
+    def import_transaction_history(self, season: Season):
 
-        # dfKeeperLists = pd.read_excel(f'./python/input/excel/{season.id}/VFHL Team Keepers prior to Draft.xlsx', header=0)
-        # dfKeeperLists = pd.read_excel(f'{DATA_INPUT_FOLDER}/excel/{season.id}/VFHL Team Keepers prior to Draft.xlsx', header=0)
-        columns = [
-            f'{pool.id} as pool_id',
-            'pt.name as pool_team',
-            'ptr.player_id',
-            'p.full_name as player_name',
-            't.abbr as team_abbr',
-            'p.primary_position as pos',
-            'ptr.keeper'
-        ]
+        season_id = str(season.id)
 
-        select_sql = ', '.join([
-            ' '.join(['select', ', '.join(columns)]),
-        ])
+        dfHistoryClaimsDrops = pd.read_csv(f'{DATA_INPUT_FOLDER}/fantrax/{season_id}/Fantrax-Transaction-History-Claims+Drops-Vikings Fantasy Hockey League.csv', header=0)
 
-        # build table joins
-        from_tables = textwrap.dedent('''\
-            from PoolTeamRoster ptr
-            left outer join Player p on p.id=ptr.player_id
-            left outer join PoolTeam pt ON pt.id=ptr.poolteam_id
-            left outer join Team t on t.id=p.current_team_id
-        ''')
+        # add season column
+        dfHistoryClaimsDrops['Season'] = season_id
 
-        where_clause = f'where pt.pool_id={pool.id} and (ptr.keeper="y" or ptr.keeper="m")'
+        # rename columns
+        dfHistoryClaimsDrops.rename(columns={'Position': 'Pos', 'Date (EDT)': 'DateTime', 'Team.1': 'Manager'}, inplace=True)
 
-        sql = textwrap.dedent(f'''\
-            {select_sql}
-            {from_tables}
-            {where_clause}
-        ''')
+        # reformat DateTime
+        dfHistoryClaimsDrops['DateTime'] = pd.to_datetime(dfHistoryClaimsDrops['DateTime'], format='%a %b %d, %Y, %I:%M%p').dt.strftime('%Y-%m-%d %H:%M')
 
-        dfKeeperLists = pd.read_sql(sql, con=get_db_connection())
+        # Remove '<b>' and '</b>' tags from the 'Pos' column
+        dfHistoryClaimsDrops['Pos'] = dfHistoryClaimsDrops['Pos'].str.replace('<b>', '', regex=False).str.replace('</b>', '', regex=False)
 
-        # sql = f'delete from KeeperListsArchive where season_id={season.id}'
-        sql = f'delete from KeeperListsArchive where pool_id={pool.id}'
+        # Replace 'TarasenKOâ€™d' with "TarasenKO'd" in 'Player' and 'Manager' columns
+        dfHistoryClaimsDrops['Player'] = dfHistoryClaimsDrops['Player'].replace("TarasenKOâ€™d", "TarasenKO'd")
+        dfHistoryClaimsDrops['Manager'] = dfHistoryClaimsDrops['Manager'].replace("TarasenKOâ€™d", "TarasenKO'd")
+
+        # drop not needed columns
+        dfHistoryClaimsDrops.drop(columns=['Fee'], inplace=True)
+
+        # add PlayerId
+        # Assign PlayerId for other players
+        dfHistoryClaimsDrops['PlayerId'] = assign_player_ids(df=dfHistoryClaimsDrops, player_name='Player', nhl_team='Team', pos_code='Pos')
+        # Handle specific case for Matt Murray
+        dfHistoryClaimsDrops.loc[dfHistoryClaimsDrops['Player'] == 'Matt Murray', 'PlayerId'] = 8476899
+
+        # PlayerId dtype to int
+        dfHistoryClaimsDrops['PlayerId'] = dfHistoryClaimsDrops['PlayerId'].astype(int)
+
+        # reindex columns
+        dfHistoryClaimsDrops = dfHistoryClaimsDrops.reindex(columns=['Season', 'Period', 'DateTime', 'Manager', 'Type', 'PlayerId', 'Player', 'Team', 'Pos'])
+
+        ##########################################################################################################################
+
+        dfHistoryTrades = pd.read_csv(f'{DATA_INPUT_FOLDER}/fantrax/{season_id}/Fantrax-Transaction-History-Trades-Vikings Fantasy Hockey League.csv', header=0)
+
+        # add season column
+        dfHistoryTrades['Season'] = season_id
+
+        # rename columns
+        dfHistoryTrades.rename(columns={'Position': 'Pos', 'Date (EDT)': 'DateTime'}, inplace=True)
+
+        # Replace null values in the 'Period' column with 0 and convert the column to integers
+        dfHistoryTrades['Period'] = dfHistoryTrades['Period'].fillna(0).astype(int)
+
+        # Replace null values in the 'Team' 'Pos' columns with ''
+        dfHistoryTrades['Team'] = dfHistoryTrades['Team'].fillna('')
+        dfHistoryTrades['Pos'] = dfHistoryTrades['Pos'].fillna('')
+
+        # reformat DateTime
+        dfHistoryTrades['DateTime'] = pd.to_datetime(dfHistoryTrades['DateTime'], format='%a %b %d, %Y, %I:%M%p').dt.strftime('%Y-%m-%d %H:%M')
+
+        # Add 'Trade #' column
+        trade_number = 0
+        trade_numbers = [None] * len(dfHistoryTrades)
+        for idx, fee in enumerate(dfHistoryTrades['Fees']):
+            if pd.notna(fee) and fee != '':
+                trade_number += 1
+            trade_numbers[idx] = trade_number
+        dfHistoryTrades['Trade #'] = trade_numbers
+
+        # Renumber 'Trade #' so the highest value becomes 1, and the lowest value becomes the max
+        max_trade_number = dfHistoryTrades['Trade #'].max()
+        dfHistoryTrades['Trade #'] = dfHistoryTrades['Trade #'].apply(lambda x: max_trade_number - x + 1)
+
+        # Remove '<b>' and '</b>' tags from the 'Pos' column
+        dfHistoryTrades['Pos'] = dfHistoryTrades['Pos'].str.replace('<b>', '', regex=False).str.replace('</b>', '', regex=False)
+
+        # Replace 'TarasenKOâ€™d' with "TarasenKO'd" in 'Player' and 'Manager' columns
+        dfHistoryTrades['Player'] = dfHistoryTrades['Player'].replace("TarasenKOâ€™d", "TarasenKO'd")
+        dfHistoryTrades['From'] = dfHistoryTrades['From'].replace("TarasenKOâ€™d", "TarasenKO'd")
+        dfHistoryTrades['To'] = dfHistoryTrades['To'].replace("TarasenKOâ€™d", "TarasenKO'd")
+
+        # drop not needed columns
+        dfHistoryTrades.drop(columns=['Fees'], inplace=True)
+
+        # add PlayerId
+        # Handle specific case for Matt Murray
+        dfHistoryTrades['PlayerId'] = assign_player_ids(
+            df=dfHistoryTrades[~dfHistoryTrades['Player'].str.contains('Draft Pick', na=False)],
+            player_name='Player',
+            nhl_team='Team',
+            pos_code='Pos'
+        )
+        dfHistoryTrades.loc[dfHistoryTrades['Player'] == 'Matt Murray', 'PlayerId'] = 8476899
+
+        # PlayerId dtype to int
+        dfHistoryTrades['PlayerId'] = dfHistoryTrades['PlayerId'].fillna(0).astype(int)
+
+        # reindex columns
+        dfHistoryTrades = dfHistoryTrades.reindex(columns=['Season', 'Trade #', 'Period', 'DateTime', 'From', 'To', 'PlayerId', 'Player', 'Team', 'Pos'])
+
+        # Filter rows with '(Drop)' in the 'To' column
+        drop_rows = dfHistoryTrades[dfHistoryTrades['To'] == '(Drop)']
+
+        # Prepare the rows to be added to dfHistoryClaimsDrops
+        drop_rows = drop_rows[['Season', 'Period', 'DateTime', 'From', 'Player', 'Team', 'Pos']].copy()
+        drop_rows.rename(columns={'From': 'Manager'}, inplace=True)
+        drop_rows['Type'] = 'Drop'
+
+        # Append the rows to dfHistoryClaimsDrops
+        dfHistoryClaimsDrops = pd.concat([dfHistoryClaimsDrops, drop_rows], ignore_index=True)
+
+        # Remove the rows with '(Drop)' from dfHistoryTrades
+        dfHistoryTrades = dfHistoryTrades[dfHistoryTrades['To'] != '(Drop)']
+
+        # delete season rows
         with get_db_connection() as connection:
-            connection.execute(sql)
-            connection.commit()
+            sql = f"delete from dfHistoryTrades where Season={season_id}"
+            try:
+                connection.execute(sql)
+            except sqlite3.OperationalError as e:
+                if "no such table: dfHistoryTrades" in str(e):
+                    pass
+                else:
+                    raise
+            sql = f"delete from dfHistoryClaimsDrops where Season={season_id}"
+            try:
+                connection.execute(sql)
+            except sqlite3.OperationalError as e:
+                if "no such table: dfHistoryClaimsDrops" in str(e):
+                    pass
+                else:
+                    raise
 
-        dfKeeperLists.to_sql('KeeperListsArchive', con=get_db_connection(), index=False, if_exists='append')
+        dfHistoryTrades.to_sql('dfHistoryTrades', con=get_db_connection(), index=False, if_exists='append')
+
+        dfHistoryClaimsDrops.to_sql('dfHistoryClaimsDrops', con=get_db_connection(), index=False, if_exists='append')
 
         return
 
@@ -1749,24 +2216,23 @@ class HockeyPool:
                         '-',
                         'Update Player Injuries',
                         'Update Player Lines',
-                        '-',
+                        'Email Starting Goalie Projections',
+                       '-',
                         'Fantrax...',
                             [
                                 'Update Pool Teams',
-                                '-',
                                 'Update Pool Team Rosters',
-                                '-',
                                 'Update Fantrax Player Info',
                                 '-',
                                 'Update Standings Gain/Loss',
                                 '-',
                                 'Update Pool Team Service Times',
-                                '-',
                                 'Update Full Team Player Scoring',
                                 '-',
                                 'Import Watch List',
                                 '-',
                                 'Import Draft Picks',
+                                'Import Transaction History',
                                 '-',
                                 'Email NHL Team Transactions',
                                 '-',
@@ -1778,6 +2244,9 @@ class HockeyPool:
                         'Manager Game Pace',
                         'Position Statistics',
                         '-',
+                        'Summarize Trades History',
+                        'Summarize Claims History',
+                        '-',
                         'Start Flask Server',
                         '-',
                         'Start Daily VFHL Scheduled Task',
@@ -1786,10 +2255,7 @@ class HockeyPool:
                         'Projected Stats...',
                             [
                                 'Athletic Import',
-                                # 'Bangers Import',
-                                # 'Daily Faceoff Import',
                                 'Dobber Import',
-                                # 'DtZ Import',
                                 'Fantrax Import',
                             ],
                     ]
@@ -2012,6 +2478,305 @@ class HockeyPool:
             cmd = f'powershell.exe "Start-ScheduledTask -TaskPath \\"{task_path}\\" -TaskName \\"{task_name}\\""'
             process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, check=True)
             ... # for debugging with a breakpoint
+
+        return
+
+    def summarize_claims_history(self):
+
+        try:
+
+            # Connect to the database
+            with get_db_connection() as connection:
+                # Query to get the required data
+                sql = """
+                    SELECT
+                        Season,
+                        Period,
+                        Manager,
+                        Player,
+                        Team,
+                        Pos
+                    FROM dfHistoryClaimsDrops
+                    WHERE Type = 'Claim'
+                """
+                # Execute the query and fetch the results
+                dfClaimsHistory = pd.read_sql(sql, con=connection)
+
+                sql = """
+                    SELECT hp.season_id as Season, pt.name as Manager
+                    FROM HockeyPool hp
+                         JOIN PoolTeam pt on pt.pool_id=hp.id
+                """
+                dfPoolTeams = pd.read_sql(sql, con=connection)
+
+                # Ensure all Season & Manager combinations in dfPoolTeams are also in dfClaimsHistory
+                # Ensure both 'Season' columns have the same data type
+                dfPoolTeams['Season'] = dfPoolTeams['Season'].astype(str)
+                dfClaimsHistory['Season'] = dfClaimsHistory['Season'].astype(str)
+
+                # Replace `McCarty’s Turtles` with `McCarty's Turtles` in both DataFrames
+                dfPoolTeams['Manager'] = dfPoolTeams['Manager'].replace("McCarty’s Turtles", "McCarty's Turtles")
+                dfClaimsHistory['Manager'] = dfClaimsHistory['Manager'].replace("McCarty’s Turtles", "McCarty's Turtles")
+                # Replace `McCarty’s Turtles` with `McCarty's Turtles` in both DataFrames
+                dfPoolTeams['Manager'] = dfPoolTeams['Manager'].replace("TarasenKO’d", "TarasenKO'd")
+                dfClaimsHistory['Manager'] = dfClaimsHistory['Manager'].replace("TarasenKO’d", "TarasenKO'd")
+
+                # Ensure unique combinations of Season and Manager in dfClaimsHistory
+                unique_claims_history = dfClaimsHistory[['Season', 'Manager']].drop_duplicates()
+
+                missing_combinations = dfPoolTeams.merge(
+                    unique_claims_history,
+                    on=['Season', 'Manager'],
+                    how='left',
+                    indicator=True
+                ).query('_merge == "left_only"')[['Season', 'Manager']]
+
+                if not missing_combinations.empty:
+                    # Add missing combinations to dfClaimsHistory
+                    missing_combinations['Pos'] = None  # No trade number for these entries
+                    dfClaimsHistory = pd.concat([dfClaimsHistory, missing_combinations], ignore_index=True)
+
+            # Count distinct claims per manager and season
+            dfClaimsHistory_pivot = (
+                dfClaimsHistory.groupby(['Season', 'Manager'])
+                .size()
+                .reset_index(name='Count')
+                .pivot(index='Season', columns='Manager', values='Count')
+            )
+
+            # Add a column for the average number of trades per manager for each season
+            dfClaimsHistory_pivot['Average'] = dfClaimsHistory_pivot[dfClaimsHistory_pivot > 0].mean(axis=1).round(1)
+
+            # total number of trades
+            dfClaimsHistory_pivot['Total'] = dfClaimsHistory_pivot[dfClaimsHistory_pivot.columns.difference(['Season', 'Average'])].sum(axis=1)
+
+            # Reset the index for better readability
+            dfClaimsHistory_pivot.reset_index(inplace=True)
+
+            season_managers = dfClaimsHistory['Manager'].unique()
+            dfClaimsHistory_pivot = dfClaimsHistory_pivot[['Season'] + sorted(list(season_managers)) + ['Total', 'Average']]
+
+            # Replace NaN values with an empty string
+            dfClaimsHistory_pivot.fillna('', inplace=True)
+
+            # Ensure count columns are integers, except for 'Average'
+            for column in dfClaimsHistory_pivot.columns:
+                # if column not in ['Average', 'Season', 'Past Mgrs Avg']:
+                if column not in ['Average', 'Season']:
+                    dfClaimsHistory_pivot[column] = dfClaimsHistory_pivot[column].apply(lambda x: int(x) if x != '' else '')
+
+            # Write the summary table
+            # Transpose the dataframe
+            dfClaimsHistory_pivot = dfClaimsHistory_pivot.set_index('Season').transpose()
+
+            # Save the transposed dataframe to the database
+            dfClaimsHistory_pivot.to_sql('dfHistoryClaims_Summary', con=get_db_connection(), index=True, if_exists='replace')
+
+        except Exception as e:
+            sg.popup_error(f"Error in summarizing claims history: {e}")
+
+        return
+
+    def summarize_trades_history(self):
+
+        try:
+
+            # Connect to the database
+            with get_db_connection() as connection:
+                # Query to get the required data
+                sql = """
+                    SELECT
+                        Season,
+                        "Trade #",
+                        "From" AS Manager
+                    FROM dfHistoryTrades
+                    WHERE "From" != '*Deleted*' AND "To" != '*Deleted*'
+                    UNION ALL
+                    SELECT
+                        Season,
+                        "Trade #",
+                        "To" AS Manager
+                    FROM dfHistoryTrades
+                    WHERE "From" != '*Deleted*' AND "To" != '*Deleted*'
+                """
+                # Execute the query and fetch the results
+                dfHistoryTrades = pd.read_sql(sql, con=connection)
+
+                sql = """
+                    SELECT hp.season_id as Season, pt.name as Manager
+                    FROM HockeyPool hp
+                         JOIN PoolTeam pt on pt.pool_id=hp.id
+                """
+                dfPoolTeams = pd.read_sql(sql, con=connection)
+
+                # Ensure all Season & Manager combinations in dfPoolTeams are also in dfHistoryTrades
+
+                # Ensure both 'Season' columns have the same data type
+                dfPoolTeams['Season'] = dfPoolTeams['Season'].astype(str)
+                dfHistoryTrades['Season'] = dfHistoryTrades['Season'].astype(str)
+
+                # Replace `McCarty’s Turtles` with `McCarty's Turtles` in both DataFrames
+                dfPoolTeams['Manager'] = dfPoolTeams['Manager'].replace("McCarty’s Turtles", "McCarty's Turtles")
+                dfHistoryTrades['Manager'] = dfHistoryTrades['Manager'].replace("McCarty’s Turtles", "McCarty's Turtles")
+                # Replace `McCarty’s Turtles` with `McCarty's Turtles` in both DataFrames
+                dfPoolTeams['Manager'] = dfPoolTeams['Manager'].replace("TarasenKO’d", "TarasenKO'd")
+                dfHistoryTrades['Manager'] = dfHistoryTrades['Manager'].replace("TarasenKO’d", "TarasenKO'd")
+
+                # Ensure unique combinations of Season and Manager in dfHistoryTrades
+                unique_trades_history = dfHistoryTrades[['Season', 'Manager']].drop_duplicates()
+
+                missing_combinations = dfPoolTeams.merge(
+                    unique_trades_history,
+                    on=['Season', 'Manager'],
+                    how='left',
+                    indicator=True
+                ).query('_merge == "left_only"')[['Season', 'Manager']]
+
+                if not missing_combinations.empty:
+                    # Add missing combinations to dfHistoryTrades
+                    missing_combinations['Trade #'] = None  # No trade number for these entries
+                    dfHistoryTrades = pd.concat([dfHistoryTrades, missing_combinations], ignore_index=True)
+
+            # Count distinct trades per manager and season
+            dfHistoryTrades_Summary = (
+                dfHistoryTrades.groupby(['Season', 'Manager'])
+                .nunique()['Trade #']
+                .reset_index()
+                .pivot(index='Season', columns='Manager', values='Trade #')
+            )
+
+            # Add a column for the average number of trades per manager for each season
+            dfHistoryTrades_Summary['Average'] = dfHistoryTrades_Summary[dfHistoryTrades_Summary > 0].mean(axis=1).round(1)
+
+            # total number of trades
+            dfHistoryTrades_Summary['Total'] = dfHistoryTrades.groupby('Season')['Trade #'].max() - dfHistoryTrades.groupby('Season')['Trade #'].min() + 1
+
+            # Reset the index for better readability
+            dfHistoryTrades_Summary.reset_index(inplace=True)
+
+            season_managers = dfHistoryTrades['Manager'].unique()
+            dfHistoryTrades_Summary = dfHistoryTrades_Summary[['Season'] + sorted(list(season_managers)) + ['Total', 'Average']]
+
+            # Replace NaN values with an empty string
+            dfHistoryTrades_Summary.fillna('', inplace=True)
+
+            # Ensure count columns are integers, except for 'Average'
+            for column in dfHistoryTrades_Summary.columns:
+                # if column not in ['Average', 'Season', 'Past Mgrs Avg']:
+                if column not in ['Average', 'Season']:
+                    dfHistoryTrades_Summary[column] = dfHistoryTrades_Summary[column].apply(lambda x: int(x) if x != '' else '')
+
+            # Write the summary table
+
+            # Transpose the dataframe
+            dfHistoryTrades_Summary = dfHistoryTrades_Summary.set_index('Season').transpose()
+
+            # Save the transposed dataframe to the database
+            dfHistoryTrades_Summary.to_sql('dfHistoryTrades_Summary', con=get_db_connection(), index=True, if_exists='replace')
+
+            ####################################################################################################
+
+            # cross-reference of trade counts for each manager
+
+            # Step 1: Get Trades History
+            with get_db_connection() as connection:
+                # Query to get the required data
+                sql = """
+                    SELECT *
+                    FROM dfHistoryTrades
+                    WHERE [From] != "*Deleted*"
+                """
+                dfHistoryTrades = pd.read_sql(sql, con=connection)
+
+            # Step 2: Get current season managers
+            current_season = dfHistoryTrades['Season'].max()
+            with get_db_connection() as connection:
+                sql = f"""
+                    SELECT hp.season_id as Season, pt.name as Manager
+                    FROM HockeyPool hp
+                         JOIN PoolTeam pt on pt.pool_id=hp.id
+                    WHERE hp.season_id = {current_season}
+                """
+                dfCurrentManagers = pd.read_sql(sql, con=connection)
+
+            current_managers = dfCurrentManagers['Manager']
+
+            # Step 3: Filter dfHistoryTrades to include only trades involving current season managers
+            dfFiltered = dfHistoryTrades[
+                (dfHistoryTrades['From'].isin(current_managers)) &
+                (dfHistoryTrades['To'].isin(current_managers))
+            ]
+
+            # Step 4: Create Manager1 and Manager2 columns
+            # dfFiltered['Manager1'] = dfFiltered.apply(lambda row: min(row['From'], row['To']), axis=1)
+            # dfFiltered['Manager2'] = dfFiltered.apply(lambda row: max(row['From'], row['To']), axis=1)
+            dfFiltered.rename(columns={'From': 'Manager1', 'To': 'Manager2'}, inplace=True)
+
+            # Ensure all Season & Manager combinations in dfPoolTeams are also in dfHistoryTrades
+            # # Ensure both 'Season' columns have the same data type
+            dfCurrentManagers['Season'] = dfCurrentManagers['Season'].astype(str)
+            dfFiltered['Season'] = dfFiltered['Season'].astype(str)
+
+            # Ensure unique combinations of Season and Manager in dfHistoryTrades
+            unique_manager1_history = dfFiltered[['Season', 'Manager1']].drop_duplicates().rename(columns={'Manager1': 'Manager'})
+
+            missing_combinations = dfCurrentManagers.merge(
+                unique_manager1_history,
+                on=['Season', 'Manager'],
+                how='left',
+                indicator=True
+            ).query('_merge == "left_only"')[['Season', 'Manager']]
+
+            if not missing_combinations.empty:
+                # Add missing combinations to dfFiltered
+                missing_combinations['Trade #'] = None  # No trade number for these entries
+                missing_combinations.rename(columns={'Manager': 'Manager1'}, inplace=True)
+                for manager2 in dfFiltered['Manager2'].unique():
+                    temp_combinations = missing_combinations.copy()
+                    temp_combinations['Manager2'] = manager2
+                    dfFiltered = pd.concat([dfFiltered, temp_combinations], ignore_index=True)
+
+            unique_manager2_history = dfFiltered[['Season', 'Manager2']].drop_duplicates().rename(columns={'Manager2': 'Manager'})
+
+            missing_combinations = dfCurrentManagers.merge(
+                unique_manager2_history,
+                on=['Season', 'Manager'],
+                how='left',
+                indicator=True
+            ).query('_merge == "left_only"')[['Season', 'Manager']]
+
+            if not missing_combinations.empty:
+                # Add missing combinations to dfFiltered
+                missing_combinations['Trade #'] = None  # No trade number for these entries
+                missing_combinations.rename(columns={'Manager': 'Manager2'}, inplace=True)
+                for manager1 in dfFiltered['Manager1'].unique():
+                    temp_combinations = missing_combinations.copy()
+                    temp_combinations['Manager1'] = manager1
+                    dfFiltered = pd.concat([dfFiltered, temp_combinations], ignore_index=True)
+
+            # Step 5: Group by Manager1 and Manager2 and count distinct 'Trade #' values
+            dfGrouped = (
+                dfFiltered.groupby(['Season', 'Manager1', 'Manager2'])['Trade #']
+                .nunique()
+                .reset_index(name='TradeCount')
+            )
+
+            # Step 6: Pivot the grouped DataFrame to create the cross-reference table
+            dfHistoryTrades_XRef = dfGrouped.pivot_table(index='Manager1', columns='Manager2', values='TradeCount', aggfunc='sum', fill_value=0).astype(int)
+
+            # Set diagonal values (where Manager1 == Manager2) to empty strings
+            for manager in dfHistoryTrades_XRef.index:
+                if manager in dfHistoryTrades_XRef.columns:
+                    dfHistoryTrades_XRef.at[manager, manager] = ''
+
+            # # Replace all 0 values with an empty string
+            # dfHistoryTrades_XRef.replace(0, '', inplace=True)
+
+            # Save the transposed dataframe to the database
+            dfHistoryTrades_XRef.to_sql('dfHistoryTrades_XRef', con=get_db_connection(), index=True, if_exists='replace')
+
+        except Exception as e:
+            sg.popup_error(f"Error in summarizing trades history: {e}")
 
         return
 
@@ -2537,7 +3302,17 @@ class HockeyPool:
                     return
 
             # write to Excel
-            self.writeToExcel(df=dfFullTeamPlayerScoring, excelFile="Manager Player Service Times.xlsx", excelSheet='Full Roster Scoring', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            excelSheets = [
+                {
+                    'df': dfFullTeamPlayerScoring,
+                    'excelSheet': 'Full Roster Scoring',
+                    'min_row': 2,
+                    'max_row': None,
+                    'min_col': 1
+                },
+            ]
+            # self.writeToExcel(df=dfFullTeamPlayerScoring, excelFile="Manager Player Service Times.xlsx", excelSheet='Full Roster Scoring', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            self.writeToExcel(excelFile="Manager Player Service Times.xlsx", excelSheets=excelSheets, batch=batch, logger=logger, dialog=dialog)
 
         except Exception as e:
             msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
@@ -2760,7 +3535,17 @@ class HockeyPool:
             dfStandingsStats.to_sql('dfStandingsStats', con=get_db_connection(), index=False, if_exists='replace')
 
             # write to Excel
-            self.writeToExcel(df=dfStandingsStats, excelFile='Category Standings Gain & Loss.xlsx', excelSheet='Stats', min_row=2, max_row=12, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            excelSheets = [
+                {
+                    'df': dfStandingsStats,
+                    'excelSheet': 'Stats',
+                    'min_row': 2,
+                    'max_row': 12,
+                    'min_col': 1
+                },
+            ]
+            # self.writeToExcel(df=dfStandingsStats, excelFile='Category Standings Gain & Loss.xlsx', excelSheet='Stats', min_row=2, max_row=12, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            self.writeToExcel(excelFile="Category Standings Gain & Loss.xlsx", excelSheets=excelSheets, batch=batch, logger=logger, dialog=dialog)
 
         except Exception as e:
             msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
@@ -2905,8 +3690,8 @@ class HockeyPool:
             # write to database
             dfPlayerServiceTimes.to_sql('dfPlayerServiceTimes', con=get_db_connection(), index=False, if_exists='replace')
 
-            # write to Excel
-            self.writeToExcel(df=dfPlayerServiceTimes, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Details', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            # # write to Excel
+            # self.writeToExcel(df=dfPlayerServiceTimes, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Details', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
 
             ########################################################################
 
@@ -2994,7 +3779,25 @@ class HockeyPool:
             dfPlayerServiceTimesSummary.to_sql('dfPlayerServiceTimesSummary', con=get_db_connection(), index=False, if_exists='replace')
 
             # write to Excel
-            self.writeToExcel(df=dfPlayerServiceTimesSummary, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Summary', min_row=3, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            excelSheets = [
+                {
+                    'df': dfPlayerServiceTimes,
+                    'excelSheet': 'Service Time Details',
+                    'min_row': 2,
+                    'max_row': None,
+                    'min_col': 1
+                },
+                {
+                    'df': dfPlayerServiceTimesSummary,
+                    'excelSheet': 'Service Time Summary',
+                    'min_row': 3,
+                    'max_row': None,
+                    'min_col': 1
+                }
+            ]
+            # self.writeToExcel(df=dfPlayerServiceTimes, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Details', min_row=2, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            # self.writeToExcel(df=dfPlayerServiceTimesSummary, excelFile="Manager Player Service Times.xlsx", excelSheet='Service Time Summary', min_row=3, max_row=None, min_col=1, batch=batch, logger=logger, dialog=dialog)
+            self.writeToExcel(excelFile="Manager Player Service Times.xlsx", excelSheets=excelSheets, batch=batch, logger=logger, dialog=dialog)
 
         except Exception as e:
             msg = f'Error in {sys._getframe().f_code.co_name}: {e}'
@@ -3495,6 +4298,9 @@ class HockeyPool:
                     elif event == 'Email NHL Team Transactions':
                         self.email_nhl_team_transactions()
 
+                    elif event == 'Email Starting Goalie Projections':
+                        self.email_starting_goalie_projections(pool_id=self.id)
+
                     elif event == 'Update Pool Teams':
                         self.updatePoolTeams(suppress_prompt=True)
                         pool_teams_mclb_selected_row = 0
@@ -3532,6 +4338,15 @@ class HockeyPool:
 
                     elif event == 'Import Draft Picks':
                         self.import_draft_picks(season=season)
+
+                    elif event == 'Import Transaction History':
+                        self.import_transaction_history(season=season)
+
+                    elif event == 'Summarize Trades History':
+                        self.summarize_trades_history()
+
+                    elif event == 'Summarize Claims History':
+                        self.summarize_claims_history()
 
                     elif event == 'Archive Keeper Lists':
                         self.archive_keeper_lists(season=season, pool=self)
@@ -3584,9 +4399,27 @@ class HockeyPool:
 
         return
 
-    def writeToExcel(self, df: pd.DataFrame=None, excelFile: str='', excelSheet: str='', min_row: int=2, max_row: int=None, min_col: int=1, batch: bool=False, logger: logging.Logger=None, dialog: sg.Window=None):
+    def writeToExcel(self, excelFile: str='', excelSheets: list=[], batch: bool=False, logger: logging.Logger=None, dialog: sg.Window=None):
+        """
+        Write multiple DataFrames to an Excel file based on a list of excelSheets.
 
+        Args:
+            excelSheets (list): A list of dictionaries, each containing the arguments for a write operation.
+            excelFile (str): The name of the Excel file.
+            batch (bool): Whether the operation is part of a batch process.
+            logger (logging.Logger): Logger for batch operations.
+            dialog (sg.Window): Dialog for progress updates.
+        """
         try:
+            if excelFile == '' or len(excelSheets) == 0:
+                msg = 'No excel file or sheets to write to...'
+                if batch:
+                    logger.debug(msg)
+                else:
+                    dialog['-PROG-'].update(msg)
+                    event, values = dialog.read(timeout=2)
+                    if event == 'Cancel' or event == sg.WIN_CLOSED:
+                        return
 
             msg = f'Writing to Excel...'
             if batch:
@@ -3597,16 +4430,19 @@ class HockeyPool:
                 if event == 'Cancel' or event == sg.WIN_CLOSED:
                     return
 
-            # Write df to an existing Excel file in OneDrive
+            # Path to the OneDrive file
+            one_drive_file = f"C:/Users/Roy/OneDrive/VFHL/{excelFile}"
+
+            # Load the existing workbook
+            workbook = openpyxl.load_workbook(one_drive_file)
+
             try:
-
-                # Path to the OneDrive file
-                one_drive_file = f"C:/Users/Roy/OneDrive/VFHL/{excelFile}"
-
-                # Load the existing workbook
-                workbook = openpyxl.load_workbook(one_drive_file)
-
-                try:
+                for task in excelSheets:
+                    df = task.get('df')
+                    excelSheet = task.get('excelSheet')
+                    min_row = task.get('min_row', 2)
+                    max_row = task.get('max_row', None)
+                    min_col = task.get('min_col', 1)
 
                     # Select the target sheet
                     sheet = workbook[excelSheet]
@@ -3621,25 +4457,17 @@ class HockeyPool:
                         for cell in row:
                             cell.value = None
 
-                    # Write the DataFrame to the sheet starting at row 2, column A
+                    # Write the DataFrame to the sheet starting at the specified row and column
                     for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), min_row):
-                        for c_idx, value in enumerate(row[:max_df_col], min_row - 1):
+                        for c_idx, value in enumerate(row[:max_df_col], min_col):
                             sheet.cell(row=r_idx, column=c_idx, value=value)
 
-                    # Save the workbook
-                    workbook.save(one_drive_file)
+                # Save the workbook
+                workbook.save(one_drive_file)
 
-                finally:
-                    # Ensure the workbook is closed
-                    workbook.close()
-
-            except Exception as e:
-                msg = f'Error writing to Excel file: {e}'
-                if batch:
-                    logger.error(msg)
-                else:
-                    sg.popup_error(msg)
-                raise
+            finally:
+                # Ensure the workbook is closed
+                workbook.close()
 
             # Trigger OneDrive sync for the xlsx file
             one_drive_file = one_drive_file.replace('/', '\\').replace("'", "''")
@@ -3668,7 +4496,6 @@ class HockeyPool:
             if batch:
                 logger.debug(msg)
             else:
-                dialog.close()
                 sg.popup_notify(msg, title=sys._getframe().f_code.co_name)
 
         return
