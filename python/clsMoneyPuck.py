@@ -18,6 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 # Hockey Pool classes
 from clsBrowser import Browser
 from clsSeason import Season
+from constants import DATA_INPUT_FOLDER
 from utils import get_db_connection, unzip_file
 
 
@@ -28,8 +29,7 @@ class MoneyPuck:
         self.homePage = 'https://moneypuck.com/index.html'
         self.dataPage = 'https://moneypuck.com/data.htm'
         self.season = season
-        # self.browser_download_dir = os.path.abspath(f'./python/input/moneyPuck/{season.id}')
-        self.browser_download_dir = os.path.abspath(f'./input/moneyPuck/{season.id}')
+        self.browser_download_dir = os.path.abspath(f'{DATA_INPUT_FOLDER}/moneyPuck/{season.id}')
 
         return
 
