@@ -105,7 +105,26 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
 
-    sql = f'select * from dfDraftResults where season_id={season_id}'
+    # sql = f'select * from dfDraftResults where season_id={season_id}'
+    sql = f'''
+        select dr.*,
+            (select cdh.type
+                from dfHistoryClaimsDrops cdh
+                where cdh.season = {season_id} and cdh.type="Drop" and cdh.manager=dr.pool_team and cdh.PlayerId=dr.player_id
+                group by cdh.manager, cdh.PlayerId
+                order by cdh.datetime
+                limit 1
+            ) as claimDropType,
+            (select th.[to]
+                from dfHistoryTrades th
+                where th.season = {season_id} and th.[from]=dr.pool_team and th.PlayerId=dr.player_id
+                group by th.[from], th.PlayerId
+                order by th.datetime
+                limit 1
+            ) as tradedTo
+        from dfDraftResults dr
+        where dr.season_id = {season_id}
+    '''
     df_draft_list = pd.read_sql(sql, con=get_db_connection())
 
     # add draft list columns to df
@@ -121,6 +140,8 @@ def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
         pick = df_draft_list['pick'],
         overall = df_draft_list['overall'],
         picked_by = df_draft_list['picked_by'],
+        claimDropType = df_draft_list['claimDropType'],
+        tradedTo = df_draft_list['tradedTo'],
     )
 
     # add players not in df
@@ -129,26 +150,57 @@ def add_draft_list_columns_to_df(season_id: str, df: pd.DataFrame):
     if not non_empty_entries.empty:
         df = pd.concat([df, non_empty_entries])
 
-    df.fillna({'round': '','pick': '','overall': '','picked_by': ''}, inplace=True)
+    df.fillna({'round': '','pick': '','overall': '','picked_by': '','claimDropType': '','tradedTo': ''}, inplace=True)
 
     df.reset_index(inplace=True)
 
     return df
 
-def add_pre_draft_keeper_list_column_to_df(pool_id: str, df: pd.DataFrame):
+def add_pre_draft_keeper_list_column_to_df(pool_id: str, season_id: str, df: pd.DataFrame):
 
-    sql = f'select player_id, case when keeper = "m" then "MIN" else "Yes" end as pre_draft_keeper, pool_team as pre_draft_manager from KeeperListsArchive where pool_id={pool_id}'
+    sql = f'''
+        select  player_id,
+            case when keeper = "m" then "MIN" else "Yes" end as pre_draft_keeper,
+            pool_team as pre_draft_manager,
+            (select cdh.type
+                from dfHistoryClaimsDrops cdh
+                where cdh.season = {season_id} and cdh.type="Drop" and cdh.manager=kla.pool_team and cdh.PlayerId=kla.player_id
+                group by cdh.manager, cdh.PlayerId
+                order by cdh.datetime
+                limit 1
+            ) as claimDropType,
+            (select th.[to]
+                from dfHistoryTrades th
+                where th.season = {season_id} and th.[from]=kla.pool_team and th.PlayerId=kla.player_id
+                group by th.[from], th.PlayerId
+                order by th.datetime
+                limit 1
+            ) as tradedTo
+        from KeeperListsArchive kla
+        where pool_id={pool_id}
+    '''
     df_keeper_list = pd.read_sql(sql, con=get_db_connection())
 
     # add pre-draft keeper columns to df
     df.set_index(['player_id'], inplace=True)
     df_keeper_list.set_index(['player_id'], inplace=True)
 
+    # Merge the `tradedTo` & `claimDropType` column without overwriting existing values
+    # But first, replace empty strings in `tradedTo`  & `claimDropType` with NaN to allow `combine_first` to work
+    df['claimDropType'].replace('', pd.NA, inplace=True)
+    df['tradedTo'].replace('', pd.NA, inplace=True)
+    df['claimDropType'] = df['claimDropType'].combine_first(df_keeper_list['claimDropType'])
+    df['tradedTo'] = df['tradedTo'].combine_first(df_keeper_list['tradedTo'])
+
     df['pre_draft_keeper'] = df_keeper_list['pre_draft_keeper']
     df['pre_draft_manager'] = df_keeper_list['pre_draft_manager']
+    # df['claimDropType'] = df_keeper_list['claimDropType']
+    # df['tradedTo'] = df_keeper_list['tradedTo']
 
     df.fillna({'pre_draft_keeper': ''}, inplace=True)
     df.fillna({'pre_draft_manager': ''}, inplace=True)
+    df.fillna({'claimDropType': ''}, inplace=True)
+    df.fillna({'tradedTo': ''}, inplace=True)
 
     df.reset_index(inplace=True)
 
@@ -661,6 +713,7 @@ def calc_z_scores(df: pd.DataFrame, positional_scoring: bool=False, stat_type: s
         ##########################################################################
         z_wins = ((df_g['wins'] - mean_cat['wins']) / std_cat['wins']).multiply(g_count_multipliers, axis=0)
         z_saves = ((df_g['saves'] - mean_cat['saves']) / std_cat['saves']).multiply(g_count_multipliers, axis=0)
+        # z_gaa = (-1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']).multiply(g_ratio_multipliers, axis=0)
         z_gaa = (-1 * (df_g['gaa'] - mean_cat['gaa']) / std_cat['gaa']).multiply(g_ratio_multipliers, axis=0)
         z_save_pct = ((df_g['save%'] - mean_cat['save%']) / std_cat['save%']).multiply(g_ratio_multipliers, axis=0)
 
@@ -2329,6 +2382,7 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
     # Define a function to get the team_abbr for player
     def get_team_abbr(player_id):
+        # return '(N/A)'
         try:
             team_abbr = j.search('currentTeamAbbrev', requests.get(f'{NHL_API_URL}/player/{player_id}/landing').json())
             if team_abbr is None:
@@ -2790,7 +2844,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     df_player_stats = add_draft_list_columns_to_df(season_id=to_season_id, df=df_player_stats)
 
     # add pre_draft_keeper & pre_draft_manager columns:
-    add_pre_draft_keeper_list_column_to_df(pool_id=pool_id, df=df_player_stats)
+    add_pre_draft_keeper_list_column_to_df(pool_id=pool_id, season_id=to_season_id, df=df_player_stats)
 
     # drop rows for irrelevant players; e.g., no games played, projected games, or not on a pool team or not on my watchlist
     if game_type == 'Prj':
@@ -2962,8 +3016,8 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
                                         <span class="tooltip-text tooltip-text-minors-elig">
                                             {minors_eligible_msg}
                                             Career games: {career_games}<br>
-                                            Games to reach {minors_eligible_cutoff} cut-off: {int(games_to_reach_cutoff)}<br>
-                                            Team games remaining: {team_games_remaining}
+                                            Games to reach {minors_eligible_cutoff} cut-off: {'?' if np.isnan(games_to_reach_cutoff) == True else int(games_to_reach_cutoff)}<br>
+                                            Team games remaining: {'?' if np.isnan(team_games_remaining) == True else int(team_games_remaining)}
                                         </span>
                                     </span>
                                 ''')
@@ -3053,8 +3107,6 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
             # {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': False if game_type=='Prj' else True, 'search_builder': True},
             {'title': 'bt', 'table column': 'breakout_threshold', 'format': eval(f_0_decimals_show_0), 'data_group': 'skater', 'hide': True, 'search_builder': True},
             {'title': 'keeper', 'table column': 'keeper', 'format': eval(f_nan_to_empty), 'data_group': 'general', 'hide': True, 'search_builder': True},
-            {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
-            {'title': 'pre-draft manager', 'table column': 'pre_draft_manager', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'rookie', 'table column': 'rookie', 'data_group': 'general', 'hide': True, 'search_builder': True},
             {'title': 'active', 'table column': 'active', 'data_group': 'general', 'hide': True},
             {'title': 'nhl roster status', 'table column': 'nhl_roster_status', 'data_group': 'general', 'hide': True},
@@ -3082,11 +3134,15 @@ def stats_config(position: str='all', game_type: str='R', projection_source: str
 
     league_draft_columns = {
         'columns': [
+            {'title': 'pre-draft keeper', 'table column': 'pre_draft_keeper', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'pre-draft manager', 'table column': 'pre_draft_manager', 'format': eval(f_nan_to_empty), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'draft round', 'table column': 'round', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True, 'search_builder': True},
             {'title': 'draft position', 'table column': 'pick', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             {'title': 'manager\'s pick #', 'table column': 'managers_pick_number', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             {'title': 'overall', 'table column': 'overall', 'format': eval(f_0_decimals), 'data_group': 'draft', 'hide': True},
             {'title': 'picked by', 'table column': 'picked_by', 'justify': 'left', 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'dropped', 'table column': 'claimDropType', 'justify': 'left', 'data_group': 'draft', 'hide': True, 'search_builder': True},
+            {'title': 'traded to', 'table column': 'tradedTo', 'justify': 'left', 'data_group': 'draft', 'hide': True, 'search_builder': True},
         ],
     }
 
