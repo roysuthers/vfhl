@@ -41,7 +41,11 @@ def main():
             cursor.execute(sql)
             rows = cursor.fetchall()
             if rows:
-                row = rows[0]
+                fantrax = [r for r in rows  if r['web_host']=='Fantrax']
+                if fantrax:
+                    row = fantrax[0]
+                else:
+                    row = rows[0]
                 for key in row.keys():
                     setattr(hp, key, row[key])
             cursor.close()
@@ -78,14 +82,6 @@ def main():
                 #     logger.error(f'Exception in call to hp.updatePoolTeamServiceTimes() returned. \nException: {repr(e)}')
                 # logger.info('Call to hp.updatePoolTeamServiceTimes() returned.')
 
-        # send email for team transactions
-        logger.info('Calling hp.email_nhl_team_transactions().')
-        try:
-            hp.email_nhl_team_transactions(batch=True)
-        except Exception as e:
-            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
-        logger.info('Call to hp.email_nhl_team_transactions() returned.')
-
         logger.info('Calling hp.updatePlayerInjuries().')
         try:
             hp.updatePlayerInjuries(suppress_prompt=True, batch=True)
@@ -106,6 +102,22 @@ def main():
         except Exception as e:
             logger.error(f'Exception in call to hp.updateFantraxPlayerInfo() returned. \nException: {repr(e)}')
         logger.info('Call to hp.updateFantraxPlayerInfo() returned.')
+
+        # send email for team transactions
+        logger.info('Calling hp.email_nhl_team_transactions().')
+        try:
+            hp.email_nhl_team_transactions(batch=True)
+        except Exception as e:
+            logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
+        logger.info('Call to hp.email_nhl_team_transactions() returned.')
+
+        # # send email starting goalie projections
+        # logger.info('Calling hp.email_starting_goalie_projections().')
+        # try:
+        #     hp.email_starting_goalie_projections(pool_id=hp.id, batch=True)
+        # except Exception as e:
+        #     logger.error(f'Exception in call to hp.email_starting_goalie_projections() returned. \nException: {repr(e)}')
+        # logger.info('Call to hp.email_starting_goalie_projections() returned.')
 
         logger.info('"Task scheduler 2" completed')
 

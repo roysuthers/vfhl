@@ -59,7 +59,8 @@ def main():
             logger.info(f'Calling nhl_api.get_player_stats() for {season.id}{season.type}.')
             # update season constants
             season.set_season_constants()
-            if season.SEASON_HAS_STARTED is True and season.SEASON_HAS_ENDED is False:
+            grace_period_end_date = season.end_date + timedelta(days=3)
+            if season.SEASON_HAS_STARTED is True and (season.SEASON_HAS_ENDED is False or season.SEASON_HAS_STARTED is True and date.today() <= grace_period_end_date):
                 try:
                     nhl_api.get_player_stats(season=season, batch=True)
                 except Exception as e:
@@ -147,35 +148,43 @@ def main():
             logger.error(f'Exception in call to hp.email_nhl_team_transactions() returned. \nException: {repr(e)}')
         logger.info('Call to hp.email_nhl_team_transactions() returned.')
 
-        for season in seasons:
-            # only for regular season
-            if season.type == 'R':
+        # # send email starting goalie projections
+        # logger.info('Calling hp.email_starting_goalie_projections().')
+        # try:
+        #     hp.email_starting_goalie_projections(pool_id=hp.id, batch=True)
+        # except Exception as e:
+        #     logger.error(f'Exception in call to hp.email_starting_goalie_projections() returned. \nException: {repr(e)}')
+        # logger.info('Call to hp.email_starting_goalie_projections() returned.')
 
-                logger.info('Calling hp.updatePoolStandingsGainLoss().')
-                try:
-                    hp.updatePoolStandingsGainLoss(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updatePoolStandingsGainLoss() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updatePoolStandingsGainLoss() returned.')
+        # for season in seasons:
+        #     # only for regular season
+        #     if season.type == 'R':
 
-                logger.info('Calling hp.updatePoolTeamServiceTimes().')
-                try:
-                    hp.updatePoolTeamServiceTimes(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updatePoolTeamServiceTimes() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updatePoolTeamServiceTimes() returned.')
+        #         logger.info('Calling hp.updatePoolStandingsGainLoss().')
+        #         try:
+        #             hp.updatePoolStandingsGainLoss(batch=True)
+        #         except Exception as e:
+        #             logger.error(f'Exception in call to hp.updatePoolStandingsGainLoss() returned. \nException: {repr(e)}')
+        #         logger.info('Call to hp.updatePoolStandingsGainLoss() returned.')
 
-                logger.info('Calling hp.updateFullTeamPlayerScoring().')
-                try:
-                    hp.updateFullTeamPlayerScoring(batch=True)
-                except Exception as e:
-                    logger.error(f'Exception in call to hp.updateFullTeamPlayerScoring() returned. \nException: {repr(e)}')
-                logger.info('Call to hp.updateFullTeamPlayerScoring() returned.')
+        #         logger.info('Calling hp.updatePoolTeamServiceTimes().')
+        #         try:
+        #             hp.updatePoolTeamServiceTimes(batch=True)
+        #         except Exception as e:
+        #             logger.error(f'Exception in call to hp.updatePoolTeamServiceTimes() returned. \nException: {repr(e)}')
+        #         logger.info('Call to hp.updatePoolTeamServiceTimes() returned.')
+
+        #         logger.info('Calling hp.updateFullTeamPlayerScoring().')
+        #         try:
+        #             hp.updateFullTeamPlayerScoring(batch=True)
+        #         except Exception as e:
+        #             logger.error(f'Exception in call to hp.updateFullTeamPlayerScoring() returned. \nException: {repr(e)}')
+        #         logger.info('Call to hp.updateFullTeamPlayerScoring() returned.')
 
         logger.debug('Formatting & sending "Daily VFHL Scheduled Task" notification email...')
         caption = f'Task Scheduler: "Daily VFHL Scheduled Task" notification'
         recipients = ['rsuthers@cogeco.ca']
-        email_sent = hp.formatAndSendEmail(data_frames=[], html_tables=[], message='"Daily VFHL Scheduled Task" notification', recipients=recipients, subject=caption, show_sent_msg=False, batch=True, dialog=None)
+        email_sent = hp.formatAndSendEmail(html_tables=[], message='"Daily VFHL Scheduled Task" notification', recipients=recipients, subject=caption, show_sent_msg=False, batch=True, dialog=None)
         if email_sent is True:
             logger.debug('Email sent...')
         else:
