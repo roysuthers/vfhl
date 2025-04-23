@@ -14,6 +14,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from unicodedata import normalize
 from unidecode import unidecode
 
 from clsBrowser import Browser
@@ -112,8 +113,16 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
 
         # create dictionary to map team names to code
         df_teams = pd.read_sql(f'select name, abbr from Team', con=get_db_connection())
-        df_teams['name'] = df_teams['name'].apply(lambda x: x.lower().replace(' ', '-').replace('.', ''))
-        df_teams['name'] = df_teams['name'].apply(lambda x: unidecode(x))
+        # df_teams['name'] = df_teams['name'].apply(lambda x: x.lower().replace(' ', '-').replace('.', ''))
+        # df_teams['name'] = df_teams['name'].apply(lambda x: unidecode(x))
+
+        # Function to normalize strings
+        def normalize_string(input_str):
+            return normalize('NFKD', input_str).encode('ascii', 'ignore').decode('utf-8')
+
+        # Apply normalization to the 'name' column
+        df_teams['name'] = df_teams['name'].apply(normalize_string)
+
         nhl_teams = dict(zip(df_teams.name, df_teams.abbr))
 
         logger = logging.getLogger(__name__)
@@ -137,9 +146,9 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
 
             browser.get(url)
 
-            # # Wait for the 'Team' tab to be clickable and then click it
-            # team_tab = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@data-tab='Team']")))
-            # team_tab.click()
+            # Wait for the 'Team' tab to be clickable and then click it
+            team_tab = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@data-tab='Team']")))
+            team_tab.click()
 
             msg = f'Scraping "{url}"...'
             if dialog:
@@ -165,12 +174,15 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
 
             # Find all rows in the table
             rows = browser.find_elements(By.XPATH, '//*[@id="salary-cap"]/div/div/div[1]/div[2]/div/div[2]/table/tbody/tr')
-            for row in rows:
+            for idx, row in enumerate(rows):
 
                 try:
-                    html_content = row.find_element(By.XPATH, ".//i[@class='fas fa-magnifying-glass-plus text-pp-copy_lt']").get_attribute('data-content')
+                    html_tag = row.find_element(By.TAG_NAME, 'i')
                 except NoSuchElementException:
+                    player_team = row.text.strip()
                     continue
+
+                html_content = html_tag.get_attribute('data-content')
 
                 soup = BeautifulSoup(html_content, "html.parser")
 
@@ -179,7 +191,7 @@ def from_puckpedia(dialog: sg.Window=None) -> pd.DataFrame:
                 player_name = player_tag.text.strip()
 
                 # get player team
-                player_team = row.find_element(By.XPATH, '//*[@id="salary-cap"]/div/div/div[1]/div[2]/div/div[2]/table/tbody/tr[1]/td/div/div/a').get_attribute('href').rsplit('/')[-1]
+                # player_team = row.find_element(By.XPATH, '//*[@id="salary-cap"]/div/div/div[1]/div[2]/div/div[2]/table/tbody/tr[1]/td/div/div/a').get_attribute('href').rsplit('/')[-1]
                 if player_team == 'utah-hc':
                     nhl_team = 'UTA'
                 else:
