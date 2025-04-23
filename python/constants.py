@@ -17,11 +17,10 @@ NHL_STATS_API_URL: str = 'https://api.nhle.com/stats/rest/en'
 
 NHL_ASSETS_BASE_URL = 'https://assets.nhle.com'
 
-# calendar = './python/input/images/calendar.png'
-calendar = './input/images/calendar.png'
-
 JSON_FOLDER = 'C:/Users/Roy/Documents/GitHub/vfhl/json'
 DATA_INPUT_FOLDER = 'C:/Users/Roy/Documents/GitHub/vfhl/input'
+
+calendar = f'{DATA_INPUT_FOLDER}/images/calendar.png'
 
 TODAY: str = date.today()
 YESTERDAY: str = (date.today() - timedelta(days=1))
