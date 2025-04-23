@@ -22,11 +22,11 @@
             },
         "task_scheduler":{
             "handlers":["fileHandler"],
-            "level":"INFO"
+            "level":"WARN"
         },
         "task_scheduler_2":{
             "handlers":["fileHandler"],
-            "level":"INFO"
+            "level":"WARN"
         },
         "clsHockeyPool":{
             "handlers":["fileHandler"],
