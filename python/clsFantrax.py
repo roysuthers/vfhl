@@ -307,12 +307,14 @@ class Fantrax:
                                 "recalled",
                                 "returned",
                                 "set",
+                                "served",
                                 "slated",
                                 "summoned",
                                 "waived",
                             ]
                             ancestor_keywords = [
                                 "are",
+                                "has",
                                 "has been",
                                 "is",
                                 "was",
@@ -1037,7 +1039,7 @@ class Fantrax:
                         period_control = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/app-root/section/app-league-team-roster/section/div[1]/filter-panel/div/div/div[4]/div[1]/mat-form-field/div[1]/div/div[2]')))
                         period = period_control.text.split(' ')[0]
 
-                    tables = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, '_ut__aside')))
+                    tables = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'i-table__body')))
 
                     for idx, table in enumerate(tables):
 
@@ -1053,7 +1055,7 @@ class Fantrax:
                         else:
                             logger.debug(msg)
 
-                        players = table.find_elements(By.TAG_NAME, 'td')
+                        players = table.find_elements(By.CLASS_NAME, 'i-table__row')
                         for player in players:
 
                             # some rows are not specific to a player
@@ -1067,12 +1069,14 @@ class Fantrax:
 
                             text_parts = player.text.splitlines()
                             player_pos = text_parts[2]
-                            nhlteam = text_parts[-1].strip().lstrip('-').lstrip('(').rstrip(')').strip()
+                            # nhlteam = text_parts[-1].strip().lstrip('-').lstrip('(').rstrip(')').strip()
+                            nhlteam_element = 4 if '(R)' in text_parts[3] else 3
+                            nhlteam = text_parts[nhlteam_element].strip().lstrip('-').strip()
                             if '/' in nhlteam and nhlteam != 'N/A':
                                 nhlteam = nhlteam.split('/')[-1]
                             nhl_team.append(nhlteam)
                             pos.append(player_pos)
-                            rookie.append(1 if '(R)' in text_parts else 0)
+                            rookie.append(1 if '(R)' in text_parts[3] else 0)
                             status.append(text_parts[0])
 
                             id = ''
