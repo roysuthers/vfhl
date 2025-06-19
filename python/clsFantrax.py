@@ -86,7 +86,8 @@ class Fantrax:
 
         self.watch_list = f'https://www.fantrax.com/fantasy/league/{league_id}/players;reload=3;statusOrTeamFilter=WATCH_LIST;maxResultsPerPage=500'
 
-        self.nhl_team_transactions = 'https://www.fantrax.com/newui/NHL/transactions.go'
+        # self.nhl_team_transactions = 'https://www.fantrax.com/newui/NHL/transactions.go'
+        self.nhl_team_transactions = 'https://www.fantrax.com/news/nhl/transactions'
 
         self.manager_position_games_played = f'https://www.fantrax.com/fantasy/league/{league_id}/team/roster;teamId={{team_id}};view=GAMES_PER_POS'
 
