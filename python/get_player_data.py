@@ -2811,7 +2811,8 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
     conn.close()
 
     # Convert the result to a DataFrame
-    result_df = pd.DataFrame(result, columns=['team_id', 'team_abbr'])
+    # Utah Hockey Club & Utah Mammoth both have 'UTA' abbr, so we need to remove the the first occurrence
+    result_df = pd.DataFrame(result, columns=['team_id', 'team_abbr']).drop_duplicates(subset=['team_abbr'], keep='last')
 
     # Update the team_id column in the df DataFrame where it is NaN
     df_player_stats.loc[df_player_stats['team_id'].isna(), 'team_id'] = df_player_stats.loc[df_player_stats['team_id'].isna(), 'team_abbr'].map(result_df.set_index('team_abbr')['team_id'])
