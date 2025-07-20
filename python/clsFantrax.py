@@ -921,7 +921,8 @@ class Fantrax:
                         period_number += 1
 
                 df_temp = pd.DataFrame(data = {'season': seasonID, 'pool_team': poolTeam, 'period': period, 'date':date, 'illegal_period': illegal_period, 'player_name': name, 'fantrax_id': id, 'nhl_team': nhl_team, 'pos': pos, 'status': status, 'gp': gp, 'pt_d': pt_d, 'g': g, 'a': a, 'pim': pim, 'sog': sog, 'ppp': ppp, 'hit': hit, 'blk': blk, 'tk': tk, 'w': w, 'gaa': gaa, 'sv': sv, 'sv_pc': sv_pc, 'g_toi_sec': g_toi_sec, 'ga': ga, 'sa': sa})
-                dfPoolTeamPeriodRoster = pd.concat([dfPoolTeamPeriodRoster, df_temp])
+                if not df_temp.empty:
+                    dfPoolTeamPeriodRoster = pd.concat([dfPoolTeamPeriodRoster, df_temp])
 
         except Exception as e:
             msg = ''.join(traceback.format_exception(type(e), value=e, tb=e.__traceback__))
