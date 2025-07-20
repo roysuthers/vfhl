@@ -553,30 +553,33 @@ document.getElementById('applyButton').addEventListener('click', () => {
                                     label: '<i>No data</i>',
                                     value: rowData => {
                                         const injury_text = `${rowData[injury_idx]}`;
-                                        return injury_text === '' ||
-                                            !injury_text.startsWith('DAY-TO-DAY - ') &&
-                                            !injury_text.startsWith('IR - ') &&
-                                            !injury_text.startsWith('IR-LT - ') &&
-                                            !injury_text.startsWith('IR-NR - ') &&
-                                            !injury_text.startsWith('OUT - ');
+                                        return injury_text === '' || (
+                                            !injury_text.startsWith('DAY-TO-DAY (') &&
+                                            !injury_text.startsWith('IR (') &&
+                                            // !injury_text.startsWith('IR-LT (') &&
+                                            // !injury_text.startsWith('IR-NR (') &&
+                                            !injury_text.startsWith('LTIR (') &&
+                                            !injury_text.startsWith('OUT (')
+                                        );
                                     }
                                 },
                                 {
                                     label: 'DAY-TO-DAY',
-                                    value: rowData => `${rowData[injury_idx]}`.startsWith('DAY-TO-DAY - ')
+                                    value: rowData => `${rowData[injury_idx]}`.startsWith('DAY-TO-DAY (')
                                 },
                                 {
                                     label: 'IR',
                                     value: rowData => {
                                         const injury_text = `${rowData[injury_idx]}`;
-                                        return injury_text.startsWith('IR - ') ||
-                                            injury_text.startsWith('IR-LT - ') ||
-                                            injury_text.startsWith('IR-NR - ');
+                                        return injury_text.startsWith('IR (') ||
+                                            // injury_text.startsWith('LTIR (') ||
+                                            // injury_text.startsWith('IR-NR (');
+                                            injury_text.startsWith('LTIR (');
                                     }
                                 },
                                 {
                                     label: 'OUT',
-                                    value: rowData => `${rowData[injury_idx]}`.startsWith('OUT - ')
+                                    value: rowData => `${rowData[injury_idx]}`.startsWith('OUT (')
                                 },
                             ],
                             dtOpts: {

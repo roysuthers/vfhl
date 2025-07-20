@@ -2915,9 +2915,12 @@ class HockeyPool:
                 playerName = dfPlayerInjuries['name'][idx]
                 playerName = playerName.strip()
                 playerID = dfPlayerInjuries['id'][idx]
+                # if playerID == 0 and playerName == 'Elias Pettersson':
+                #     playerID = 8480012 # Elias Pettersson: Forward
+                #     # playerID = 8483678 # Elias Pettersson: Defenseman
                 playerPos = dfPlayerInjuries['pos'][idx]
                 playerTeam = dfPlayerInjuries['team'][idx]
-                injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' - ', dfPlayerInjuries['date'][idx]])
+                injuryStatus = ''.join([dfPlayerInjuries['status'][idx], ' (', dfPlayerInjuries['date'][idx], ')'])
                 injuryNote = dfPlayerInjuries['note'][idx]
 
                 # Get NHL Player
