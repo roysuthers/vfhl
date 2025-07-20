@@ -189,8 +189,9 @@ def add_pre_draft_keeper_list_column_to_df(pool_id: str, season_id: str, df: pd.
     # But first, replace empty strings in `tradedTo`  & `claimDropType` with NaN to allow `combine_first` to work
     df['claimDropType'].replace('', pd.NA, inplace=True)
     df['tradedTo'].replace('', pd.NA, inplace=True)
-    df['claimDropType'] = df['claimDropType'].combine_first(df_keeper_list['claimDropType'])
-    df['tradedTo'] = df['tradedTo'].combine_first(df_keeper_list['tradedTo'])
+    if not df_keeper_list.empty:
+        df['claimDropType'] = df['claimDropType'].combine_first(df_keeper_list['claimDropType'])
+        df['tradedTo'] = df['tradedTo'].combine_first(df_keeper_list['tradedTo'])
 
     df['pre_draft_keeper'] = df_keeper_list['pre_draft_keeper']
     df['pre_draft_manager'] = df_keeper_list['pre_draft_manager']
@@ -2363,6 +2364,9 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
     df_inactive = pd.read_sql(sql, params=params, con=get_db_connection())
 
+    # Exclude players that are in df
+    df_inactive = df_inactive[~df_inactive['player_id'].isin(df['player_id'])]
+
     # # Define a function to get the primary position for a player
     # def get_primary_position(player_id):
     #     try:
@@ -2393,9 +2397,6 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
 
     # Use the apply method to add the primary position information to the df_temp DataFrame
     df_inactive['team_abbr'] = df_inactive.apply(lambda row: get_team_abbr(row['player_id']) if row['team_abbr'] == '' else row['team_abbr'], axis=1)
-
-    # Exclude players that are in df
-    df_inactive = df_inactive[~df_inactive['player_id'].isin(df['player_id'])]
 
     # merge dataframes
     df = pd.concat([df, df_inactive])
@@ -2496,7 +2497,8 @@ def merge_with_current_players_info(season_id: str, pool_id: str, df_stats: pd.D
     df_watch_list = df_watch_list[~df_watch_list['player_id'].isin(df['player_id'])]
 
     # merge dataframes
-    df = pd.concat([df, df_watch_list])
+    if not df_watch_list.empty:
+        df = pd.concat([df, df_watch_list])
 
     #################################################################################
     # Replace None values in the specified columns with an empty string
@@ -3036,7 +3038,7 @@ def rank_players(generation_type: str, season_or_date_radios: str, from_season_i
         injury_flag = ''
         if row['injury'].startswith('DAY-TO-DAY'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red.png" alt="Day-To-Day Flag"/>'
-        elif row['injury'].startswith('IR'):
+        elif row['injury'].startswith('IR') or row['injury'].startswith('LTIR'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red-plus.png" alt="IR Flag"/>'
         elif row['injury'].startswith('OUT'):
             injury_flag = '<img src="https://fantraximg.com/assets/images/icons/player-news/flag--red-cut.png" alt="Out Indefinitely Flag"/>'
